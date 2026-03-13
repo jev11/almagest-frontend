@@ -2,7 +2,9 @@
 
 ## Overview
 
-This document defines every visual token used across the application. The chart-renderer themes must use these exact values. All colors are in hex format. Spacing values are in pixels.
+This document defines every visual token used across the application. The chart-renderer themes must use these exact values. All colors are in hex format. Spacing values are in pixels, derived from a 4px base unit.
+
+---
 
 ## Color Palette
 
@@ -29,12 +31,14 @@ This document defines every visual token used across the application. The chart-
 
 ### Text Colors
 
-| Token | Hex (Dark) | Hex (Light) | Usage |
-|-------|-----------|------------|-------|
-| `text-primary` | `#E8ECF1` | `#1A1D24` | Main body text |
-| `text-secondary` | `#8892A4` | `#5A6275` | Labels, captions, muted text |
-| `text-tertiary` | `#565E6C` | `#8892A4` | Disabled, placeholder |
-| `text-accent` | `#6C8EEF` | `#4A6FD4` | Links, interactive text |
+| Token | Hex (Dark) | Hex (Light) | Contrast on bg-primary | Usage |
+|-------|-----------|------------|----------------------|-------|
+| `text-primary` | `#E8ECF1` | `#1A1D24` | 13.5:1 | Main body text |
+| `text-secondary` | `#8892A4` | `#5A6275` | 5.1:1 | Labels, captions, muted text |
+| `text-tertiary` | `#6B7385` | `#8892A4` | 4.0:1 | Disabled, placeholder (large text only) |
+| `text-accent` | `#6C8EEF` | `#4A6FD4` | 5.8:1 | Links, interactive text |
+
+> **Accessibility note:** `text-tertiary` at 4.0:1 passes WCAG AA for text 18px+ or 14px bold. Never use it for body text at `text-sm` (13px) or smaller. Use `text-secondary` as the minimum for readable small text.
 
 ### Accent Colors
 
@@ -54,6 +58,14 @@ This document defines every visual token used across the application. The chart-
 | `warning` | `#FBBF24` | Caution, attention |
 | `error` | `#F87171` | Error, destructive actions |
 | `info` | `#60A5FA` | Informational |
+
+### Focus Ring
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `focus-ring` | `0 0 0 2px #0A0E17, 0 0 0 4px #6C8EEF` | Keyboard focus indicator on all interactive elements |
+
+All interactive elements (buttons, inputs, links, nav items, cards) must show `focus-ring` on `:focus-visible`.
 
 ### Zodiac Element Colors
 
@@ -112,8 +124,8 @@ Source:    Google Fonts (https://fonts.google.com/specimen/Inter)
 
 ### Type Scale
 
-| Token | Size | Line Height | Weight | Usage |
-|-------|------|-------------|--------|-------|
+| Token | Size | Line Height | Default Weight | Usage |
+|-------|------|-------------|----------------|-------|
 | `text-xs` | 11px | 16px | 400 | Chart labels, metadata, timestamps |
 | `text-sm` | 13px | 20px | 400 | Secondary text, captions, table cells |
 | `text-base` | 15px | 24px | 400 | Body text, descriptions |
@@ -142,7 +154,7 @@ Source:    Google Fonts (https://fonts.google.com/specimen/Inter)
 
 ## Spacing
 
-Use ONLY these values. Never eyeball spacing.
+All spacing derives from a **4px base unit**. Use ONLY these values. Never eyeball spacing.
 
 | Token | Value | Usage |
 |-------|-------|-------|
@@ -157,15 +169,38 @@ Use ONLY these values. Never eyeball spacing.
 
 ---
 
+## Border Radius
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `radius-xs` | 2px | Inline badges, small tags |
+| `radius-sm` | 4px | Compact elements, chips |
+| `radius-md` | 6px | Buttons, inputs, dropdowns |
+| `radius-lg` | 8px | Cards, panels |
+| `radius-xl` | 12px | Modals, large containers |
+| `radius-full` | 9999px | Pills, avatars, toggle knobs |
+
+---
+
+## Elevation (Shadows)
+
+Dark mode relies primarily on background shade layering for depth. Shadows are used sparingly in dark mode and more prominently in light mode.
+
+| Token | Dark Mode | Light Mode | Usage |
+|-------|-----------|------------|-------|
+| `shadow-none` | none | none | Default / flat elements |
+| `shadow-sm` | `0 1px 2px rgba(0,0,0,0.3)` | `0 1px 2px rgba(0,0,0,0.05)` | Subtle lift (cards on hover) |
+| `shadow-md` | `0 4px 12px rgba(0,0,0,0.4)` | `0 4px 12px rgba(0,0,0,0.08)` | Dropdowns, popovers, tooltips |
+| `shadow-lg` | `0 8px 24px rgba(0,0,0,0.5)` | `0 8px 24px rgba(0,0,0,0.12)` | Modals, dialogs |
+
+---
+
 ## Layout
 
 | Property | Value |
 |----------|-------|
 | Max content width | 1200px |
 | Sidebar width (desktop) | 280px |
-| Card border radius | 8px |
-| Button border radius | 6px |
-| Input border radius | 6px |
 | Chart default diameter | 600px |
 | Chart min diameter | 300px |
 | Chart max diameter | 1200px |
@@ -217,55 +252,87 @@ All proportions are relative to the total wheel radius.
 
 ### Buttons
 
-**Primary:**
-```
-Background: accent-primary (#6C8EEF)
-Text: #FFFFFF
-Font: Inter 13px semibold
-Padding: 8px 16px
-Border radius: 6px
-Hover: accent-hover (#8BA5F5)
-Active: accent-pressed (#5A7AD4)
-```
+Three variants, three sizes. All sizes use `font-semibold` (600) weight and `radius-md` (6px).
 
-**Secondary:**
-```
-Background: transparent
-Border: 1px solid accent-primary
-Text: accent-primary
-Hover: accent-subtle background
-```
+**Sizes:**
 
-**Ghost:**
-```
-Background: transparent
-Text: text-secondary
-Hover: bg-tertiary
-```
+| Size | Padding | Font Size | Min Height |
+|------|---------|-----------|------------|
+| `sm` | 4px 12px | 12px | 28px |
+| `md` | 8px 16px | 13px | 34px |
+| `lg` | 12px 24px | 14px | 42px |
+
+**Primary (fill):**
+
+| State | Background | Text | Border |
+|-------|-----------|------|--------|
+| Default | `accent-primary` | `#FFFFFF` | none |
+| Hover | `accent-hover` | `#FFFFFF` | none |
+| Active | `accent-pressed` | `#FFFFFF` | none |
+| Disabled | `accent-primary` at 40% opacity | `#FFFFFF` at 50% opacity | none |
+| Focus | `accent-primary` | `#FFFFFF` | `focus-ring` |
+
+**Secondary (outline):**
+
+| State | Background | Text | Border |
+|-------|-----------|------|--------|
+| Default | transparent | `accent-primary` | 1px `accent-primary` |
+| Hover | `accent-subtle` | `accent-primary` | 1px `accent-primary` |
+| Active | `accent-muted` | `accent-primary` | 1px `accent-primary` |
+| Disabled | transparent | `accent-primary` at 40% | 1px `accent-primary` at 40% |
+| Focus | transparent | `accent-primary` | `focus-ring` |
+
+**Ghost (text):**
+
+| State | Background | Text | Border |
+|-------|-----------|------|--------|
+| Default | transparent | `text-secondary` | none |
+| Hover | `bg-tertiary` | `text-primary` | none |
+| Active | `border-subtle` | `text-primary` | none |
+| Disabled | transparent | `text-tertiary` | none |
+| Focus | transparent | `text-secondary` | `focus-ring` |
+
+**Danger:**
+
+| State | Background | Text | Border |
+|-------|-----------|------|--------|
+| Default | `error` | `#FFFFFF` | none |
+| Hover | `#EF5858` | `#FFFFFF` | none |
+| Active | `#DC4444` | `#FFFFFF` | none |
+| Focus | `error` | `#FFFFFF` | `0 0 0 2px #0A0E17, 0 0 0 4px #F87171` |
 
 ### Input Fields
 
+| State | Background | Border | Text |
+|-------|-----------|--------|------|
+| Default | `bg-input` | 1px `border-subtle` | `text-primary` |
+| Placeholder | `bg-input` | 1px `border-subtle` | `text-tertiary` |
+| Hover | `bg-input` | 1px `border-default` | `text-primary` |
+| Focus | `bg-input` | 1px `accent-primary` | `text-primary` |
+| Error | `bg-input` | 1px `error` | `text-primary` |
+| Disabled | `bg-tertiary` | 1px `border-subtle` | `text-tertiary` |
+
 ```
-Background: bg-input (#0F1420)
-Border: 1px solid border-subtle (#2A3040)
-Text: text-primary (#E8ECF1)
-Placeholder: text-tertiary (#565E6C)
 Font: Inter 15px regular
 Padding: 8px 12px
-Border radius: 6px
-Focus border: accent-primary (#6C8EEF)
-Error border: error (#F87171)
+Border radius: radius-md (6px)
 Label: text-secondary, Inter 13px medium, margin-bottom 4px
+Error message: error color, Inter 13px regular, margin-top 4px
+Cursor when disabled: not-allowed
 ```
 
 ### Cards
 
+| State | Background | Border (dark) | Border (light) | Shadow |
+|-------|-----------|--------------|----------------|--------|
+| Default | `bg-secondary` | none | 1px `border-light` | `shadow-none` |
+| Hover | `bg-secondary` | 1px `border-default` | 1px `border-light-strong` | `shadow-sm` |
+| Active | `bg-secondary` | 1px `accent-primary` | 1px `accent-primary` | `shadow-none` |
+
 ```
-Background: bg-secondary (#131926)
-Border radius: 8px
+Border radius: radius-lg (8px)
 Padding: 24px
-No border in dark mode (differentiate by background shade)
-Light mode: border 1px solid border-light
+Focus (when clickable): focus-ring
 ```
 
 ### Navigation Sidebar
@@ -273,9 +340,82 @@ Light mode: border 1px solid border-light
 ```
 Background: bg-primary (#0A0E17)
 Width: 280px
-Item padding: 8px 16px
-Active item: bg accent-muted (#6C8EEF1A), text accent-primary (#6C8EEF)
-Inactive item: text text-secondary (#8892A4)
-Hover: text text-primary (#E8ECF1)
 Section gap: 32px
 ```
+
+**Nav items:**
+
+| State | Background | Text | Icon |
+|-------|-----------|------|------|
+| Default | transparent | `text-secondary` | `text-secondary` |
+| Hover | `bg-tertiary` | `text-primary` | `text-primary` |
+| Active | `accent-muted` | `accent-primary` | `accent-primary` |
+| Focus | transparent | `text-secondary` | `text-secondary` + `focus-ring` |
+
+```
+Item padding: 8px 16px
+Item border radius: radius-md (6px)
+Icon-to-label gap: space-2 (8px)
+Icon size: 16px
+Font: Inter 14px medium
+```
+
+### Dropdowns / Select
+
+| State | Background | Border | Text |
+|-------|-----------|--------|------|
+| Default | `bg-input` | 1px `border-subtle` | `text-primary` |
+| Hover | `bg-input` | 1px `border-default` | `text-primary` |
+| Open | `bg-input` | 1px `accent-primary` | `text-primary` |
+| Disabled | `bg-tertiary` | 1px `border-subtle` | `text-tertiary` |
+
+```
+Menu background: bg-secondary
+Menu border: 1px border-default
+Menu shadow: shadow-md
+Menu border radius: radius-md (6px)
+Option padding: 8px 12px
+Option hover: bg-tertiary
+Option selected: accent-muted background, accent-primary text
+Max visible options: 6 (then scroll)
+```
+
+### Tooltips
+
+```
+Background: bg-tertiary (#1C2333)
+Text: text-primary (#E8ECF1)
+Font: Inter 13px regular
+Padding: 4px 8px
+Border radius: radius-sm (4px)
+Shadow: shadow-md
+Max width: 240px
+```
+
+### Modals / Dialogs
+
+```
+Overlay: #000000 at 60% opacity
+Background: bg-secondary (#131926)
+Border radius: radius-xl (12px)
+Padding: 24px
+Shadow: shadow-lg
+Max width: 480px (small), 640px (medium), 800px (large)
+Title: text-primary, text-xl (20px), font-semibold
+Close button: top-right, ghost button, 16px icon
+```
+
+---
+
+## Transition & Animation
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `duration-fast` | 100ms | Color changes, opacity |
+| `duration-normal` | 150ms | Background, border, shadow |
+| `duration-slow` | 250ms | Layout shifts, transforms |
+| `easing-default` | `cubic-bezier(0.4, 0, 0.2, 1)` | General transitions |
+| `easing-in` | `cubic-bezier(0.4, 0, 1, 1)` | Elements leaving |
+| `easing-out` | `cubic-bezier(0, 0, 0.2, 1)` | Elements entering |
+
+Apply `duration-normal` with `easing-default` to all interactive state changes (hover, focus, active) unless otherwise specified.

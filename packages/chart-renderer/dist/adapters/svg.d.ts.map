@@ -1,0 +1,1 @@
+{"version":3,"file":"svg.d.ts","sourceRoot":"","sources":["../../src/adapters/svg.ts"],"names":[],"mappings":"AAAA,OAAO,EAA4B,KAAK,SAAS,EAAkC,MAAM,yBAAyB,CAAC;AAMnH,OAAO,KAAK,EAAE,UAAU,EAAE,MAAM,oBAAoB,CAAC;AA+CrD,wBAAgB,gBAAgB,CAC9B,IAAI,EAAE,SAAS,EACf,KAAK,EAAE,UAAU,EACjB,KAAK,EAAE,MAAM,EACb,MAAM,EAAE,MAAM,EACd,OAAO,SAAK,GACX,MAAM,CAsLR"}
