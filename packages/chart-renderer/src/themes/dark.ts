@@ -6,7 +6,7 @@ export const darkTheme: ChartTheme = {
   background: "#0A0E17",
   ringStroke: "#2A3040",
   ringStrokeWidth: 1,
-  signDividerStroke: "#2A3040",
+  signDividerStroke: "#3D4860",
   signDividerWidth: 1,
   elementColors: {
     [Element.Fire]: "#E85D4A",
@@ -14,7 +14,7 @@ export const darkTheme: ChartTheme = {
     [Element.Air]: "#5B9FD4",
     [Element.Water]: "#7B6DB5",
   },
-  elementBgOpacity: 0.08,
+  elementBgOpacity: 0.22,
   planetGlyph: "#E8ECF1",
   planetGlyphRetrograde: "#F87171",
   houseStroke: "#2A3040",
@@ -41,5 +41,5 @@ export const darkTheme: ChartTheme = {
   degreeLabelColor: "#8892A4",
   leaderLineColor: "#2A3040",
   fontFamily: "Inter, system-ui, -apple-system, sans-serif",
-  signGlyphColor: "#8892A4",
+  signGlyphColor: "#C4CAD6",
 };

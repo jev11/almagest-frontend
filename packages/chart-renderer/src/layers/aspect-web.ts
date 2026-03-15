@@ -1,17 +1,29 @@
 import { MAJOR_ASPECTS } from "../core/constants.js";
 import { longitudeToAngle, polarToCartesian } from "../core/geometry.js";
-import { RING_PROPORTIONS } from "../core/constants.js";
+import { RING_PROPORTIONS, GLYPH_SIZES } from "../core/constants.js";
 import type { ChartData } from "@astro-app/shared-types";
 import type { AspectType } from "@astro-app/shared-types";
 import type { ChartTheme } from "../themes/types.js";
 import type { RenderDimensions } from "./types.js";
 
+// \uFE0E = text presentation selector (prevents emoji rendering)
+const ASPECT_GLYPHS: Record<string, string> = {
+  conjunction:   "☌\uFE0E",
+  opposition:    "☍\uFE0E",
+  trine:         "△",      // U+25B3 geometric — safe
+  square:        "□",      // U+25A1 geometric — safe
+  sextile:       "⚹\uFE0E",
+  quincunx:      "⚻\uFE0E",
+  semi_sextile:  "⚺\uFE0E",
+  semi_square:   "∠",      // U+2220 math — safe
+  sesquisquare:  "⚼\uFE0E",
+  quintile:      "Q",
+  bi_quintile:   "bQ",
+};
+
 function hexWithOpacity(hex: string, opacity: number): string {
-  // Handle both 6-char and 8-char hex colors
   const base = hex.length > 7 ? hex.slice(0, 7) : hex;
-  const alpha = Math.round(opacity * 255)
-    .toString(16)
-    .padStart(2, "0");
+  const alpha = Math.round(opacity * 255).toString(16).padStart(2, "0");
   return base + alpha;
 }
 
@@ -32,6 +44,18 @@ export function drawAspectWeb(
   const ascendant = data.houses.ascendant;
   const aspectR = radius * RING_PROPORTIONS.aspectOuter;
 
+  // Fill the aspect circle with background — covers house/angle lines beneath
+  ctx.beginPath();
+  ctx.arc(cx, cy, aspectR, 0, Math.PI * 2);
+  ctx.fillStyle = theme.background;
+  ctx.fill();
+
+  // Clip all drawing to stay within the aspect circle
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, aspectR, 0, Math.PI * 2);
+  ctx.clip();
+
   for (const aspect of data.aspects) {
     const pos1 = data.positions[aspect.body1];
     const pos2 = data.positions[aspect.body2];
@@ -45,23 +69,44 @@ export function drawAspectWeb(
 
     const isMajor = MAJOR_ASPECTS.has(aspect.type as string);
     const opacity = orbToOpacity(aspect.orb);
-    const baseColor =
-      theme.aspectColors[aspect.type as AspectType] ?? "#888888";
+    const baseColor = theme.aspectColors[aspect.type as AspectType] ?? "#888888";
     const color = hexWithOpacity(baseColor, opacity);
 
+    // Draw aspect line
     ctx.beginPath();
     ctx.moveTo(pt1.x, pt1.y);
     ctx.lineTo(pt2.x, pt2.y);
     ctx.strokeStyle = color;
     ctx.lineWidth = isMajor ? theme.aspectMajorWidth : theme.aspectMinorWidth;
-
-    if (isMajor) {
-      ctx.setLineDash([]);
-    } else {
-      ctx.setLineDash(theme.aspectMinorDash);
-    }
-
+    ctx.setLineDash(isMajor ? [] : theme.aspectMinorDash);
     ctx.stroke();
     ctx.setLineDash([]);
+
+    // Draw aspect glyph at midpoint of the line
+    const glyph = ASPECT_GLYPHS[aspect.type as string];
+    if (glyph) {
+      const mx = (pt1.x + pt2.x) / 2;
+      const my = (pt1.y + pt2.y) / 2;
+
+      ctx.save();
+      ctx.font = `${GLYPH_SIZES.degreeLabel}px serif`;
+      ctx.fillStyle = color;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      // Small background behind glyph so it's readable over other lines
+      ctx.fillStyle = theme.background;
+      ctx.fillRect(mx - 7, my - 7, 14, 14);
+      ctx.fillStyle = color;
+      ctx.fillText(glyph, mx, my);
+      ctx.restore();
+    }
   }
+
+  // Restore clip, then draw the circle outline on top
+  ctx.restore();
+  ctx.beginPath();
+  ctx.arc(cx, cy, aspectR, 0, Math.PI * 2);
+  ctx.strokeStyle = theme.ringStroke;
+  ctx.lineWidth = theme.ringStrokeWidth;
+  ctx.stroke();
 }

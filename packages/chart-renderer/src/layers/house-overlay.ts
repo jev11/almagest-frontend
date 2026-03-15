@@ -19,7 +19,7 @@ export function drawHouseOverlay(
 
   const zodiacOuterR = radius * RING_PROPORTIONS.zodiacOuter;
   const planetInnerR = radius * RING_PROPORTIONS.planetInner;
-  const houseInnerR = radius * RING_PROPORTIONS.houseInner;
+  const aspectCircleR = radius * RING_PROPORTIONS.aspectOuter;
 
   // Draw house cusp lines
   for (let i = 0; i < 12; i++) {
@@ -42,7 +42,7 @@ export function drawHouseOverlay(
       strokeWidth = theme.angleStrokeWidth;
     } else {
       outerR = planetInnerR;
-      innerR = houseInnerR;
+      innerR = aspectCircleR;
       strokeColor = theme.houseStroke;
       strokeWidth = theme.houseStrokeWidth;
     }
@@ -64,8 +64,8 @@ export function drawHouseOverlay(
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
-  // Position numbers at roughly the midpoint of the house zone radius
-  const numberR = (houseInnerR + planetInnerR) * radius * 0.5;
+  // Position numbers midway between the aspect circle and the planet ring
+  const numberR = (aspectCircleR + planetInnerR) / 2;
 
   for (let i = 0; i < 12; i++) {
     const cuspLon = houses.cusps[i];

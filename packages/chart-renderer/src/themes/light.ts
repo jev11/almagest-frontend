@@ -14,7 +14,7 @@ export const lightTheme: ChartTheme = {
     [Element.Air]: "#5B9FD4",
     [Element.Water]: "#7B6DB5",
   },
-  elementBgOpacity: 0.12,
+  elementBgOpacity: 0.18,
   planetGlyph: "#1A1D24",
   planetGlyphRetrograde: "#DC2626",
   houseStroke: "#D0D5DD",

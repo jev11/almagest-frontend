@@ -12,6 +12,7 @@
     }
   },
   "scripts": {
+    "dev": "vite demo/",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
@@ -22,6 +23,7 @@
   "devDependencies": {
     "typescript": "^5.5",
     "vitest": "^2.0",
-    "jsdom": "^25.0"
+    "jsdom": "^25.0",
+    "vite": "^5.0"
   }
 }

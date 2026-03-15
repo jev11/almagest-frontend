@@ -11,18 +11,24 @@ import { AspectType } from "@astro-app/shared-types";
  *   house zone:   0-210px    (house cusp lines)
  *   aspect zone:  0-180px    (aspect lines)
  */
+/** Fraction of total radius occupied by the zodiac sign ring outer edge. */
+export const ZODIAC_OUTER = 0.90;
+
+/** Aspect circle radius as a fraction of total radius. Expressed as a ratio of ZODIAC_OUTER. */
+export const ASPECT_CIRCLE_RATIO = 0.40;
+
 export const RING_PROPORTIONS = {
   labelOuter: 1.0,
-  zodiacOuter: 0.90,
+  zodiacOuter: ZODIAC_OUTER,
   zodiacInner: 0.783,
   planetInner: 0.70,
   houseInner: 0.15,
-  aspectOuter: 0.60,
+  aspectOuter: ZODIAC_OUTER * ASPECT_CIRCLE_RATIO,
 } as const;
 
 export const GLYPH_SIZES = {
   planet: 18,
-  sign: 16,
+  sign: 20,
   degreeLabel: 11,
   houseNumber: 13,
 } as const;

@@ -30,12 +30,15 @@ export function drawZodiacRing(
     const startAngle = longitudeToAngle(startLon, ascendant);
     const endAngle = longitudeToAngle(endLon, ascendant);
 
-    // Draw ring slice: outer arc (anticlockwise) → line to inner → inner arc (clockwise) → close
+    // Draw ring slice: outer arc → line to inner → inner arc (reverse) → close
+    // polarToCartesian uses math convention (y-up): angle → (cx+r·cos θ, cy-r·sin θ)
+    // ctx.arc uses canvas convention (y-down): angle → (cx+r·cos θ, cy+r·sin θ)
+    // To keep them consistent, negate angles passed to ctx.arc and flip anticlockwise flag.
     ctx.beginPath();
-    ctx.arc(cx, cy, outerR, startAngle, endAngle, true);
+    ctx.arc(cx, cy, outerR, -startAngle, -endAngle, false);
     const innerEnd = polarToCartesian(cx, cy, endAngle, innerR);
     ctx.lineTo(innerEnd.x, innerEnd.y);
-    ctx.arc(cx, cy, innerR, endAngle, startAngle, false);
+    ctx.arc(cx, cy, innerR, -endAngle, -startAngle, true);
     ctx.closePath();
 
     // Fill with element color at low opacity

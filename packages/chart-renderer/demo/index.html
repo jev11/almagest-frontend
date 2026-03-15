@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chart Renderer Demo</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        background: #1a1a2e;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 24px;
+        font-family: sans-serif;
+        color: #ccc;
+      }
+      h1 { margin-bottom: 8px; font-size: 20px; color: #fff; }
+      p { margin-bottom: 20px; font-size: 13px; opacity: 0.6; }
+      .controls {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      label { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
+      input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
+      select {
+        background: #2a2a4e;
+        color: #fff;
+        border: 1px solid #444;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 13px;
+        cursor: pointer;
+      }
+      canvas {
+        border-radius: 50%;
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Chart Renderer Demo</h1>
+    <p>Stellium chart — Nov 11, 1978, 07:00 UTC, Ekaterinburg</p>
+
+    <div class="controls">
+      <label>
+        <input type="checkbox" id="bg" checked /> Background
+      </label>
+      <label>
+        <input type="checkbox" id="zodiac" checked /> Zodiac Ring
+      </label>
+      <label>
+        <input type="checkbox" id="houses" checked /> Houses
+      </label>
+      <label>
+        <input type="checkbox" id="aspects" checked /> Aspects
+      </label>
+      <label>
+        <input type="checkbox" id="planets" checked /> Planets
+      </label>
+      <label>
+        <input type="checkbox" id="degrees" checked /> Degree Labels
+      </label>
+      <select id="theme">
+        <option value="dark">Dark Theme</option>
+        <option value="light">Light Theme</option>
+      </select>
+      <select id="size">
+        <option value="600">600px</option>
+        <option value="800">800px</option>
+        <option value="400">400px</option>
+        <option value="300">300px (min)</option>
+      </select>
+    </div>
+
+    <canvas id="chart"></canvas>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

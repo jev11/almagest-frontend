@@ -1,6 +1,7 @@
 import { CelestialBody } from "@astro-app/shared-types";
 import { longitudeToAngle, polarToCartesian } from "../core/geometry.js";
 import { RING_PROPORTIONS, GLYPH_SIZES } from "../core/constants.js";
+import { SIGN_ABBREVIATIONS } from "../glyphs/signs.js";
 import type { ChartData } from "@astro-app/shared-types";
 import type { ChartTheme } from "../themes/types.js";
 import type { RenderDimensions } from "./types.js";
@@ -48,20 +49,21 @@ export function drawDegreeLabels(
     const angle = longitudeToAngle(position.longitude, ascendant);
     const pos = polarToCartesian(cx, cy, angle, labelR);
 
-    // Format label: "24°13'" or "24°13' ℞"
     const deg = String(zodiacPos.degree).padStart(2, "0");
     const min = String(zodiacPos.minute).padStart(2, "0");
-    let label = `${deg}\u00b0${min}'`;
-    if (zodiacPos.is_retrograde) {
-      label += " \u211e";
-    }
+    const signAbbr = SIGN_ABBREVIATIONS[zodiacPos.sign] ?? "";
+    const retro = zodiacPos.is_retrograde ? " ℞" : "";
+    const label = `${deg}°${signAbbr}${min}'${retro}`;
 
-    // Rotate text to follow the radial direction
+    // Rotate the label to read radially outward
     ctx.save();
     ctx.translate(pos.x, pos.y);
-    // Rotate so text reads radially; negate angle because canvas y-axis is inverted
     const textAngle = -angle + Math.PI / 2;
     ctx.rotate(textAngle);
+    ctx.fillStyle = theme.degreeLabelColor;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = `${GLYPH_SIZES.degreeLabel}px ${theme.fontFamily}`;
     ctx.fillText(label, 0, 0);
     ctx.restore();
   }
