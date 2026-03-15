@@ -25,8 +25,8 @@ export function drawZodiacRing(
     const startLon = i * 30;
     const endLon = (i + 1) * 30;
 
-    // In our coordinate system, increasing longitude → decreasing canvas angle
-    // zodiac goes counter-clockwise on screen (anticlockwise=true in canvas)
+    // increasing longitude → increasing canvas angle (CCW on screen)
+    // ctx.arc uses y-down convention, so negate angles and use anticlockwise=true for CCW
     const startAngle = longitudeToAngle(startLon, ascendant);
     const endAngle = longitudeToAngle(endLon, ascendant);
 
@@ -35,10 +35,10 @@ export function drawZodiacRing(
     // ctx.arc uses canvas convention (y-down): angle → (cx+r·cos θ, cy+r·sin θ)
     // To keep them consistent, negate angles passed to ctx.arc and flip anticlockwise flag.
     ctx.beginPath();
-    ctx.arc(cx, cy, outerR, -startAngle, -endAngle, false);
+    ctx.arc(cx, cy, outerR, -startAngle, -endAngle, true);
     const innerEnd = polarToCartesian(cx, cy, endAngle, innerR);
     ctx.lineTo(innerEnd.x, innerEnd.y);
-    ctx.arc(cx, cy, innerR, -endAngle, -startAngle, true);
+    ctx.arc(cx, cy, innerR, -endAngle, -startAngle, false);
     ctx.closePath();
 
     // Fill with element color at low opacity

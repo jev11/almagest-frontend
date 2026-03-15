@@ -16,7 +16,7 @@
 export function longitudeToAngle(longitude: number, ascendant: number): number {
   const adjusted = ((longitude - ascendant) % 360 + 360) % 360;
   const radians = (adjusted * Math.PI) / 180;
-  return Math.PI - radians;
+  return Math.PI + radians;
 }
 
 /**
