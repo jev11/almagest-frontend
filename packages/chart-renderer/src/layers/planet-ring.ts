@@ -24,6 +24,12 @@ const RENDERED_BODIES: CelestialBody[] = [
   CelestialBody.Chiron,
 ];
 
+interface LabelToken {
+  text: string;
+  color: string;
+  bold: boolean;
+}
+
 export function drawPlanetRing(
   ctx: CanvasRenderingContext2D,
   data: ChartData,
@@ -55,7 +61,10 @@ export function drawPlanetRing(
   // Resolve collisions using planetRingR for angular spacing
   const resolved = resolveCollisions(glyphPositions, planetRingR);
 
-  // Draw planet labels RADIALLY — text on spokes, reading inward from zodiac ring
+  const fontSize = GLYPH_SIZES.degreeLabel;
+  const tokenStep = fontSize + 1; // vertical step between tokens along the radius
+
+  // Draw planet labels: each character upright, placed along the radial spoke
   for (const pos of resolved) {
     const body = pos.body as CelestialBody;
     const zodiacPos = data.zodiac_positions[body];
@@ -68,8 +77,17 @@ export function drawPlanetRing(
     const deg = String(zodiacPos.degree).padStart(2, "0");
     const min = String(zodiacPos.minute).padStart(2, "0");
     const signGlyph = (SIGN_GLYPHS[zodiacPos.sign] ?? "");
-    const retro = zodiacPos.is_retrograde ? " ℞" : "";
-    const restStr = ` ${deg} ${signGlyph} ${min}${retro}`;
+
+    // Build token list: glyph (bold), degree, sign, minutes, (retrograde)
+    const tokens: LabelToken[] = [
+      { text: planetGlyph, color, bold: true },
+      { text: deg, color: theme.degreeLabelColor, bold: false },
+      { text: signGlyph, color: theme.degreeLabelColor, bold: false },
+      { text: min, color: theme.degreeLabelColor, bold: false },
+    ];
+    if (isRetrograde) {
+      tokens.push({ text: "℞", color, bold: false });
+    }
 
     // Draw tick mark at true ecliptic position on zodiac inner edge
     const tickOuter = polarToCartesian(cx, cy, pos.originalAngle, zodiacInnerR);
@@ -81,61 +99,24 @@ export function drawPlanetRing(
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    // Anchor label at the zodiac inner ring edge — text extends inward toward center
-    const anchorR = zodiacInnerR - 13;
-    const labelPos = polarToCartesian(cx, cy, pos.displayAngle, anchorR);
-    ctx.save();
-    ctx.translate(labelPos.x, labelPos.y);
-
-    // RADIAL rotation: text baseline lies along the radius (spoke).
-    // ctx.rotate(α) rotates CW by α; text flows at math-angle -α.
-    // Right half [0,π/2)∪(3π/2,2π]: text reads outward (α = -θ), right-side-up.
-    //   Glyph closest to center, minutes closest to ring.
-    // Left half [π/2, 3π/2]: text reads inward (α = -θ+π), right-side-up.
-    //   Glyph closest to ring, minutes closest to center.
-    const normalAngle = ((pos.displayAngle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
-    const isRightHalf = normalAngle < Math.PI / 2 || normalAngle > 3 * Math.PI / 2;
-    const rotation = isRightHalf
-      ? -pos.displayAngle            // outward reading
-      : -pos.displayAngle + Math.PI; // inward reading (flipped)
-    ctx.rotate(rotation);
-
+    // Place each token along the radial spoke, stepping inward from the zodiac ring.
+    // Each character stays upright (no rotation) — just positioned at successive
+    // points along the radius from ring toward center.
+    let currentR = zodiacInnerR - 13; // start just inside the zodiac ring
+    ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.textAlign = "left";
 
-    // Measure both parts: bold glyph + normal degree info
-    const fontSize = GLYPH_SIZES.degreeLabel;
-    ctx.font = `bold ${fontSize}px serif`;
-    const glyphWidth = ctx.measureText(planetGlyph).width;
-    ctx.font = `${fontSize}px serif`;
-    const restWidth = ctx.measureText(restStr).width;
-    const totalWidth = glyphWidth + restWidth;
-
-    // Glyph must always be closest to the outer ring.
-    // Right half: +x = outward, ring is at x=0. Reverse order so glyph is at ring end.
-    // Left half: +x = inward, ring is at x=0. Normal order — glyph first at ring.
-    if (isRightHalf) {
-      const startX = -totalWidth;
-      ctx.font = `${fontSize}px serif`;
-      ctx.fillStyle = theme.degreeLabelColor;
-      ctx.fillText(restStr, startX, 0);
-      ctx.font = `bold ${fontSize}px serif`;
-      ctx.fillStyle = color;
-      ctx.fillText(planetGlyph, startX + restWidth, 0);
-    } else {
-      ctx.font = `bold ${fontSize}px serif`;
-      ctx.fillStyle = color;
-      ctx.fillText(planetGlyph, 0, 0);
-      ctx.font = `${fontSize}px serif`;
-      ctx.fillStyle = theme.degreeLabelColor;
-      ctx.fillText(restStr, glyphWidth, 0);
+    for (const token of tokens) {
+      ctx.font = token.bold ? `bold ${fontSize}px serif` : `${fontSize}px serif`;
+      ctx.fillStyle = token.color;
+      const p = polarToCartesian(cx, cy, pos.displayAngle, currentR);
+      ctx.fillText(token.text, p.x, p.y);
+      currentR -= tokenStep;
     }
-
-    ctx.restore();
 
     // Leader line from displaced label back to true position on zodiac inner edge
     if (pos.displaced) {
-      const leaderFrom = polarToCartesian(cx, cy, pos.displayAngle, anchorR);
+      const leaderFrom = polarToCartesian(cx, cy, pos.displayAngle, zodiacInnerR - 13);
       const leaderTo = polarToCartesian(cx, cy, pos.originalAngle, zodiacInnerR - 4);
       ctx.beginPath();
       ctx.moveTo(leaderFrom.x, leaderFrom.y);
