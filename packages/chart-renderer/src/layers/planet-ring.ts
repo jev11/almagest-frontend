@@ -1,4 +1,4 @@
-import { CelestialBody } from "@astro-app/shared-types";
+import { CelestialBody, SIGN_ORDER } from "@astro-app/shared-types";
 import { longitudeToAngle, polarToCartesian } from "../core/geometry.js";
 import { RING_PROPORTIONS, GLYPH_SIZES } from "../core/constants.js";
 import { PLANET_GLYPHS } from "../glyphs/planets.js";
@@ -27,11 +27,30 @@ const RENDERED_BODIES: CelestialBody[] = [
   CelestialBody.Chiron,
 ];
 
+// Angle point identifiers (not celestial bodies)
+const ANGLE_IDS = {
+  asc: "__asc__",
+  dsc: "__dsc__",
+  mc: "__mc__",
+  ic: "__ic__",
+} as const;
+
 interface LabelToken {
   text: string;
   color: string;
   bold: boolean;
   small?: boolean;
+}
+
+/** Convert an ecliptic longitude to sign degree/minute/sign glyph */
+function lonToSignParts(lon: number): { deg: string; min: string; signGlyph: string } {
+  const norm = ((lon % 360) + 360) % 360;
+  const signIndex = Math.floor(norm / 30);
+  const deg = String(Math.floor(norm % 30)).padStart(2, "0");
+  const min = String(Math.floor((norm % 1) * 60)).padStart(2, "0");
+  const signKey = SIGN_ORDER[signIndex];
+  const signGlyph = signKey ? (SIGN_GLYPHS[signKey] ?? "") : "";
+  return { deg, min, signGlyph };
 }
 
 export function drawPlanetRing(
@@ -47,7 +66,7 @@ export function drawPlanetRing(
   const planetInnerR = radius * RING_PROPORTIONS.planetInner;
   const planetRingR = (zodiacInnerR + planetInnerR) / 2;
 
-  // Build glyph positions for all present bodies
+  // Build glyph positions for all present bodies AND angle points
   const glyphPositions: GlyphPosition[] = [];
 
   for (const body of RENDERED_BODIES) {
@@ -62,35 +81,72 @@ export function drawPlanetRing(
     });
   }
 
-  // Resolve collisions using planetRingR for angular spacing
+  // Add angle points (ASC, DSC, MC, IC) into the same pool
+  // MC/IC get a small offset so labels don't sit on top of the angle line
+  const anglePoints: Array<{ id: string; lon: number; label: string; labelOffset: number }> = [
+    { id: ANGLE_IDS.asc, lon: data.houses.ascendant, label: "As", labelOffset: 0 },
+    { id: ANGLE_IDS.dsc, lon: data.houses.descendant, label: "Ds", labelOffset: 0 },
+    { id: ANGLE_IDS.mc, lon: data.houses.midheaven, label: "Mc", labelOffset: 3 },
+    { id: ANGLE_IDS.ic, lon: data.houses.imum_coeli, label: "Ic", labelOffset: 3 },
+  ];
+
+  for (const ap of anglePoints) {
+    const trueAngle = longitudeToAngle(ap.lon, ascendant);
+    const labelAngle = longitudeToAngle(ap.lon + ap.labelOffset, ascendant);
+    glyphPositions.push({
+      body: ap.id,
+      originalAngle: trueAngle,
+      displayAngle: labelAngle,
+      displaced: ap.labelOffset !== 0,
+    });
+  }
+
+  // Resolve collisions for ALL labels together — sorted by degree
   const resolved = resolveCollisions(glyphPositions, planetRingR);
 
   const fontSize = GLYPH_SIZES.degreeLabel;
-  const tokenStep = fontSize + 1; // vertical step between tokens along the radius
+  const tokenStep = fontSize + 1;
 
-  // Draw planet labels: each character upright, placed along the radial spoke
+  // Draw all labels: each character upright, placed along the radial spoke
   for (const pos of resolved) {
-    const body = pos.body as CelestialBody;
-    const zodiacPos = data.zodiac_positions[body];
-    if (!zodiacPos) continue;
+    // Determine if this is an angle point or a planet
+    const anglePoint = anglePoints.find((ap) => ap.id === pos.body);
+    let tokens: LabelToken[];
+    let tickColor: string;
 
-    const isRetrograde = zodiacPos.is_retrograde ?? false;
-    const color = isRetrograde ? theme.planetGlyphRetrograde : theme.planetGlyph;
+    if (anglePoint) {
+      // Angle label: As/Ds/Mc/Ic + degree + sign + minutes
+      const { deg, min, signGlyph } = lonToSignParts(anglePoint.lon);
+      tickColor = theme.angleStroke;
+      tokens = [
+        { text: anglePoint.label, color: theme.angleStroke, bold: true },
+        { text: deg, color: theme.degreeLabelColor, bold: false },
+        { text: signGlyph, color: theme.degreeLabelColor, bold: false },
+        { text: min, color: theme.degreeLabelColor, bold: false, small: true },
+      ];
+    } else {
+      // Planet label
+      const body = pos.body as CelestialBody;
+      const zodiacPos = data.zodiac_positions[body];
+      if (!zodiacPos) continue;
 
-    const planetGlyph = (PLANET_GLYPHS[pos.body] ?? "") + "\uFE0E";
-    const deg = String(zodiacPos.degree).padStart(2, "0");
-    const min = String(zodiacPos.minute).padStart(2, "0");
-    const signGlyph = (SIGN_GLYPHS[zodiacPos.sign] ?? "");
+      const isRetrograde = zodiacPos.is_retrograde ?? false;
+      const color = isRetrograde ? theme.planetGlyphRetrograde : theme.planetGlyph;
+      const planetGlyph = (PLANET_GLYPHS[pos.body] ?? "") + "\uFE0E";
+      const deg = String(zodiacPos.degree).padStart(2, "0");
+      const min = String(zodiacPos.minute).padStart(2, "0");
+      const signGlyph = (SIGN_GLYPHS[zodiacPos.sign] ?? "");
 
-    // Build token list: glyph (bold), degree, sign, minutes, (retrograde)
-    const tokens: LabelToken[] = [
-      { text: planetGlyph, color, bold: true },
-      { text: deg, color: theme.degreeLabelColor, bold: false },
-      { text: signGlyph, color: theme.degreeLabelColor, bold: false },
-      { text: min, color: theme.degreeLabelColor, bold: false, small: true },
-    ];
-    if (isRetrograde) {
-      tokens.push({ text: "℞", color, bold: false });
+      tickColor = color;
+      tokens = [
+        { text: planetGlyph, color, bold: true },
+        { text: deg, color: theme.degreeLabelColor, bold: false },
+        { text: signGlyph, color: theme.degreeLabelColor, bold: false },
+        { text: min, color: theme.degreeLabelColor, bold: false, small: true },
+      ];
+      if (isRetrograde) {
+        tokens.push({ text: "℞", color, bold: false });
+      }
     }
 
     // Draw tick mark at true ecliptic position on zodiac inner edge
@@ -99,14 +155,12 @@ export function drawPlanetRing(
     ctx.beginPath();
     ctx.moveTo(tickOuter.x, tickOuter.y);
     ctx.lineTo(tickInner.x, tickInner.y);
-    ctx.strokeStyle = color;
+    ctx.strokeStyle = tickColor;
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    // Place each token along the radial spoke, stepping inward from the zodiac ring.
-    // Each character stays upright (no rotation) — just positioned at successive
-    // points along the radius from ring toward center.
-    let currentR = zodiacInnerR - 13; // start just inside the zodiac ring
+    // Place each token along the radial spoke, stepping inward from the zodiac ring
+    let currentR = zodiacInnerR - 13;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
 
