@@ -28,6 +28,7 @@ interface LabelToken {
   text: string;
   color: string;
   bold: boolean;
+  small?: boolean;
 }
 
 export function drawPlanetRing(
@@ -83,7 +84,7 @@ export function drawPlanetRing(
       { text: planetGlyph, color, bold: true },
       { text: deg, color: theme.degreeLabelColor, bold: false },
       { text: signGlyph, color: theme.degreeLabelColor, bold: false },
-      { text: min, color: theme.degreeLabelColor, bold: false },
+      { text: min, color: theme.degreeLabelColor, bold: false, small: true },
     ];
     if (isRetrograde) {
       tokens.push({ text: "℞", color, bold: false });
@@ -107,7 +108,8 @@ export function drawPlanetRing(
     ctx.textBaseline = "middle";
 
     for (const token of tokens) {
-      ctx.font = token.bold ? `bold ${fontSize}px serif` : `${fontSize}px serif`;
+      const size = token.small ? fontSize - 2 : fontSize;
+      ctx.font = token.bold ? `bold ${size}px serif` : `${size}px serif`;
       ctx.fillStyle = token.color;
       const p = polarToCartesian(cx, cy, pos.displayAngle, currentR);
       ctx.fillText(token.text, p.x, p.y);
