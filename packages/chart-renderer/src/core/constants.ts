@@ -34,9 +34,9 @@ export const GLYPH_SIZES = {
 } as const;
 
 export const COLLISION = {
-  minGlyphGap: 20,
-  maxDisplacement: 40,
-  iterations: 50,
+  minGlyphGap: 15,
+  maxDisplacement: 70,
+  iterations: 80,
 } as const;
 
 export const ASPECT_ANGLES: Record<string, number> = {
