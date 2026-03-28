@@ -7,6 +7,8 @@ import { drawHouseOverlay } from "../layers/house-overlay.js";
 import { drawPlanetRing } from "../layers/planet-ring.js";
 import { drawAspectWeb } from "../layers/aspect-web.js";
 import { drawDegreeLabels } from "../layers/degree-labels.js";
+import { drawTransitRing, drawInterChartAspects } from "../charts/biwheel.js";
+import { RING_PROPORTIONS } from "./constants.js";
 
 export interface RenderOptions {
   /** Chart data from the API */
@@ -85,8 +87,16 @@ export function renderRadix(options: RenderOptions): RenderDimensions {
 
 /**
  * Render a bi-wheel (inner natal + outer transit/synastry).
- * The inner wheel is rendered at a reduced radius.
- * The outer ring shows the second chart's planet positions.
+ *
+ * Layout (from outside in):
+ *   - Outer zodiac ring            (full radius, natal ascendant orientation)
+ *   - Transit planet ring          (annular zone between separator and zodiac inner edge)
+ *   - Separator ring               (at innerRadius × zodiacInner fraction)
+ *   - Inner natal chart            (house overlay, natal aspects, inter-chart aspects, planets)
+ *
+ * Transit planets are positioned using the natal ascendant so both rings share
+ * the same zodiac orientation. Inter-chart aspects are drawn as dashed lines
+ * within the inner aspect circle to distinguish them from natal-natal aspects.
  */
 export function renderBiwheel(
   options: RenderOptions & { outerData: ChartData },
@@ -112,37 +122,48 @@ export function renderBiwheel(
   const cy = cssHeight / 2;
   const totalRadius = Math.min(cssWidth, cssHeight) / 2 - padding;
 
-  // Inner chart at 65% of total radius
+  // Inner natal chart occupies 65% of total radius
   const innerRadius = totalRadius * 0.65;
+
+  // The separator ring sits at the inner chart's zodiac inner edge.
+  // This is where inner planet tick marks naturally land, so the separator
+  // doubles as their reference circle — no extra visual circle needed.
+  const separatorR = innerRadius * RING_PROPORTIONS.zodiacInner;
 
   const innerDim: RenderDimensions = { cx, cy, radius: innerRadius, dpr };
   const outerDim: RenderDimensions = { cx, cy, radius: totalRadius, dpr };
 
-  // Draw background and zodiac ring at full radius
+  // 1. Background at full size
   drawBackground(ctx, data, theme, outerDim);
+
+  // 2. Outer zodiac ring oriented to the natal chart's ascendant
   drawZodiacRing(ctx, data, theme, outerDim);
 
-  // Draw inner (natal) chart elements at reduced radius
+  // 3. Transit planets in the annular zone [separatorR, zodiacInnerR]
+  drawTransitRing(ctx, outerData, data.houses.ascendant, theme, outerDim, separatorR);
+
+  // 4. Separator ring — slightly bolder than regular ring lines
+  ctx.beginPath();
+  ctx.arc(cx, cy, separatorR, 0, Math.PI * 2);
+  ctx.strokeStyle = theme.ringStroke;
+  ctx.lineWidth = theme.ringStrokeWidth * 2;
+  ctx.stroke();
+
+  // 5. Inner natal chart — clipped to the separator so no elements leak outward
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, separatorR, 0, Math.PI * 2);
+  ctx.clip();
+
   drawHouseOverlay(ctx, data, theme, innerDim);
   drawAspectWeb(ctx, data, theme, innerDim);
+  drawInterChartAspects(ctx, data, outerData, theme, innerDim);
   drawPlanetRing(ctx, data, theme, innerDim);
 
-  // Draw outer (transit) planet ring at ~80% of total radius
-  // Scale the outer planet ring to sit between the inner chart and the zodiac ring
-  const transitScale = 0.80 / RING_PROPORTIONS_ZODIAC_INNER_FRACTION;
-  const transitDim: RenderDimensions = {
-    cx,
-    cy,
-    radius: totalRadius * transitScale,
-    dpr,
-  };
-  drawPlanetRing(ctx, outerData, theme, transitDim);
+  ctx.restore();
 
   return outerDim;
 }
-
-// The zodiac inner ring is at 0.783 of radius; we want transit planets at ~0.80
-const RING_PROPORTIONS_ZODIAC_INNER_FRACTION = 0.783;
 
 /**
  * Utility: re-render only the aspect layer on an existing context.

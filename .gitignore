@@ -1,5 +1,7 @@
 **/node_modules
 node_modules
+**/dist
 .playwright-mcp
 test_data*
 verify*.png
+image.png
