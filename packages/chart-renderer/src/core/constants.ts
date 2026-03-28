@@ -22,6 +22,7 @@ export const RING_PROPORTIONS = {
   zodiacOuter: ZODIAC_OUTER,
   zodiacInner: 0.783,
   planetInner: 0.70,
+  houseNumberOuter: ZODIAC_OUTER * ASPECT_CIRCLE_RATIO + 0.07,
   houseInner: 0.15,
   aspectOuter: ZODIAC_OUTER * ASPECT_CIRCLE_RATIO,
 } as const;

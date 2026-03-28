@@ -19,7 +19,15 @@ export function drawHouseOverlay(
 
   const zodiacOuterR = radius * RING_PROPORTIONS.zodiacOuter;
   const planetInnerR = radius * RING_PROPORTIONS.planetInner;
+  const houseNumberOuterR = radius * RING_PROPORTIONS.houseNumberOuter;
   const aspectCircleR = radius * RING_PROPORTIONS.aspectOuter;
+
+  // Draw the house number ring circle (just outside the aspect circle)
+  ctx.beginPath();
+  ctx.arc(cx, cy, houseNumberOuterR, 0, 2 * Math.PI);
+  ctx.strokeStyle = theme.ringStroke;
+  ctx.lineWidth = theme.ringStrokeWidth;
+  ctx.stroke();
 
   // Draw house cusp lines
   for (let i = 0; i < 12; i++) {
@@ -41,7 +49,7 @@ export function drawHouseOverlay(
       strokeColor = theme.angleStroke;
       strokeWidth = theme.angleStrokeWidth;
     } else {
-      outerR = planetInnerR;
+      outerR = radius * RING_PROPORTIONS.zodiacInner;
       innerR = aspectCircleR;
       strokeColor = theme.houseStroke;
       strokeWidth = theme.houseStrokeWidth;
@@ -56,16 +64,25 @@ export function drawHouseOverlay(
     ctx.strokeStyle = strokeColor;
     ctx.lineWidth = strokeWidth;
     ctx.stroke();
+
+    // Draw cusp divider tick on the house number ring
+    const tickOuter = polarToCartesian(cx, cy, angle, houseNumberOuterR);
+    const tickInner = polarToCartesian(cx, cy, angle, aspectCircleR);
+    ctx.beginPath();
+    ctx.moveTo(tickOuter.x, tickOuter.y);
+    ctx.lineTo(tickInner.x, tickInner.y);
+    ctx.strokeStyle = theme.houseStroke;
+    ctx.lineWidth = theme.houseStrokeWidth;
+    ctx.stroke();
   }
 
-  // Draw house numbers
+  // Draw house numbers centered in the ring between houseNumberOuterR and aspectCircleR
   ctx.font = `${GLYPH_SIZES.houseNumber}px ${theme.fontFamily}`;
   ctx.fillStyle = theme.houseNumberColor;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
-  // Position numbers midway between the aspect circle and the planet ring
-  const numberR = (aspectCircleR + planetInnerR) / 2;
+  const numberR = (houseNumberOuterR + aspectCircleR) / 2;
 
   for (let i = 0; i < 12; i++) {
     const cuspLon = houses.cusps[i];
@@ -73,9 +90,8 @@ export function drawHouseOverlay(
     if (cuspLon === undefined || nextCuspLon === undefined) continue;
 
     // Angular midpoint between two cusps (accounting for wrap-around)
-    let midLon: number;
     const diff = ((nextCuspLon - cuspLon) % 360 + 360) % 360;
-    midLon = (cuspLon + diff / 2) % 360;
+    const midLon = (cuspLon + diff / 2) % 360;
 
     const midAngle = longitudeToAngle(midLon, ascendant);
     const pos = polarToCartesian(cx, cy, midAngle, numberR);
