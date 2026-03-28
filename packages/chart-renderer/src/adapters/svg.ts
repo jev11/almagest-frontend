@@ -10,7 +10,8 @@ const RENDERED_BODIES: CelestialBody[] = [
   CelestialBody.Sun, CelestialBody.Moon, CelestialBody.Mercury,
   CelestialBody.Venus, CelestialBody.Mars, CelestialBody.Jupiter,
   CelestialBody.Saturn, CelestialBody.Uranus, CelestialBody.Neptune,
-  CelestialBody.Pluto, CelestialBody.NorthNode, CelestialBody.Chiron,
+  CelestialBody.Pluto, CelestialBody.MeanNorthNode, CelestialBody.TrueNorthNode,
+  CelestialBody.MeanSouthNode, CelestialBody.TrueSouthNode, CelestialBody.Chiron,
 ];
 
 function hexWithOpacity(hex: string, opacity: number): string {

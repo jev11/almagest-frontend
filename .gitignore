@@ -1,3 +1,4 @@
 **/node_modules
 node_modules
 .playwright-mcp
+test_data*

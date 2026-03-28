@@ -51,8 +51,8 @@ export interface ChartMetadata {
 }
 
 export interface ChartData {
-  positions: Record<CelestialBody, CelestialPosition>;
-  zodiac_positions: Record<CelestialBody, ZodiacPosition>;
+  positions: Partial<Record<CelestialBody, CelestialPosition>>;
+  zodiac_positions: Partial<Record<CelestialBody, ZodiacPosition>>;
   houses: HouseData;
   aspects: Aspect[];
   metadata: ChartMetadata;

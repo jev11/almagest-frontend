@@ -9,9 +9,10 @@ export declare enum CelestialBody {
     Uranus = "uranus",
     Neptune = "neptune",
     Pluto = "pluto",
-    NorthNode = "north_node",
-    TrueNode = "true_node",
-    SouthNode = "south_node",
+    MeanNorthNode = "mean_north_node",
+    TrueNorthNode = "true_north_node",
+    MeanSouthNode = "mean_south_node",
+    TrueSouthNode = "true_south_node",
     Chiron = "chiron",
     Lilith = "lilith",
     PartOfFortune = "part_of_fortune"

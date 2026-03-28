@@ -20,7 +20,10 @@ const RENDERED_BODIES: CelestialBody[] = [
   CelestialBody.Uranus,
   CelestialBody.Neptune,
   CelestialBody.Pluto,
-  CelestialBody.NorthNode,
+  CelestialBody.MeanNorthNode,
+  CelestialBody.TrueNorthNode,
+  CelestialBody.MeanSouthNode,
+  CelestialBody.TrueSouthNode,
   CelestialBody.Chiron,
 ];
 

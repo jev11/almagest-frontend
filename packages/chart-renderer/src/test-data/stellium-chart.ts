@@ -95,7 +95,7 @@ export const STELLIUM_CHART: ChartData = {
       speed_latitude: 0,
       speed_distance: 0,
     },
-    [CelestialBody.NorthNode]: {
+    [CelestialBody.MeanNorthNode]: {
       longitude: 192.5,
       latitude: 0,
       distance: 0,
@@ -103,7 +103,7 @@ export const STELLIUM_CHART: ChartData = {
       speed_latitude: 0,
       speed_distance: 0,
     },
-    [CelestialBody.TrueNode]: {
+    [CelestialBody.TrueNorthNode]: {
       longitude: 191.8,
       latitude: 0,
       distance: 0,
@@ -111,8 +111,16 @@ export const STELLIUM_CHART: ChartData = {
       speed_latitude: 0,
       speed_distance: 0,
     },
-    [CelestialBody.SouthNode]: {
+    [CelestialBody.MeanSouthNode]: {
       longitude: 12.5,
+      latitude: 0,
+      distance: 0,
+      speed_longitude: -0.05,
+      speed_latitude: 0,
+      speed_distance: 0,
+    },
+    [CelestialBody.TrueSouthNode]: {
+      longitude: 11.8,
       latitude: 0,
       distance: 0,
       speed_longitude: -0.05,
@@ -225,7 +233,7 @@ export const STELLIUM_CHART: ChartData = {
       is_retrograde: false,
       dignity: null,
     },
-    [CelestialBody.NorthNode]: {
+    [CelestialBody.MeanNorthNode]: {
       sign: ZodiacSign.Libra,
       degree: 22,
       minute: 30,
@@ -233,7 +241,7 @@ export const STELLIUM_CHART: ChartData = {
       is_retrograde: true,
       dignity: null,
     },
-    [CelestialBody.TrueNode]: {
+    [CelestialBody.TrueNorthNode]: {
       sign: ZodiacSign.Libra,
       degree: 21,
       minute: 48,
@@ -241,10 +249,18 @@ export const STELLIUM_CHART: ChartData = {
       is_retrograde: true,
       dignity: null,
     },
-    [CelestialBody.SouthNode]: {
+    [CelestialBody.MeanSouthNode]: {
       sign: ZodiacSign.Aries,
       degree: 22,
       minute: 30,
+      second: 0,
+      is_retrograde: true,
+      dignity: null,
+    },
+    [CelestialBody.TrueSouthNode]: {
+      sign: ZodiacSign.Aries,
+      degree: 21,
+      minute: 48,
       second: 0,
       is_retrograde: true,
       dignity: null,

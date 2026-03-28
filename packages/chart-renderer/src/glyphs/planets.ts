@@ -15,9 +15,10 @@ export const PLANET_GLYPHS: Record<string, string> = {
   uranus:         "♅",  // U+2645
   neptune:        "♆",  // U+2646
   pluto:          "♇",  // U+2647
-  north_node:     "☊",  // U+260A
-  true_node:      "☊",  // U+260A
-  south_node:     "☋",  // U+260B
+  mean_north_node:"☊",  // U+260A
+  true_north_node:"☊",  // U+260A
+  mean_south_node:"☋",  // U+260B
+  true_south_node:"☋",  // U+260B
   chiron:         "⚷",  // U+26B7
   lilith:         "⚸",  // U+26B8
   part_of_fortune:"⊕",  // U+2295

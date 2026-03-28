@@ -1,5 +1,7 @@
 import { longitudeToAngle, polarToCartesian } from "../core/geometry.js";
 import { RING_PROPORTIONS, GLYPH_SIZES } from "../core/constants.js";
+import { SIGN_GLYPHS } from "../glyphs/signs.js";
+import { SIGN_ORDER } from "@astro-app/shared-types";
 import type { ChartData } from "@astro-app/shared-types";
 import type { ChartTheme } from "../themes/types.js";
 import type { RenderDimensions } from "./types.js";
@@ -74,6 +76,47 @@ export function drawHouseOverlay(
     ctx.strokeStyle = theme.houseStroke;
     ctx.lineWidth = theme.houseStrokeWidth;
     ctx.stroke();
+  }
+
+  // Draw angle labels (As, Ds, Mc, Ic) as radial tokens — same style as planet labels
+  const zodiacInnerR = radius * RING_PROPORTIONS.zodiacInner;
+  const fontSize = GLYPH_SIZES.degreeLabel;
+  const tokenStep = fontSize + 1;
+
+  const angleLabels: Array<{ lon: number; label: string }> = [
+    { lon: houses.ascendant, label: "As" },
+    { lon: houses.descendant, label: "Ds" },
+    { lon: houses.midheaven, label: "Mc" },
+    { lon: houses.imum_coeli, label: "Ic" },
+  ];
+
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  for (const { lon, label } of angleLabels) {
+    const angle = longitudeToAngle(lon + 3, ascendant);
+    const signIndex = Math.floor(((lon % 360) + 360) % 360 / 30);
+    const deg = String(Math.floor(((lon % 360) + 360) % 360 % 30)).padStart(2, "0");
+    const minute = String(Math.floor((((lon % 360) + 360) % 360 % 1) * 60)).padStart(2, "0");
+    const signKey = SIGN_ORDER[signIndex];
+    const signGlyph = signKey ? (SIGN_GLYPHS[signKey] ?? "") : "";
+
+    const tokens: Array<{ text: string; color: string; bold: boolean; small?: boolean }> = [
+      { text: label, color: theme.angleStroke, bold: true },
+      { text: deg, color: theme.degreeLabelColor, bold: false },
+      { text: signGlyph, color: theme.degreeLabelColor, bold: false },
+      { text: minute, color: theme.degreeLabelColor, bold: false, small: true },
+    ];
+
+    let currentR = zodiacInnerR - 13;
+    for (const token of tokens) {
+      const size = token.small ? fontSize - 2 : fontSize;
+      ctx.font = token.bold ? `bold ${size}px serif` : `${size}px serif`;
+      ctx.fillStyle = token.color;
+      const p = polarToCartesian(cx, cy, angle, currentR);
+      ctx.fillText(token.text, p.x, p.y);
+      currentR -= tokenStep;
+    }
   }
 
   // Draw house numbers centered in the ring between houseNumberOuterR and aspectCircleR
