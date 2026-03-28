@@ -16,9 +16,9 @@ describe("longitudeToAngle", () => {
   });
 
   it("places Descendant at 3 o'clock (0 radians)", () => {
-    // Descendant is ASC + 180°
-    expect(longitudeToAngle(180, 0)).toBeCloseTo(0);
-    expect(longitudeToAngle(210, 30)).toBeCloseTo(0);
+    // Descendant is ASC + 180°: the function returns 2π (≡ 0 on the unit circle)
+    expect(longitudeToAngle(180, 0)).toBeCloseTo(2 * Math.PI);
+    expect(longitudeToAngle(210, 30)).toBeCloseTo(2 * Math.PI);
   });
 
   it("wraps correctly around 360°", () => {

@@ -66,10 +66,8 @@ export function renderRadixToSvg(
 
   const outerR = radius * RING_PROPORTIONS.zodiacOuter;
   const innerR = radius * RING_PROPORTIONS.zodiacInner;
-  const planetInnerR = radius * RING_PROPORTIONS.planetInner;
-  const houseInnerR = radius * RING_PROPORTIONS.houseInner;
   const aspectR = radius * RING_PROPORTIONS.aspectOuter;
-  const planetRingR = (outerR + planetInnerR) / 2;
+  const planetRingR = (innerR + radius * RING_PROPORTIONS.planetInner) / 2;
 
   const parts: string[] = [];
 
@@ -126,6 +124,7 @@ export function renderRadixToSvg(
   }
 
   // House overlay
+  const houseNumberOuterR = radius * (RING_PROPORTIONS.zodiacOuter * 0.40 + 0.07);
   const ANGULAR_HOUSES = new Set([1, 4, 7, 10]);
   for (let i = 0; i < 12; i++) {
     const houseNum = i + 1;
@@ -135,8 +134,8 @@ export function renderRadixToSvg(
     const angle = longitudeToAngle(cuspLon, ascendant);
     const isAngular = ANGULAR_HOUSES.has(houseNum);
 
-    const lineOuterR = isAngular ? outerR : planetInnerR;
-    const lineInnerR = isAngular ? 0 : houseInnerR;
+    const lineOuterR = isAngular ? outerR : innerR;
+    const lineInnerR = isAngular ? 0 : aspectR;
     const strokeColor = isAngular ? theme.angleStroke : theme.houseStroke;
     const strokeWidth = isAngular ? theme.angleStrokeWidth : theme.houseStrokeWidth;
 
@@ -145,26 +144,27 @@ export function renderRadixToSvg(
     parts.push(`<line x1="${pt1.x}" y1="${pt1.y}" x2="${pt2.x}" y2="${pt2.y}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>`);
   }
 
-  // House numbers
-  const numberR = houseInnerR * 2.5;
+  // House number ring circle
+  parts.push(`<circle cx="${cx}" cy="${cy}" r="${houseNumberOuterR}" fill="none" stroke="${theme.ringStroke}" stroke-width="${theme.ringStrokeWidth}"/>`);
+
+  // House numbers at mid-ring between houseNumberOuterR and aspectR
+  const numberR = (houseNumberOuterR + aspectR) / 2;
   for (let i = 0; i < 12; i++) {
     const cuspLon = data.houses.cusps[i];
     const nextCuspLon = data.houses.cusps[(i + 1) % 12];
     if (cuspLon === undefined || nextCuspLon === undefined) continue;
 
-    let midLon: number;
-    if (nextCuspLon > cuspLon) {
-      midLon = (cuspLon + nextCuspLon) / 2;
-    } else {
-      midLon = ((cuspLon + nextCuspLon + 360) / 2) % 360;
-    }
+    const diff = ((nextCuspLon - cuspLon) % 360 + 360) % 360;
+    const midLon = (cuspLon + diff / 2) % 360;
 
     const midAngle = longitudeToAngle(midLon, ascendant);
     const pos = polarToCartesian(cx, cy, midAngle, numberR);
     parts.push(`<text x="${pos.x}" y="${pos.y}" fill="${theme.houseNumberColor}" font-size="${GLYPH_SIZES.houseNumber}" font-family="${theme.fontFamily}" text-anchor="middle" dominant-baseline="middle">${i + 1}</text>`);
   }
 
-  // Aspect web
+  // Aspect web — fill circle with background to clear house lines, then clip
+  parts.push(`<circle cx="${cx}" cy="${cy}" r="${aspectR}" fill="${theme.background}"/>`);
+  parts.push(`<defs><clipPath id="aspect-clip"><circle cx="${cx}" cy="${cy}" r="${aspectR}"/></clipPath></defs>`);
   for (const aspect of data.aspects) {
     const pos1 = data.positions[aspect.body1];
     const pos2 = data.positions[aspect.body2];
@@ -182,8 +182,12 @@ export function renderRadixToSvg(
     const lineWidth = isMajor ? theme.aspectMajorWidth : theme.aspectMinorWidth;
     const dashAttr = isMajor ? "" : `stroke-dasharray="${theme.aspectMinorDash.join(",")}"`;
 
-    parts.push(`<line x1="${pt1.x}" y1="${pt1.y}" x2="${pt2.x}" y2="${pt2.y}" stroke="${color}" stroke-width="${lineWidth}" ${dashAttr}/>`);
+    parts.push(`<line x1="${pt1.x}" y1="${pt1.y}" x2="${pt2.x}" y2="${pt2.y}" stroke="${color}" stroke-width="${lineWidth}" ${dashAttr} clip-path="url(#aspect-clip)"/>`);
   }
+
+  // Aspect circle outline (on top of lines)
+  parts.push(`<circle cx="${cx}" cy="${cy}" r="${aspectR}" fill="none" stroke="${theme.ringStroke}" stroke-width="${theme.ringStrokeWidth}"/>`);
+
 
   // Planet ring
   const glyphPositions: GlyphPosition[] = [];

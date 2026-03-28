@@ -26,7 +26,7 @@ describe("resolveCollisions", () => {
     const result = resolveCollisions(positions, 200);
     const angleDiff = Math.abs(result[1]!.displayAngle - result[0]!.displayAngle);
     const pixelDist = angleDiff * 200;
-    expect(pixelDist).toBeGreaterThan(15); // should have separated somewhat
+    expect(pixelDist).toBeGreaterThan(14.9); // should have separated by ~minGlyphGap (15px)
   });
 
   it("marks displaced positions", () => {

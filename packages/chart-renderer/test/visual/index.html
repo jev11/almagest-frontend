@@ -3,50 +3,81 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Chart Renderer — Visual Test</title>
+  <title>Chart Renderer — Visual Test Harness</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #0A0E17; color: #E8ECF1; font-family: Inter, system-ui, sans-serif; display: flex; height: 100vh; }
-    #sidebar { width: 240px; padding: 16px; background: #131926; border-right: 1px solid #2A3040; overflow-y: auto; flex-shrink: 0; }
-    #main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    body { background: #0A0E17; color: #E8ECF1; font-family: Inter, system-ui, sans-serif; display: flex; height: 100vh; overflow: hidden; }
+    #sidebar { width: 220px; padding: 16px; background: #131926; border-right: 1px solid #2A3040; overflow-y: auto; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px; }
+    #main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px; overflow: auto; }
     #chart-canvas { display: block; }
-    .control-group { margin-bottom: 16px; }
-    .control-group label { display: block; font-size: 11px; color: #8892A4; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
-    .control-group select, .control-group input[type=range] { width: 100%; background: #0F1420; border: 1px solid #2A3040; color: #E8ECF1; padding: 4px 8px; border-radius: 4px; font-size: 13px; }
-    .checkbox-group { display: flex; flex-direction: column; gap: 4px; }
-    .checkbox-group label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #E8ECF1; text-transform: none; letter-spacing: 0; }
-    .checkbox-group input[type=checkbox] { width: auto; }
-    h2 { font-size: 13px; color: #6C8EEF; margin-bottom: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
-    #size-value { font-size: 11px; color: #8892A4; }
+    .group-label { font-size: 10px; color: #6C8EEF; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; margin-bottom: 6px; }
+    select, input[type=range] { width: 100%; background: #0F1420; border: 1px solid #2A3040; color: #E8ECF1; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+    select:focus, input:focus { outline: 1px solid #6C8EEF; }
+    .checkbox-list { display: flex; flex-direction: column; gap: 5px; }
+    .checkbox-list label { display: flex; align-items: center; gap: 7px; font-size: 12px; cursor: pointer; }
+    .checkbox-list input[type=checkbox] { width: 14px; height: 14px; accent-color: #6C8EEF; }
+    .size-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; font-size: 12px; }
+    .size-row span { color: #8892A4; }
+    button { width: 100%; background: #6C8EEF; color: #fff; border: none; padding: 7px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600; }
+    button:hover { background: #8BA5F5; }
+    #chart-info { font-size: 10px; color: #565E6C; margin-top: 2px; }
+    hr { border: none; border-top: 1px solid #2A3040; }
   </style>
-  <script type="importmap">
-  {
-    "imports": {
-      "@astro-app/shared-types": "../../../../node_modules/@astro-app/shared-types/dist/index.js"
-    }
-  }
-  </script>
 </head>
 <body>
   <div id="sidebar">
-    <h2>Chart Renderer</h2>
+    <div>
+      <div class="group-label">Render Mode</div>
+      <select id="mode-select">
+        <option value="radix">Radix (single wheel)</option>
+        <option value="biwheel">Bi-wheel (natal + transit)</option>
+      </select>
+    </div>
 
-    <div class="control-group">
-      <label>Theme</label>
+    <hr>
+
+    <div>
+      <div class="group-label">Inner / Natal Chart</div>
+      <select id="chart-select">
+        <option value="stellium">Stellium — Nov 1978</option>
+        <option value="transit">Transit — Jan 2025</option>
+        <option value="allRetrograde">All Retrograde (Nov 1978)</option>
+      </select>
+      <div id="chart-info"></div>
+    </div>
+
+    <div id="biwheel-row" style="display:none">
+      <div class="group-label">Outer / Transit Chart</div>
+      <select id="outer-chart-select">
+        <option value="transit">Transit — Jan 2025</option>
+        <option value="stellium">Stellium — Nov 1978</option>
+        <option value="allRetrograde">All Retrograde (Nov 1978)</option>
+      </select>
+    </div>
+
+    <hr>
+
+    <div>
+      <div class="group-label">Theme</div>
       <select id="theme-select">
         <option value="dark">Dark</option>
         <option value="light">Light</option>
       </select>
     </div>
 
-    <div class="control-group">
-      <label>Size — <span id="size-value">600px</span></label>
+    <div>
+      <div class="size-row">
+        <div class="group-label" style="margin:0">Size</div>
+        <span id="size-value">600px</span>
+      </div>
       <input type="range" id="size-slider" min="300" max="1200" value="600" step="50">
     </div>
 
-    <div class="control-group">
-      <label>Layers</label>
-      <div class="checkbox-group">
+    <hr>
+
+    <div>
+      <div class="group-label">Layers (radix only)</div>
+      <div class="checkbox-list">
         <label><input type="checkbox" id="layer-background" checked> Background</label>
         <label><input type="checkbox" id="layer-zodiac" checked> Zodiac Ring</label>
         <label><input type="checkbox" id="layer-houses" checked> House Overlay</label>
@@ -56,8 +87,10 @@
       </div>
     </div>
 
-    <div class="control-group">
-      <button id="export-svg" style="width:100%;background:#6C8EEF;color:#fff;border:none;padding:8px 12px;border-radius:4px;cursor:pointer;font-size:13px;font-weight:600;">Export SVG</button>
+    <hr>
+
+    <div>
+      <button id="export-svg">Export SVG</button>
     </div>
   </div>
 
@@ -65,68 +98,6 @@
     <canvas id="chart-canvas"></canvas>
   </div>
 
-  <script type="module">
-    import { renderRadix, renderRadixToSvg } from "../../dist/index.js";
-    import { darkTheme, lightTheme } from "../../dist/themes/index.js";
-    import { STELLIUM_CHART } from "../../dist/test-data/stellium-chart.js";
-
-    const canvas = document.getElementById("chart-canvas");
-    const themeSelect = document.getElementById("theme-select");
-    const sizeSlider = document.getElementById("size-slider");
-    const sizeValue = document.getElementById("size-value");
-
-    const layerCheckboxes = {
-      background: document.getElementById("layer-background"),
-      zodiacRing: document.getElementById("layer-zodiac"),
-      houseOverlay: document.getElementById("layer-houses"),
-      aspectWeb: document.getElementById("layer-aspects"),
-      planetRing: document.getElementById("layer-planets"),
-      degreeLabels: document.getElementById("layer-labels"),
-    };
-
-    function render() {
-      const size = parseInt(sizeSlider.value, 10);
-      sizeValue.textContent = size + "px";
-      canvas.style.width = size + "px";
-      canvas.style.height = size + "px";
-
-      const theme = themeSelect.value === "dark" ? darkTheme : lightTheme;
-      const layers = {};
-      for (const [key, cb] of Object.entries(layerCheckboxes)) {
-        layers[key] = cb.checked;
-      }
-
-      document.body.style.background = theme.background;
-
-      renderRadix({
-        data: STELLIUM_CHART,
-        theme,
-        canvas,
-        layers,
-        padding: 24,
-      });
-    }
-
-    themeSelect.addEventListener("change", render);
-    sizeSlider.addEventListener("input", render);
-    for (const cb of Object.values(layerCheckboxes)) {
-      cb.addEventListener("change", render);
-    }
-
-    document.getElementById("export-svg").addEventListener("click", () => {
-      const size = parseInt(sizeSlider.value);
-      const theme = themeSelect.value === "dark" ? darkTheme : lightTheme;
-      const svg = renderRadixToSvg(STELLIUM_CHART, theme, size, size);
-      const blob = new Blob([svg], { type: "image/svg+xml" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "chart.svg";
-      a.click();
-      URL.revokeObjectURL(url);
-    });
-
-    render();
-  </script>
+  <script type="module" src="./main.ts"></script>
 </body>
 </html>

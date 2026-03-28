@@ -5,14 +5,14 @@ import { AspectType } from "@astro-app/shared-types";
  * These define the wheel anatomy from outside to inside.
  *
  * For a 300px radius wheel:
- *   label ring:   270-300px  (outermost, planet degree labels)
- *   zodiac ring:  235-270px  (sign segments)
- *   planet ring:  210-235px  (planet glyphs)
+ *   cusp labels:  285-300px  (outermost, small text outside zodiac ring)
+ *   zodiac ring:  235-285px  (sign segments, 0.783–0.95)
+ *   planet ring:  210-235px  (planet glyphs + degree labels, 0.70–0.783)
  *   house zone:   0-210px    (house cusp lines)
- *   aspect zone:  0-180px    (aspect lines)
+ *   aspect zone:  0-114px    (aspect lines, 0.38 × 300)
  */
 /** Fraction of total radius occupied by the zodiac sign ring outer edge. */
-export const ZODIAC_OUTER = 0.90;
+export const ZODIAC_OUTER = 0.95;
 
 /** Aspect circle radius as a fraction of total radius. Expressed as a ratio of ZODIAC_OUTER. */
 export const ASPECT_CIRCLE_RATIO = 0.40;

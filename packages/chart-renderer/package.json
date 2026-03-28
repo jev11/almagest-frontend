@@ -13,6 +13,7 @@
   },
   "scripts": {
     "dev": "vite demo/",
+    "test:visual": "vite test/visual/",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
