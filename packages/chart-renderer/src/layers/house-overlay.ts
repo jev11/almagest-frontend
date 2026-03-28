@@ -94,7 +94,7 @@ export function drawHouseOverlay(
   ctx.textBaseline = "middle";
 
   for (const { lon, label } of angleLabels) {
-    const angle = longitudeToAngle(lon + 3, ascendant);
+    const angle = longitudeToAngle(lon, ascendant);
     const signIndex = Math.floor(((lon % 360) + 360) % 360 / 30);
     const deg = String(Math.floor(((lon % 360) + 360) % 360 % 30)).padStart(2, "0");
     const minute = String(Math.floor((((lon % 360) + 360) % 360 % 1) * 60)).padStart(2, "0");
@@ -117,6 +117,43 @@ export function drawHouseOverlay(
       ctx.fillText(token.text, p.x, p.y);
       currentR -= tokenStep;
     }
+  }
+
+  // Draw house cusp labels outside the zodiac ring, tangent to the circle
+  const cuspLabelR = zodiacOuterR + 10;
+
+  for (let i = 0; i < 12; i++) {
+    const cuspLon = houses.cusps[i];
+    if (cuspLon === undefined) continue;
+
+    const angle = longitudeToAngle(cuspLon, ascendant);
+    const signIndex = Math.floor(((cuspLon % 360) + 360) % 360 / 30);
+    const deg = String(Math.floor(((cuspLon % 360) + 360) % 360 % 30)).padStart(2, "0");
+    const minute = String(Math.floor((((cuspLon % 360) + 360) % 360 % 1) * 60)).padStart(2, "0");
+    const signKey = SIGN_ORDER[signIndex];
+    const signGlyph = signKey ? (SIGN_GLYPHS[signKey] ?? "") : "";
+
+    const labelStr = `${deg}${signGlyph}${minute}`;
+
+    const pos = polarToCartesian(cx, cy, angle, cuspLabelR);
+    ctx.save();
+    ctx.translate(pos.x, pos.y);
+
+    // Rotate text tangent to the circle, always right-side-up.
+    // CW tangent readable in upper half [0, π], flip in lower half.
+    const normalAngle = ((angle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+    const isUpperHalf = normalAngle <= Math.PI;
+    const baseRotation = -angle + Math.PI / 2;
+    const rotation = isUpperHalf ? baseRotation : baseRotation + Math.PI;
+    ctx.rotate(rotation);
+
+    ctx.font = `${fontSize}px serif`;
+    ctx.fillStyle = theme.degreeLabelColor;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(labelStr, 0, 0);
+
+    ctx.restore();
   }
 
   // Draw house numbers centered in the ring between houseNumberOuterR and aspectCircleR
