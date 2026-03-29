@@ -5,3 +5,4 @@ node_modules
 test_data*
 verify*.png
 image.png
+.mcp.json

@@ -17,9 +17,17 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@astro-app/shared-types": "*"
+    "@astro-app/shared-types": "*",
+    "idb": "^8.0"
+  },
+  "peerDependencies": {
+    "react": "^18.0",
+    "@tanstack/react-query": "^5.0"
   },
   "devDependencies": {
+    "@types/react": "^19.0",
+    "react": "^19.0",
+    "@tanstack/react-query": "^5.0",
     "typescript": "^5.5",
     "vitest": "^2.0"
   }

@@ -1,5 +1,5 @@
 import {
-  CelestialBody, ZodiacSign, AspectType, HouseSystem, ZodiacType, Element
+  CelestialBody, ZodiacSign, AspectType, HouseSystem, ZodiacType
 } from "./enums.js";
 
 export interface CelestialPosition {

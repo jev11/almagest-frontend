@@ -54,6 +54,31 @@ ctx.fillStyle = theme.background;
 ctx.fillRect(0, 0, canvas.width, canvas.height);
 ```
 
+## Ring Proportions (Tuned)
+
+> **Note:** These proportions were tuned during Phase 2 implementation against real chart data. They differ from the initial design estimates. See PHASE2_SPEC.md "Decisions Log" entries D-003 and D-004 for rationale.
+
+```
+ZODIAC_OUTER           = 0.95     (originally 0.90 — wider ring for readability)
+ASPECT_CIRCLE_RATIO    = 0.40     (aspect circle as fraction of ZODIAC_OUTER)
+
+RING_PROPORTIONS:
+  labelOuter:          1.0        (unchanged)
+  zodiacOuter:         0.95       (originally 0.90)
+  zodiacInner:         0.783      (unchanged)
+  planetInner:         0.70       (unchanged)
+  houseNumberOuter:    0.45       (computed: ZODIAC_OUTER * ASPECT_CIRCLE_RATIO + 0.07)
+  houseInner:          0.15       (unchanged)
+  aspectOuter:         0.38       (computed: ZODIAC_OUTER * ASPECT_CIRCLE_RATIO; originally 0.60)
+
+For a 300px radius wheel:
+  cusp labels:   285–300px   (outermost, small cusp degree text)
+  zodiac ring:   235–285px   (sign segments, 0.783–0.95)
+  planet ring:   210–235px   (planet glyphs + degree labels, 0.70–0.783)
+  house zone:    0–210px     (house cusp lines + numbers)
+  aspect zone:   0–114px     (aspect lines, 0.38 × 300)
+```
+
 ## Layer 2: Zodiac Ring
 
 The zodiac ring is the primary visual structure. It consists of 12 segments, one per sign.
@@ -69,9 +94,9 @@ End longitude: (i + 1) * 30
 Convert to canvas angles using longitudeToAngle + ascendant rotation.
 
 Draw an arc segment:
-  - Outer radius: radius * RING_PROPORTIONS.zodiacOuter
-  - Inner radius: radius * RING_PROPORTIONS.zodiacInner
-  - Fill: theme.elementColors[signElement] at theme.elementBgOpacity
+  - Outer radius: radius * 0.95
+  - Inner radius: radius * 0.783
+  - Fill: theme.elementColors[signElement] at theme.elementBgOpacity (0.22 dark, 0.18 light)
 
 The segment is a "ring slice" (not a pie slice):
   1. Arc from startAngle to endAngle at outer radius
@@ -85,7 +110,7 @@ The segment is a "ring slice" (not a pie slice):
 For each sign boundary (every 30°):
 ```
 Draw a line from zodiacOuter to zodiacInner at the boundary angle.
-Color: theme.signDividerStroke
+Color: theme.signDividerStroke (#3D4860 dark, tuned for visibility against element backgrounds)
 Width: theme.signDividerWidth
 ```
 
@@ -95,8 +120,9 @@ For each sign, draw the glyph centered in its segment:
 ```
 Glyph angle: midpoint of sign segment (i * 30 + 15)
 Glyph radius: midpoint of zodiac ring ((zodiacOuter + zodiacInner) / 2 * radius)
-Size: GLYPH_SIZES.sign
-Color: theme.signGlyphColor (or element color for more vibrancy)
+Size: GLYPH_SIZES.sign (20px — originally 16px, increased for readability)
+Color: theme.signGlyphColor (#C4CAD6 dark)
+Rendering: Unicode astrological symbols via ctx.fillText() (see Decisions Log D-001)
 ```
 
 ### Degree Tick Marks
@@ -135,6 +161,17 @@ MC line (cusp 10): extends from zodiacOuter to center (full span)
 DSC/IC: same as ASC/MC but can be slightly thinner
 ```
 
+### House Cusp Degree Labels
+
+For each cusp, draw the exact longitude on the outer edge of the zodiac ring:
+```
+Format: "DD°♏MM'" (degree + sign glyph + minute)
+Position: just outside zodiacOuter at the cusp angle
+Font: theme.fontFamily, GLYPH_SIZES.degreeLabel
+Color: theme.degreeLabelColor
+Uses serif font for sign glyph inline rendering
+```
+
 ### House Numbers
 
 For each house (1-12):
@@ -149,7 +186,20 @@ Color: theme.houseNumberColor
 Alignment: centered both horizontally and vertically
 ```
 
-## Layer 4: Planet Ring
+## Layer 4: Planet Ring (with integrated degree labels)
+
+> **Note:** The original design placed degree labels in a separate Layer 6. During implementation, planet glyphs and degree labels were merged into a single token-stack system for better visual grouping and collision avoidance. See PHASE2_SPEC.md Decisions Log D-002.
+
+### Rendered Bodies
+
+The planet ring renders these celestial bodies (in order):
+```
+Sun, Moon, Mercury, Venus, Mars, Jupiter, Saturn,
+Uranus, Neptune, Pluto, MeanNorthNode, TrueNorthNode,
+MeanSouthNode, TrueSouthNode, Chiron
+```
+
+Additionally, angle point labels (ASC, DSC, MC, IC) are rendered in the same ring with collision avoidance. See Decisions Log D-005.
 
 ### Position Calculation
 
@@ -161,34 +211,56 @@ For each planet in the chart data:
    x, y = polarToCartesian(cx, cy, angle, (zodiacInner + planetInner) / 2 * radius)
 ```
 
+### Token Stack System
+
+Each planet is rendered as a vertical stack of tokens along a radial spoke:
+```
+Token stack (from zodiac ring inward):
+  1. Planet glyph (Unicode symbol, bold, theme.planetGlyph color)
+  2. Degree number (e.g. "24")
+  3. Sign glyph (Unicode zodiac symbol)
+  4. Minute number (e.g. "13")
+  5. Retrograde symbol "℞" (if applicable, theme.planetGlyphRetrograde color)
+
+Token step: fontSize + 1px between each token
+Tokens are positioned along the radial line from the planet's angle
+```
+
 ### Collision Avoidance
 
-Before drawing, run all planet positions through `resolveCollisions()`:
+Before drawing, run all positions (planets + angle points) through `resolveCollisions()`:
 ```
 1. Convert all positions to GlyphPosition objects with originalAngle
 2. Call resolveCollisions(positions, planetRingRadius)
-3. Use displayAngle (not originalAngle) for glyph placement
-4. For displaced planets, draw a leader line from the displayed position
+   - minGlyphGap: 15px (tuned for token stack width)
+   - maxDisplacement: 70px
+   - iterations: 80
+3. Use displayAngle (not originalAngle) for token stack placement
+4. For displaced items, draw a leader line from the displayed position
    to the exact position on the zodiac ring inner edge
+
+Limitation: collision detection does not wrap around the 0°/360° boundary.
+Two planets at ~359° and ~1° may not trigger separation.
 ```
 
-### Drawing Planets
+### Drawing
 
 For each planet:
 ```
 If NOT displaced:
-  Draw glyph at (x, y) on the planet ring
-  
+  Draw token stack at (x, y) on the planet ring
+
 If displaced:
-  Draw glyph at displaced (x, y)
+  Draw token stack at displaced (x, y)
   Draw a thin leader line (0.5px, theme.leaderLineColor) from glyph center
   to the exact zodiac ring inner edge at the original angle
 
 Glyph color:
   Normal: theme.planetGlyph
   Retrograde: theme.planetGlyphRetrograde
-  
-Glyph size: GLYPH_SIZES.planet
+
+Glyph size: GLYPH_SIZES.planet (18px)
+Label size: GLYPH_SIZES.degreeLabel (11px)
 ```
 
 ## Layer 5: Aspect Web
@@ -199,8 +271,8 @@ For each aspect in chartData.aspects:
 ```
 1. Get longitude of body1 and body2
 2. Convert both to canvas angles
-3. Calculate positions at aspectOuter * radius
-   (both points are inside the house zone)
+3. Calculate positions at aspectOuter * radius (0.38, inside the house zone)
+   Aspect lines are clipped to a circle at this radius
 
 4. Determine opacity:
    orb = aspect.orb
@@ -238,35 +310,21 @@ function hexWithOpacity(hex: string, opacity: number): string {
 // Example: hexWithOpacity("#E85D4A", 0.7) → "#E85D4AB3"
 ```
 
-## Layer 6: Degree Labels
+## Layer 6: Degree Labels (integrated into Layer 4)
 
-### Label Content
+> **Note:** Degree labels are now rendered as part of the planet ring token stack (Layer 4). The `degree-labels.ts` layer file exists as a no-op stub for API compatibility. The `degreeLabels` toggle in `RenderOptions.layers` currently has no effect.
+>
+> See PHASE2_SPEC.md Decisions Log D-002 for rationale.
 
-For each planet:
+Label format within the token stack:
 ```
-Format: "DD°MM'"
-Example: "24°13'"
+Degree: "24" (from chartData.zodiac_positions[body].degree)
+Sign:   Unicode zodiac glyph (from sign at that longitude)
+Minute: "13" (from chartData.zodiac_positions[body].minute)
+Retro:  "℞" appended if is_retrograde is true
 
-If retrograde: append " ℞"
-Example: "24°13' ℞"
-
-Data source: chartData.zodiac_positions[body].degree and .minute
-```
-
-### Label Positioning
-
-```
-Labels go in the label ring (outermost zone, 90-100% of radius).
-Use the same collision avoidance as planet glyphs — labels share
-the displacement calculation.
-
-Font: theme.fontFamily, GLYPH_SIZES.degreeLabel
+Font: theme.fontFamily, GLYPH_SIZES.degreeLabel (11px)
 Color: theme.degreeLabelColor
-Alignment: rotated to follow the angle of the position
-  (text reads radially outward from center)
-
-Alternative (simpler): all labels horizontal, positioned outside the ring
-with a leader line. This is easier to implement and more readable.
 ```
 
 ## High-DPI Rendering
@@ -311,6 +369,8 @@ Inter-chart aspects:
 
 ## Responsive Behavior
 
+> **Status:** Not yet implemented as of Phase 2 completion. This is a Phase 3 prerequisite (see below).
+
 ```
 At 600px diameter (reference size):
   All glyph sizes and line widths as specified above.
@@ -325,8 +385,32 @@ At 900px+ diameter:
   All elements visible
   Increase glyph sizes by 20%
   Show all tick marks
-  
+
 Scaling factor = diameter / 600
 Apply to: glyph sizes, font sizes, line widths, tick mark lengths
 Minimum clamp: never go below 8px for glyphs or 7px for text
 ```
+
+---
+
+## Phase 3 Prerequisites
+
+The following items must be addressed before the chart renderer is integrated into the web application (Phase 3):
+
+### 1. Responsive Scaling
+The renderer currently draws at a fixed visual scale regardless of canvas size. Implement the responsive behavior defined above so charts are usable at mobile sizes (300px) and take advantage of large displays (900px+).
+
+### 2. SVG Export Reconciliation
+The SVG adapter (`adapters/svg.ts`) does not match the canvas output:
+- SVG places degree labels in a separate outer ring; canvas uses the merged token stack system
+- SVG does not render aspect glyph symbols at line midpoints
+- SVG does not support bi-wheel export
+- Font handling differs (hardcoded `serif` vs theme font)
+
+Either update the SVG adapter to replicate the canvas drawing approach, or explicitly document it as a simplified/schematic export with different layout.
+
+### 3. Font Family Consistency
+Multiple layers and glyph renderers use hardcoded `serif` instead of `theme.fontFamily`. All text rendering must use the theme font. See BUG_REPORT.md BUG-001.
+
+### 4. Degree Labels Layer Toggle
+The `degreeLabels` toggle in `RenderOptions.layers` has no effect because labels are drawn inside `planet-ring.ts`. Either wire the toggle to suppress degree tokens within the planet ring, or remove it from the options interface.
