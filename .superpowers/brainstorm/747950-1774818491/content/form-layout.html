@@ -1,0 +1,73 @@
+<h2>New Chart Form — Layout</h2>
+<p class="subtitle">How should the birth data form be structured?</p>
+
+<div class="cards">
+
+  <div class="card" data-choice="single" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0A0E17;padding:20px;min-height:280px;display:flex;flex-direction:column;gap:12px;font-family:sans-serif;">
+      <div style="font-size:14px;color:#8892A4;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">New Chart</div>
+      <div style="background:#1C2333;border:1px solid #2A3040;border-radius:8px;padding:12px">
+        <div style="font-size:11px;color:#8892A4;margin-bottom:6px">Name</div>
+        <div style="background:#0F1420;border:1px solid #2A3040;border-radius:6px;height:32px;"></div>
+      </div>
+      <div style="background:#1C2333;border:1px solid #2A3040;border-radius:8px;padding:12px">
+        <div style="font-size:11px;color:#8892A4;margin-bottom:6px">Date &amp; Time</div>
+        <div style="display:flex;gap:8px">
+          <div style="background:#0F1420;border:1px solid #2A3040;border-radius:6px;height:32px;flex:1;"></div>
+          <div style="background:#0F1420;border:1px solid #2A3040;border-radius:6px;height:32px;width:80px;"></div>
+        </div>
+      </div>
+      <div style="background:#1C2333;border:1px solid #2A3040;border-radius:8px;padding:12px">
+        <div style="font-size:11px;color:#8892A4;margin-bottom:6px">Location</div>
+        <div style="background:#0F1420;border:1px solid #2A3040;border-radius:6px;height:32px;"></div>
+        <div style="font-size:10px;color:#6C8EEF;margin-top:4px">51.5074°N, -0.1278°E · Europe/London</div>
+      </div>
+      <div style="background:#1C2333;border:1px solid #2A3040;border-radius:8px;padding:12px">
+        <div style="font-size:11px;color:#8892A4;margin-bottom:6px">Settings</div>
+        <div style="display:flex;gap:8px">
+          <div style="background:#0F1420;border:1px solid #2A3040;border-radius:6px;height:32px;flex:1;"></div>
+          <div style="background:#0F1420;border:1px solid #2A3040;border-radius:6px;height:32px;flex:1;"></div>
+        </div>
+      </div>
+      <div style="background:#6C8EEF;border-radius:8px;height:36px;display:flex;align-items:center;justify-content:center;color:white;font-size:13px;font-weight:600;margin-top:4px">Calculate Chart</div>
+    </div>
+    <div class="card-body">
+      <h3>A — Single-page form</h3>
+      <p>All fields on one card. Simple, fast, no transitions. Best for power users who know what they're doing.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="wizard" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0A0E17;padding:20px;min-height:280px;display:flex;flex-direction:column;gap:12px;font-family:sans-serif;">
+      <!-- Step indicator -->
+      <div style="display:flex;align-items:center;gap:0;margin-bottom:4px">
+        <div style="width:24px;height:24px;border-radius:50%;background:#6C8EEF;display:flex;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:700">1</div>
+        <div style="height:2px;flex:1;background:#6C8EEF;"></div>
+        <div style="width:24px;height:24px;border-radius:50%;background:#2A3040;display:flex;align-items:center;justify-content:center;color:#8892A4;font-size:11px;font-weight:700">2</div>
+        <div style="height:2px;flex:1;background:#2A3040;"></div>
+        <div style="width:24px;height:24px;border-radius:50%;background:#2A3040;display:flex;align-items:center;justify-content:center;color:#8892A4;font-size:11px;font-weight:700">3</div>
+      </div>
+      <div style="font-size:11px;color:#8892A4;text-align:center;margin-top:-4px">Who · When · Where</div>
+      <!-- Step 1 card -->
+      <div style="background:#1C2333;border:1px solid #2A3040;border-radius:8px;padding:16px;flex:1">
+        <div style="font-size:13px;color:#E8ECF1;font-weight:600;margin-bottom:12px">Who is this chart for?</div>
+        <div style="font-size:11px;color:#8892A4;margin-bottom:6px">Name</div>
+        <div style="background:#0F1420;border:1px solid #2A3040;border-radius:6px;height:36px;"></div>
+        <div style="font-size:11px;color:#8892A4;margin-top:10px;margin-bottom:6px">Chart type</div>
+        <div style="display:flex;gap:8px">
+          <div style="background:#6C8EEF;border-radius:6px;padding:6px 12px;font-size:11px;color:white">Natal</div>
+          <div style="background:#1C2333;border:1px solid #2A3040;border-radius:6px;padding:6px 12px;font-size:11px;color:#8892A4">Transit</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <div style="flex:1;background:#2A3040;border-radius:8px;height:36px;display:flex;align-items:center;justify-content:center;color:#8892A4;font-size:12px">Back</div>
+        <div style="flex:2;background:#6C8EEF;border-radius:8px;height:36px;display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:600">Next →</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Multi-step wizard</h3>
+      <p>3 focused steps: who → when → where. More guided, cleaner at each step. Better for first-time users.</p>
+    </div>
+  </div>
+
+</div>

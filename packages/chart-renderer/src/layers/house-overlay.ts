@@ -20,7 +20,6 @@ export function drawHouseOverlay(
   const ascendant = houses.ascendant;
 
   const zodiacOuterR = radius * RING_PROPORTIONS.zodiacOuter;
-  const planetInnerR = radius * RING_PROPORTIONS.planetInner;
   const houseNumberOuterR = radius * RING_PROPORTIONS.houseNumberOuter;
   const aspectCircleR = radius * RING_PROPORTIONS.aspectOuter;
 
