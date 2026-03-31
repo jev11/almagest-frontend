@@ -21,11 +21,16 @@ export interface TransitRequest {
 }
 
 export interface BatchRequest {
-  requests: NatalRequest[];
+  calculations: Array<{
+    type: "natal";
+    id: string;
+    params: NatalRequest;
+  }>;
 }
 
-export interface NatalResponse {
-  chart: ChartData;
+// NatalResponse matches the backend directly — chart fields are at the top level.
+export interface NatalResponse extends ChartData {
+  warnings?: string[];
 }
 
 export interface TransitResponse {
@@ -33,8 +38,22 @@ export interface TransitResponse {
   natal_chart?: ChartData;
 }
 
+export interface BatchResultItem {
+  id: string;
+  type: string;
+  status: "success" | "error";
+  data?: NatalResponse | null;
+  error?: string | null;
+}
+
 export interface BatchResponse {
-  charts: ChartData[];
+  results: BatchResultItem[];
+  metadata: {
+    total: number;
+    succeeded: number;
+    failed: number;
+    calculation_time_ms: number;
+  };
 }
 
 export interface HealthResponse {

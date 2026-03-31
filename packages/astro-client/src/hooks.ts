@@ -29,7 +29,7 @@ export function useNatalChart(request: NatalRequest | null) {
     queryFn: async () => {
       if (!request) throw new Error("No request");
       const response = await client.calculateNatal(request);
-      return response.chart;
+      return response;
     },
     enabled: request !== null,
     staleTime: Infinity,
@@ -74,7 +74,7 @@ export function useCalculateChart() {
       const stored = {
         id,
         name,
-        chart: response.chart,
+        chart: response,
         request,
         createdAt: Date.now(),
         updatedAt: Date.now(),
@@ -83,7 +83,7 @@ export function useCalculateChart() {
       await chartCache.set(stored);
 
       // Pre-populate the query cache so the chart view loads instantly
-      queryClient.setQueryData(chartKeys.natal(request), response.chart);
+      queryClient.setQueryData(chartKeys.natal(request), response);
 
       return stored;
     },

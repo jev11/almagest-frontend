@@ -72,7 +72,7 @@ describe("AstroClient — URL construction", () => {
     const fetchSpy = mockFetch(200, { charts: [] });
     vi.stubGlobal("fetch", fetchSpy);
 
-    await makeClient().calculateBatch({ requests: [] });
+    await makeClient().calculateBatch({ calculations: [] });
 
     expect(fetchSpy).toHaveBeenCalledWith(
       `${BASE_URL}/v1/chart/batch`,

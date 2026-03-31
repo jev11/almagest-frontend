@@ -15,3 +15,16 @@ export type {
   HealthResponse,
   StoredChart,
 } from "./types.js";
+export type {
+  RegisterRequest,
+  LoginRequest,
+  TokenPair,
+  UserProfile,
+  AuthUser,
+  CloudChart,
+  SaveChartRequest,
+  UpdateChartRequest,
+  ListChartsParams,
+  PaginatedCharts,
+  TierLimits,
+} from "./auth.js";
