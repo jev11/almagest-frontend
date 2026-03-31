@@ -199,3 +199,4 @@ VITE_APP_NAME=Almagest
 
 # Workflow
 after each task I will update the checklist in the `PHASE3_TASK_CHECKLIST.md` file. And create a commit. Commit comment should state phase number and task number.
+After each change update AGENT_CHANGELOG.md file with changes summary and decision made. Before making changes also read this file. If change contradicts with previous decisions, ask user for clarification.

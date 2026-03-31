@@ -901,7 +901,7 @@
       "y": 0,
       "name": "Screen/Home",
       "width": 1264,
-      "height": 900,
+      "height": 1300,
       "fill": "$bg-primary",
       "children": [
         {
@@ -916,10 +916,10 @@
               "height": "fill_container"
             },
             "esyLe": {
-              "y": 808
+              "y": 1208
             },
             "55ZwX": {
-              "y": 852
+              "y": 1252
             }
           }
         },
@@ -927,9 +927,9 @@
           "type": "frame",
           "id": "3kDhF",
           "name": "mainContent",
-          "clip": true,
+          "overflow": "scroll",
           "width": "fill_container",
-          "height": 1255,
+          "height": "fill_container",
           "layout": "vertical",
           "gap": 24,
           "padding": [
