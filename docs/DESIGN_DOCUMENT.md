@@ -81,7 +81,7 @@ This document defines the complete visual design specification for the astrology
 | Conjunction (0°) | #E8ECF1 | Neutral |
 | Sextile (60°) | #5B9FD4 | Harmonious |
 | Square (90°) | #E85D4A | Tension |
-| Trine (120°) | #5BA858 | Harmonious |
+| Trine (120°) | #4A70E0 | Harmonious |
 | Opposition (180°) | #E85D4A | Tension |
 | Quincunx (150°) | #FBBF24 | Adjustment |
 | Minor aspects | #565E6C | Subtle |

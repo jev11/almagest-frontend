@@ -27,7 +27,7 @@ export const lightTheme: ChartTheme = {
     [AspectType.SemiSextile]: "#B0B8C4",
     [AspectType.Sextile]: "#3A7CB5",
     [AspectType.Square]: "#C94B3A",
-    [AspectType.Trine]: "#3A8437",
+    [AspectType.Trine]: "#2850B8",
     [AspectType.Quincunx]: "#D97706",
     [AspectType.Opposition]: "#C94B3A",
     [AspectType.SemiSquare]: "#B0B8C4",
