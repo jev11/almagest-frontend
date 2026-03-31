@@ -8,3 +8,4 @@ image.png
 qa-*.png
 .superpowers/
 .mcp.json
+node_modules
