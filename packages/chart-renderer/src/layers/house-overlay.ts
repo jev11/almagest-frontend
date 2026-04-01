@@ -1,5 +1,5 @@
 import { longitudeToAngle, polarToCartesian } from "../core/geometry.js";
-import { RING_PROPORTIONS, GLYPH_SIZES } from "../core/constants.js";
+import { RING_PROPORTIONS, glyphSizes } from "../core/constants.js";
 import { SIGN_GLYPHS } from "../glyphs/signs.js";
 import { SIGN_ORDER } from "@astro-app/shared-types";
 import type { ChartData } from "@astro-app/shared-types";
@@ -80,7 +80,7 @@ export function drawHouseOverlay(
 
 
   // Draw house cusp labels outside the zodiac ring, tangent to the circle
-  const cuspLabelR = zodiacOuterR + 10;
+  const cuspLabelR = zodiacOuterR + 10 * (radius / 300);
 
   for (let i = 0; i < 12; i++) {
     const cuspLon = houses.cusps[i];
@@ -107,7 +107,8 @@ export function drawHouseOverlay(
     const rotation = isUpperHalf ? baseRotation : baseRotation + Math.PI;
     ctx.rotate(rotation);
 
-    ctx.font = `${GLYPH_SIZES.degreeLabel}px serif`;
+    const sizes = glyphSizes(radius);
+    ctx.font = `${sizes.degreeLabel}px serif`;
     ctx.fillStyle = theme.degreeLabelColor;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
@@ -117,7 +118,7 @@ export function drawHouseOverlay(
   }
 
   // Draw house numbers centered in the ring between houseNumberOuterR and aspectCircleR
-  ctx.font = `${GLYPH_SIZES.houseNumber}px ${theme.fontFamily}`;
+  ctx.font = `${glyphSizes(radius).houseNumber}px ${theme.fontFamily}`;
   ctx.fillStyle = theme.houseNumberColor;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";

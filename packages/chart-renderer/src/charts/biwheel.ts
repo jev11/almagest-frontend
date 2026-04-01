@@ -7,7 +7,7 @@ import {
 } from "../core/geometry.js";
 import {
   RING_PROPORTIONS,
-  GLYPH_SIZES,
+  glyphSizes,
   MAJOR_ASPECTS,
   ASPECT_ANGLES,
 } from "../core/constants.js";
@@ -103,7 +103,8 @@ export function drawTransitRing(
   }
 
   const resolved = resolveCollisions(glyphPositions, transitMidR);
-  const fontSize = GLYPH_SIZES.degreeLabel + 1;
+  const s = radius / 300;
+  const fontSize = glyphSizes(radius).degreeLabel + 1;
 
   for (const pos of resolved) {
     const body = pos.body as CelestialBody;
@@ -117,7 +118,7 @@ export function drawTransitRing(
 
     // Tick mark on the zodiac inner edge at the planet's true ecliptic position
     const tickOuter = polarToCartesian(cx, cy, pos.originalAngle, zodiacInnerR);
-    const tickInner = polarToCartesian(cx, cy, pos.originalAngle, zodiacInnerR - 5);
+    const tickInner = polarToCartesian(cx, cy, pos.originalAngle, zodiacInnerR - 5 * s);
     ctx.beginPath();
     ctx.moveTo(tickOuter.x, tickOuter.y);
     ctx.lineTo(tickInner.x, tickInner.y);
@@ -147,7 +148,7 @@ export function drawTransitRing(
 
     // Arc leader line along the zodiac inner edge if the glyph was displaced
     if (pos.displaced) {
-      const arcR = zodiacInnerR - 4;
+      const arcR = zodiacInnerR - 4 * s;
       const fromAngle = pos.originalAngle;
       const toAngle = pos.displayAngle;
       // Draw short arc along the inner edge of the zodiac ring

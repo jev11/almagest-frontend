@@ -1,6 +1,6 @@
 import { CelestialBody, SIGN_ORDER } from "@astro-app/shared-types";
 import { longitudeToAngle, polarToCartesian } from "../core/geometry.js";
-import { RING_PROPORTIONS, GLYPH_SIZES } from "../core/constants.js";
+import { RING_PROPORTIONS, glyphSizes } from "../core/constants.js";
 import { PLANET_GLYPHS } from "../glyphs/planets.js";
 import { SIGN_GLYPHS } from "../glyphs/signs.js";
 import { resolveCollisions, type GlyphPosition } from "../core/layout.js";
@@ -40,6 +40,7 @@ interface LabelToken {
   color: string;
   bold: boolean;
   small?: boolean;
+  extraGapAfter?: boolean;
 }
 
 /** Convert an ecliptic longitude to sign degree/minute/sign glyph */
@@ -104,8 +105,10 @@ export function drawPlanetRing(
   // Resolve collisions for ALL labels together — sorted by degree
   const resolved = resolveCollisions(glyphPositions, planetRingR);
 
-  const fontSize = GLYPH_SIZES.degreeLabel;
-  const tokenStep = fontSize + 1;
+  const sizes = glyphSizes(radius);
+  const fontSize = sizes.degreeLabel;
+  const minuteFontSize = Math.round(fontSize * 0.50);
+  const gap = Math.max(1, Math.round(radius / 300));
 
   // Draw all labels: each character upright, placed along the radial spoke
   for (const pos of resolved) {
@@ -119,7 +122,7 @@ export function drawPlanetRing(
       const { deg, min, signGlyph } = lonToSignParts(anglePoint.lon);
       tickColor = theme.angleStroke;
       tokens = [
-        { text: anglePoint.label, color: theme.angleStroke, bold: true },
+        { text: anglePoint.label, color: theme.angleStroke, bold: true, extraGapAfter: true },
         { text: deg, color: theme.degreeLabelColor, bold: false },
         { text: signGlyph, color: theme.degreeLabelColor, bold: false },
         { text: min, color: theme.degreeLabelColor, bold: false, small: true },
@@ -139,7 +142,7 @@ export function drawPlanetRing(
 
       tickColor = color;
       tokens = [
-        { text: planetGlyph, color, bold: true },
+        { text: planetGlyph, color, bold: true, extraGapAfter: true },
         { text: deg, color: theme.degreeLabelColor, bold: false },
         { text: signGlyph, color: theme.degreeLabelColor, bold: false },
         { text: min, color: theme.degreeLabelColor, bold: false, small: true },
@@ -150,8 +153,9 @@ export function drawPlanetRing(
     }
 
     // Draw tick mark at true ecliptic position on zodiac inner edge
+    const s = radius / 300;
     const tickOuter = polarToCartesian(cx, cy, pos.originalAngle, zodiacInnerR);
-    const tickInner = polarToCartesian(cx, cy, pos.originalAngle, zodiacInnerR - 6);
+    const tickInner = polarToCartesian(cx, cy, pos.originalAngle, zodiacInnerR - 6 * s);
     ctx.beginPath();
     ctx.moveTo(tickOuter.x, tickOuter.y);
     ctx.lineTo(tickInner.x, tickInner.y);
@@ -160,23 +164,23 @@ export function drawPlanetRing(
     ctx.stroke();
 
     // Place each token along the radial spoke, stepping inward from the zodiac ring
-    let currentR = zodiacInnerR - 13;
+    let currentR = zodiacInnerR - 13 * s;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
 
     for (const token of tokens) {
-      const size = token.small ? fontSize - 2 : fontSize;
+      const size = token.small ? minuteFontSize : fontSize;
       ctx.font = token.bold ? `bold ${size}px serif` : `${size}px serif`;
       ctx.fillStyle = token.color;
       const p = polarToCartesian(cx, cy, pos.displayAngle, currentR);
       ctx.fillText(token.text, p.x, p.y);
-      currentR -= tokenStep;
+      currentR -= size + gap + (token.extraGapAfter ? Math.round(fontSize * 0.6) : 0);
     }
 
     // Leader line from displaced label back to true position on zodiac inner edge
     if (pos.displaced) {
-      const leaderFrom = polarToCartesian(cx, cy, pos.displayAngle, zodiacInnerR - 13);
-      const leaderTo = polarToCartesian(cx, cy, pos.originalAngle, zodiacInnerR - 4);
+      const leaderFrom = polarToCartesian(cx, cy, pos.displayAngle, zodiacInnerR - 13 * s);
+      const leaderTo = polarToCartesian(cx, cy, pos.originalAngle, zodiacInnerR - 4 * s);
       ctx.beginPath();
       ctx.moveTo(leaderFrom.x, leaderFrom.y);
       ctx.lineTo(leaderTo.x, leaderTo.y);

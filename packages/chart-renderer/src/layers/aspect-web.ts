@@ -1,6 +1,6 @@
 import { MAJOR_ASPECTS } from "../core/constants.js";
 import { longitudeToAngle, polarToCartesian } from "../core/geometry.js";
-import { RING_PROPORTIONS, GLYPH_SIZES } from "../core/constants.js";
+import { RING_PROPORTIONS, glyphSizes } from "../core/constants.js";
 import type { ChartData } from "@astro-app/shared-types";
 import type { AspectType } from "@astro-app/shared-types";
 import type { ChartTheme } from "../themes/types.js";
@@ -88,14 +88,16 @@ export function drawAspectWeb(
       const mx = (pt1.x + pt2.x) / 2;
       const my = (pt1.y + pt2.y) / 2;
 
+      const glyphFontSize = glyphSizes(radius).degreeLabel;
+      const glyphHalf = Math.round(glyphFontSize * 0.65);
       ctx.save();
-      ctx.font = `${GLYPH_SIZES.degreeLabel}px serif`;
+      ctx.font = `${glyphFontSize}px serif`;
       ctx.fillStyle = color;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       // Small background behind glyph so it's readable over other lines
       ctx.fillStyle = theme.background;
-      ctx.fillRect(mx - 7, my - 7, 14, 14);
+      ctx.fillRect(mx - glyphHalf, my - glyphHalf, glyphHalf * 2, glyphHalf * 2);
       ctx.fillStyle = color;
       ctx.fillText(glyph, mx, my);
       ctx.restore();

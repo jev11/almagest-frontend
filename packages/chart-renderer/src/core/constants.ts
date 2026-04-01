@@ -27,12 +27,19 @@ export const RING_PROPORTIONS = {
   aspectOuter: ZODIAC_OUTER * ASPECT_CIRCLE_RATIO,
 } as const;
 
-export const GLYPH_SIZES = {
-  planet: 18,
-  sign: 20,
-  degreeLabel: 11,
-  houseNumber: 13,
-} as const;
+/** Base radius the original pixel sizes were designed for. */
+const GLYPH_BASE_RADIUS = 300;
+
+/** Returns glyph font sizes scaled proportionally to the given wheel radius. */
+export function glyphSizes(radius: number) {
+  const s = radius / GLYPH_BASE_RADIUS;
+  return {
+    planet:      Math.round(18 * s),
+    sign:        Math.round(20 * s),
+    degreeLabel: Math.round(11 * s),
+    houseNumber: Math.round(13 * s),
+  };
+}
 
 export const COLLISION = {
   minGlyphGap: 15,

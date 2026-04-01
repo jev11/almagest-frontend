@@ -1,6 +1,6 @@
 import { SIGN_ORDER, SIGN_ELEMENT, type ChartData, CelestialBody, type AspectType } from "@astro-app/shared-types";
 import { longitudeToAngle, polarToCartesian } from "../core/geometry.js";
-import { RING_PROPORTIONS, GLYPH_SIZES, MAJOR_ASPECTS } from "../core/constants.js";
+import { RING_PROPORTIONS, glyphSizes, MAJOR_ASPECTS } from "../core/constants.js";
 import { SIGN_GLYPHS } from "../glyphs/signs.js";
 import { PLANET_GLYPHS } from "../glyphs/planets.js";
 import { resolveCollisions, type GlyphPosition } from "../core/layout.js";
@@ -98,7 +98,7 @@ export function renderRadixToSvg(
     const midAngle = longitudeToAngle(midLon, ascendant);
     const glyphR = (outerR + innerR) / 2;
     const glyphPos = polarToCartesian(cx, cy, midAngle, glyphR);
-    const glyphSize = GLYPH_SIZES.sign;
+    const glyphSize = glyphSizes(radius).sign;
     const glyphChar = SIGN_GLYPHS[sign as string];
     if (glyphChar) {
       parts.push(`<text x="${glyphPos.x}" y="${glyphPos.y}" fill="${theme.signGlyphColor}" font-size="${glyphSize}" font-family="serif" text-anchor="middle" dominant-baseline="middle">${glyphChar}</text>`);
@@ -114,9 +114,10 @@ export function renderRadixToSvg(
     const angle = longitudeToAngle(deg, ascendant);
     let tickLen: number;
     let tickW: number;
-    if (deg % 10 === 0) { tickLen = 6; tickW = 1; }
-    else if (deg % 5 === 0) { tickLen = 4; tickW = 1; }
-    else { tickLen = 2; tickW = 0.5; }
+    const ts = radius / 300;
+    if (deg % 10 === 0) { tickLen = 6 * ts; tickW = 1; }
+    else if (deg % 5 === 0) { tickLen = 4 * ts; tickW = 1; }
+    else { tickLen = 2 * ts; tickW = 0.5; }
 
     const outer = polarToCartesian(cx, cy, angle, innerR);
     const inner = polarToCartesian(cx, cy, angle, innerR - tickLen);
@@ -159,7 +160,7 @@ export function renderRadixToSvg(
 
     const midAngle = longitudeToAngle(midLon, ascendant);
     const pos = polarToCartesian(cx, cy, midAngle, numberR);
-    parts.push(`<text x="${pos.x}" y="${pos.y}" fill="${theme.houseNumberColor}" font-size="${GLYPH_SIZES.houseNumber}" font-family="${theme.fontFamily}" text-anchor="middle" dominant-baseline="middle">${i + 1}</text>`);
+    parts.push(`<text x="${pos.x}" y="${pos.y}" fill="${theme.houseNumberColor}" font-size="${glyphSizes(radius).houseNumber}" font-family="${theme.fontFamily}" text-anchor="middle" dominant-baseline="middle">${i + 1}</text>`);
   }
 
   // Aspect web — fill circle with background to clear house lines, then clip
@@ -205,7 +206,7 @@ export function renderRadixToSvg(
     const zodiacPos = data.zodiac_positions[body];
     const isRetrograde = zodiacPos?.is_retrograde ?? false;
     const color = isRetrograde ? theme.planetGlyphRetrograde : theme.planetGlyph;
-    const glyphSize = GLYPH_SIZES.planet;
+    const glyphSize = glyphSizes(radius).planet;
     const glyphChar = PLANET_GLYPHS[pos.body];
 
     const glyphPos = polarToCartesian(cx, cy, pos.displayAngle, planetRingR);
@@ -237,7 +238,7 @@ export function renderRadixToSvg(
 
     // Rotate to follow radial direction
     const textAngleDeg = (-angle + Math.PI / 2) * (180 / Math.PI);
-    parts.push(`<text x="${pos.x}" y="${pos.y}" fill="${theme.degreeLabelColor}" font-size="${GLYPH_SIZES.degreeLabel}" font-family="${theme.fontFamily}" text-anchor="middle" dominant-baseline="middle" transform="rotate(${textAngleDeg},${pos.x},${pos.y})">${label}</text>`);
+    parts.push(`<text x="${pos.x}" y="${pos.y}" fill="${theme.degreeLabelColor}" font-size="${glyphSizes(radius).degreeLabel}" font-family="${theme.fontFamily}" text-anchor="middle" dominant-baseline="middle" transform="rotate(${textAngleDeg},${pos.x},${pos.y})">${label}</text>`);
   }
 
   return `<?xml version="1.0" encoding="UTF-8"?>
