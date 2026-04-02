@@ -48,9 +48,10 @@ export function drawChartInfo(
 ): void {
   const { cx, radius } = dim;
 
-  const fontSize = Math.max(9, Math.round(radius * 0.036));
+  const fontSize = Math.round(radius * 0.036);
+  if (fontSize < 4) return; // too small to read — skip rendering
   const lineHeight = Math.round(fontSize * 1.5);
-  const margin = Math.max(6, Math.round((cx - radius) * 0.6));
+  const margin = Math.round(radius * 0.04);
 
   const { zodiac_type, house_system, ayanamsa } = data.metadata;
   const hasTrueNode = CelestialBody.TrueNorthNode in data.positions;

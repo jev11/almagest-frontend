@@ -112,15 +112,23 @@ export function drawPlanetRing(
     .filter((c, i): c is number => c !== undefined && !ANGULAR_INDICES.has(i))
     .map((cuspLon) => longitudeToAngle(cuspLon, ascendant));
 
+  // Nudge AS and DS off the horizon axis BEFORE collision resolution
+  // so the resolver gives them space at their offset positions.
+  const axisOffsetRad = 8 / planetRingR;
+  for (const pos of glyphPositions) {
+    if (pos.body === ANGLE_IDS.asc || pos.body === ANGLE_IDS.dsc) {
+      pos.originalAngle += axisOffsetRad;
+      pos.displayAngle += axisOffsetRad;
+    }
+  }
+
   // Resolve collisions for ALL labels together — sorted by degree
   const resolved = resolveCollisions(glyphPositions, planetRingR, cuspBlockers);
 
-  // Nudge AS and DS slightly off the horizon axis so labels don't clash with the line.
-  // A positive (CCW) offset pushes DS above the axis and AS below it.
-  const axisOffsetRad = 14 / planetRingR;
+  // Pin AS/DS back to their offset positions — only planets should be displaced
   for (const pos of resolved) {
     if (pos.body === ANGLE_IDS.asc || pos.body === ANGLE_IDS.dsc) {
-      pos.displayAngle += axisOffsetRad;
+      pos.displayAngle = pos.originalAngle;
       pos.displaced = false;
     }
   }
@@ -215,15 +223,19 @@ export function drawPlanetRing(
     }
 
     // Draw tick mark at true ecliptic position on zodiac inner edge
+    // Skip for AS/DS only — their axis lines already indicate position. MC/IC keep ticks.
+    const isAscDsc = pos.body === ANGLE_IDS.asc || pos.body === ANGLE_IDS.dsc;
     const s = radius / 300;
-    const tickOuter = polarToCartesian(cx, cy, pos.originalAngle, zodiacInnerR);
-    const tickInner = polarToCartesian(cx, cy, pos.originalAngle, zodiacInnerR - 6 * s);
-    ctx.beginPath();
-    ctx.moveTo(tickOuter.x, tickOuter.y);
-    ctx.lineTo(tickInner.x, tickInner.y);
-    ctx.strokeStyle = tickColor;
-    ctx.lineWidth = 1;
-    ctx.stroke();
+    if (!isAscDsc) {
+      const tickOuter = polarToCartesian(cx, cy, pos.originalAngle, zodiacInnerR);
+      const tickInner = polarToCartesian(cx, cy, pos.originalAngle, zodiacInnerR - 6 * s);
+      ctx.beginPath();
+      ctx.moveTo(tickOuter.x, tickOuter.y);
+      ctx.lineTo(tickInner.x, tickInner.y);
+      ctx.strokeStyle = tickColor;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
 
     // Place each token along the radial spoke, stepping inward from the zodiac ring
     let currentR = zodiacInnerR - 20 * s;
