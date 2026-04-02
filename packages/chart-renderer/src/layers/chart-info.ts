@@ -46,7 +46,7 @@ export function drawChartInfo(
   dim: RenderDimensions,
   info: ChartInfo,
 ): void {
-  const { cx, cy, radius } = dim;
+  const { cx, radius } = dim;
 
   const fontSize = Math.max(9, Math.round(radius * 0.036));
   const lineHeight = Math.round(fontSize * 1.5);
