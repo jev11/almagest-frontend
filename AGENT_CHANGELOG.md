@@ -1,5 +1,27 @@
 # Agent Changelog
 
+## 2026-04-02 — Golden Ratio Design System
+
+### Change
+Introduced golden ratio (φ = 1.618) proportions across the entire frontend: spacing, typography tokens, page layout columns, sidebar dimensions, and component sizing.
+
+### Decisions Made
+
+**Fibonacci spacing scale (base 5px):** Spacing tokens are Fibonacci numbers: 5, 8, 13, 21, 34, 55, 89px. Each step is ×1.618 of the previous. Chosen over base-4 because the values land on actual Fibonacci numbers — thematically fitting for an astrology app.
+
+**Typography scale (base 15px):** Matches existing body text size. Scale: 9, 12, 15, 19, 24, 39, 63px. Intermediate steps use √φ for finer granularity. Line heights use Fibonacci numbers.
+
+**Layout: 61.8/38.2 column split:** Home page and chart-view use `flex: 1.618` / `flex: 1` for content columns. Simple φ split chosen over nested recursive φ — cleaner to implement, easier to maintain.
+
+**Sidebar: 89px / 144px:** Consecutive Fibonacci numbers (ratio = φ). Expanded width narrower than before (was 240px), requiring tighter nav item padding and truncated labels. "Free Plan" text removed from user area to save space.
+
+**Additive tokens:** φ spacing utilities (`gap-phi-4`, `p-phi-3`, etc.) are added alongside existing Tailwind spacing — no existing utilities removed.
+
+### Known Tradeoffs
+- Sidebar at 144px expanded is noticeably narrower than the previous 240px. Nav labels must be short.
+- Chart view right panel is now proportional instead of fixed 360px — on very wide screens it may be wider than needed.
+- At tablet-portrait widths, the 38.2% right column may be cramped. Responsive breakpoints deferred to future polish.
+
 ## 2026-04-02 — Home Page Performance Optimization
 
 ### Change
