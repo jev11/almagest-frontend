@@ -64,9 +64,11 @@ export function useCalculateChart() {
     mutationFn: async ({
       request,
       name,
+      location,
     }: {
       request: NatalRequest;
       name: string;
+      location?: string;
     }) => {
       const response = await client.calculateNatal(request);
       const id = hashRequest(request);
@@ -76,6 +78,7 @@ export function useCalculateChart() {
         name,
         chart: response,
         request,
+        location,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };

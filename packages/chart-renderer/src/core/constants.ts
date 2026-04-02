@@ -42,7 +42,7 @@ export function glyphSizes(radius: number) {
 }
 
 export const COLLISION = {
-  minGlyphGap: 15,
+  minGlyphGap: 25,
   maxDisplacement: 70,
   iterations: 80,
 } as const;

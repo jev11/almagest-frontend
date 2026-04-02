@@ -66,6 +66,7 @@ export interface StoredChart {
   name: string;
   chart: ChartData;
   request: NatalRequest;
+  location?: string;
   createdAt: number;
   updatedAt: number;
 }

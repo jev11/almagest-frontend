@@ -79,42 +79,50 @@ export function drawHouseOverlay(
 
 
 
-  // Draw house cusp labels outside the zodiac ring, tangent to the circle
+  // Draw house cusp labels outside the zodiac ring: upright characters spread tangentially.
+  // Each character is placed along the arc at cuspLabelR, centered on the cusp angle.
   const cuspLabelR = zodiacOuterR + 10 * (radius / 300);
+  const s = radius / 300;
+  const tokenGap = Math.max(1, Math.round(s));
+  const fontSize = glyphSizes(radius).degreeLabel;
+  const minuteFontSize = Math.round(fontSize * 0.70);
+
+  ctx.fillStyle = theme.degreeLabelColor;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
 
   for (let i = 0; i < 12; i++) {
     const cuspLon = houses.cusps[i];
     if (cuspLon === undefined) continue;
 
     const angle = longitudeToAngle(cuspLon, ascendant);
-    const signIndex = Math.floor(((cuspLon % 360) + 360) % 360 / 30);
-    const deg = String(Math.floor(((cuspLon % 360) + 360) % 360 % 30)).padStart(2, "0");
-    const minute = String(Math.floor((((cuspLon % 360) + 360) % 360 % 1) * 60)).padStart(2, "0");
+    const normLon = ((cuspLon % 360) + 360) % 360;
+    const signIndex = Math.floor(normLon / 30);
+    const deg = String(Math.floor(normLon % 30)).padStart(2, "0");
+    const minute = String(Math.floor((normLon % 1) * 60)).padStart(2, "0");
     const signKey = SIGN_ORDER[signIndex];
     const signGlyph = signKey ? (SIGN_GLYPHS[signKey] ?? "") : "";
 
-    const labelStr = `${deg}${signGlyph}${minute}`;
+    const tokens = [
+      { text: deg, size: fontSize },
+      { text: signGlyph, size: fontSize },
+      { text: minute, size: minuteFontSize },
+    ];
 
-    const pos = polarToCartesian(cx, cy, angle, cuspLabelR);
-    ctx.save();
-    ctx.translate(pos.x, pos.y);
+    const widths = tokens.map(t => {
+      ctx.font = `${t.size}px serif`;
+      return ctx.measureText(t.text).width;
+    });
+    const total = widths.reduce((a, w) => a + w, 0) + tokenGap * (tokens.length - 1);
 
-    // Rotate text tangent to the circle, always right-side-up.
-    // CW tangent readable in upper half [0, π], flip in lower half.
-    const normalAngle = ((angle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
-    const isUpperHalf = normalAngle <= Math.PI;
-    const baseRotation = -angle + Math.PI / 2;
-    const rotation = isUpperHalf ? baseRotation : baseRotation + Math.PI;
-    ctx.rotate(rotation);
-
-    const sizes = glyphSizes(radius);
-    ctx.font = `${sizes.degreeLabel}px serif`;
-    ctx.fillStyle = theme.degreeLabelColor;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(labelStr, 0, 0);
-
-    ctx.restore();
+    let arcOffset = -total / 2;
+    for (let t = 0; t < tokens.length; t++) {
+      const w = widths[t]!;
+      ctx.font = `${tokens[t]!.size}px serif`;
+      const p = polarToCartesian(cx, cy, angle + (arcOffset + w / 2) / cuspLabelR, cuspLabelR);
+      ctx.fillText(tokens[t]!.text, p.x, p.y);
+      arcOffset += w + tokenGap;
+    }
   }
 
   // Draw house numbers centered in the ring between houseNumberOuterR and aspectCircleR
