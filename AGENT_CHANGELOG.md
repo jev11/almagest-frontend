@@ -1,5 +1,25 @@
 # Agent Changelog
 
+## 2026-04-02 — Task 2: sky-store — Session-Scoped Zustand Store with Location Caching
+
+### Change
+Created `apps/web/src/stores/sky-store.ts` — a Zustand store that holds current sky `ChartData` in memory (session-scoped, not persisted) and caches the user's geolocation in `localStorage` under the key `astro-cached-location`.
+
+### Decisions Made
+
+**Session-scoped chart data:** Sky data is intentionally NOT persisted to localStorage. It changes throughout the day, so stale persistence would surface wrong positions on next visit. Only coordinates are cached.
+
+**Default location:** London (51.5074, -0.1278) — arbitrary but reasonable global default for users who deny geolocation.
+
+**Stale threshold:** 5 minutes (`STALE_MS`). After 5 minutes without a `setChartData` call, `isStale()` returns `true`, triggering a refresh in the calling hook.
+
+**`getInitialState` override:** Zustand's built-in `getInitialState()` returns a frozen snapshot from creation time. To support the test pattern of resetting state and re-reading `localStorage`, `getInitialState` is overridden to call `buildInitialState()` fresh each time. This is test-support only — production code never calls `getInitialState`.
+
+**`apiError` flag:** Included so the consuming UI can distinguish "data not yet loaded" from "load failed" without an extra boolean in the component.
+
+### Alternatives Considered
+- Using `zustand/middleware` `persist` with a custom partialize to only save location: cleaner API but adds complexity for a simple key-value write. Manual `localStorage.setItem` is more explicit and easier to test.
+
 ## 2026-03-31 — Aspect Timeline: Triangle/Bell Curve Area Graphs
 
 ### Change
