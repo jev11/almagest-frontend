@@ -29,6 +29,8 @@ export interface GlyphPosition {
 export function resolveCollisions(
   positions: GlyphPosition[],
   radius: number,
+  /** Fixed angles (radians) that repel labels but don't move — e.g. house cusp lines */
+  blockers: number[] = [],
 ): GlyphPosition[] {
   if (positions.length <= 1) return positions.map((p) => ({ ...p }));
 
@@ -40,9 +42,12 @@ export function resolveCollisions(
 
   const minGap = COLLISION.minGlyphGap;
   const maxDisp = COLLISION.maxDisplacement;
+  // House cusp lines are thin — a smaller clearance is sufficient
+  const blockerGap = Math.round(minGap * 0.5);
 
   // Convert pixel gap to angular gap at given radius
   const minAngularGap = minGap / radius; // radians
+  const blockerAngularGap = blockerGap / radius; // radians
   const maxAngularDisp = maxDisp / radius; // radians
 
   for (let iter = 0; iter < COLLISION.iterations; iter++) {
@@ -59,6 +64,19 @@ export function resolveCollisions(
         // Push curr left (decreasing angle) and next right (increasing angle)
         curr.displayAngle -= push;
         next.displayAngle += push;
+      }
+    }
+
+    // One-sided repulsion from fixed blocker angles (house cusps, etc.)
+    for (const pos of result) {
+      for (const blocker of blockers) {
+        const diff = pos.displayAngle - blocker;
+        const pixelDist = Math.abs(diff) * radius;
+        if (pixelDist < blockerGap) {
+          const push = blockerAngularGap - Math.abs(diff);
+          // Push away from blocker; if exactly on it, push in increasing direction
+          pos.displayAngle += (diff >= 0 ? 1 : -1) * push;
+        }
       }
     }
 

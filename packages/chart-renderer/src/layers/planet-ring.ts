@@ -104,8 +104,16 @@ export function drawPlanetRing(
     });
   }
 
+  // House cusp angles act as fixed repulsors in the collision resolver.
+  // Exclude angular cusps (1,4,7,10 = indices 0,3,6,9) — they have dedicated
+  // angle labels in the position pool and must not repel themselves.
+  const ANGULAR_INDICES = new Set([0, 3, 6, 9]);
+  const cuspBlockers = data.houses.cusps
+    .filter((c, i): c is number => c !== undefined && !ANGULAR_INDICES.has(i))
+    .map((cuspLon) => longitudeToAngle(cuspLon, ascendant));
+
   // Resolve collisions for ALL labels together — sorted by degree
-  const resolved = resolveCollisions(glyphPositions, planetRingR);
+  const resolved = resolveCollisions(glyphPositions, planetRingR, cuspBlockers);
 
   // Nudge AS and DS slightly off the horizon axis so labels don't clash with the line.
   // A positive (CCW) offset pushes DS above the axis and AS below it.
@@ -115,6 +123,44 @@ export function drawPlanetRing(
       pos.displayAngle += axisOffsetRad;
       pos.displaced = false;
     }
+  }
+
+  // Clamp each planet label within its house boundaries.
+  // The collision resolver can push labels up to 70px, which may cross a cusp line.
+  // We find the two cusp angles bracketing the planet's original position and hard-clamp.
+  const allCuspAngles = data.houses.cusps
+    .filter((c): c is number => c !== undefined)
+    .map((cuspLon) => longitudeToAngle(cuspLon, ascendant))
+    .sort((a, b) => a - b);
+
+  const houseMargin = 8 / planetRingR; // stay this many pixels away from cusp line
+  const anglePointIds = new Set(anglePoints.map((ap) => ap.id));
+
+  for (const pos of resolved) {
+    // Only clamp planet labels, not angle point labels (ASC/DSC/MC/IC sit on cusps by design)
+    if (anglePointIds.has(pos.body)) continue;
+
+    // Find the two house cusp angles that bracket this planet's original position
+    let lowerBound = -Infinity;
+    let upperBound = Infinity;
+    for (const cuspAngle of allCuspAngles) {
+      if (cuspAngle <= pos.originalAngle && cuspAngle > lowerBound) {
+        lowerBound = cuspAngle;
+      }
+      if (cuspAngle > pos.originalAngle && cuspAngle < upperBound) {
+        upperBound = cuspAngle;
+      }
+    }
+
+    if (lowerBound !== -Infinity) {
+      pos.displayAngle = Math.max(pos.displayAngle, lowerBound + houseMargin);
+    }
+    if (upperBound !== Infinity) {
+      pos.displayAngle = Math.min(pos.displayAngle, upperBound - houseMargin);
+    }
+
+    // Re-evaluate displaced flag after clamping
+    pos.displaced = Math.abs(pos.displayAngle - pos.originalAngle) > 0.001;
   }
 
   const sizes = glyphSizes(radius);
