@@ -1,24 +1,30 @@
 # Agent Changelog
 
-## 2026-04-02 — Task 2: sky-store — Session-Scoped Zustand Store with Location Caching
+## 2026-04-02 — Home Page Performance Optimization
 
 ### Change
-Created `apps/web/src/stores/sky-store.ts` — a Zustand store that holds current sky `ChartData` in memory (session-scoped, not persisted) and caches the user's geolocation in `localStorage` under the key `astro-cached-location`.
+Optimize Home page load time: instant rendering on first visit, near-zero latency on return visits.
 
 ### Decisions Made
 
-**Session-scoped chart data:** Sky data is intentionally NOT persisted to localStorage. It changes throughout the day, so stale persistence would surface wrong positions on next visit. Only coordinates are cached.
+**Data caching approach (over component caching):**
+Sky data (planet positions, aspects) is stored in a session-scoped Zustand store (`sky-store`). Navigating away and back to Home reuses cached data instead of re-computing. Data refreshes when stale (>5 minutes).
 
-**Default location:** London (51.5074, -0.1278) — arbitrary but reasonable global default for users who deny geolocation.
+**Remove geolocation gate:**
+Previously, all Home widgets waited for `navigator.geolocation.getCurrentPosition()` (up to 5-second timeout) before rendering anything. Now: render immediately with cached or default (London) coordinates. Geolocation resolves in background and updates in-place. User's location is cached in localStorage for future sessions.
 
-**Stale threshold:** 5 minutes (`STALE_MS`). After 5 minutes without a `setChartData` call, `isStale()` returns `true`, triggering a refresh in the calling hook.
+**Eager HomePage loading:**
+HomePage removed from React.lazy() code splitting. As the primary destination, it's included in the main bundle to eliminate chunk-fetch latency on navigation.
 
-**`getInitialState` override:** Zustand's built-in `getInitialState()` returns a frozen snapshot from creation time. To support the test pattern of resetting state and re-reading `localStorage`, `getInitialState` is overridden to call `buildInitialState()` fresh each time. This is test-support only — production code never calls `getInitialState`.
+**Deferred AspectsTimeline:**
+The 40-call `calculateApproximate` loop moved from synchronous `useMemo` to `useEffect` + `requestAnimationFrame`. Above-the-fold widgets (chart wheel, moon card, planet card) paint first; timeline fills in one frame later.
 
-**`apiError` flag:** Included so the consuming UI can distinguish "data not yet loaded" from "load failed" without an extra boolean in the component.
+**MoonCard consolidation:**
+Two identical `calculateApproximate(now, 0, 0)` calls merged into one.
 
-### Alternatives Considered
-- Using `zustand/middleware` `persist` with a custom partialize to only save location: cleaner API but adds complexity for a simple key-value write. Manual `localStorage.setItem` is more explicit and easier to test.
+### Known Tradeoff
+- Chart may briefly show London-based positions before geolocation resolves (only on first-ever visit or if location permission is denied). The visual shift is minimal — planet longitudes barely change with location; only house cusps and ascendant shift.
+- AspectsTimeline shows a brief "Loading..." placeholder before data arrives (~16ms, usually imperceptible).
 
 ## 2026-03-31 — Aspect Timeline: Triangle/Bell Curve Area Graphs
 
