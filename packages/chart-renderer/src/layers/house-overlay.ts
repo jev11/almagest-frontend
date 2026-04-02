@@ -103,11 +103,18 @@ export function drawHouseOverlay(
     const signKey = SIGN_ORDER[signIndex];
     const signGlyph = signKey ? (SIGN_GLYPHS[signKey] ?? "") : "";
 
-    const tokens = [
-      { text: deg, size: fontSize },
-      { text: signGlyph, size: fontSize },
-      { text: minute, size: minuteFontSize },
-    ];
+    const houseNum = i + 1;
+    const tokens = houseNum >= 7
+      ? [
+          { text: minute, size: minuteFontSize },
+          { text: signGlyph, size: fontSize },
+          { text: deg, size: fontSize },
+        ]
+      : [
+          { text: deg, size: fontSize },
+          { text: signGlyph, size: fontSize },
+          { text: minute, size: minuteFontSize },
+        ];
 
     const widths = tokens.map(t => {
       ctx.font = `${t.size}px serif`;

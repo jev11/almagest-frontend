@@ -34,8 +34,8 @@ const GLYPH_BASE_RADIUS = 300;
 export function glyphSizes(radius: number) {
   const s = radius / GLYPH_BASE_RADIUS;
   return {
-    planet:      Math.round(18 * s),
-    sign:        Math.round(20 * s),
+    planet: Math.round(15 * s),
+    sign: Math.round(20 * s),
     degreeLabel: Math.round(11 * s),
     houseNumber: Math.round(13 * s),
   };

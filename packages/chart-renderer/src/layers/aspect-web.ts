@@ -57,6 +57,7 @@ export function drawAspectWeb(
   ctx.clip();
 
   for (const aspect of data.aspects) {
+    if (aspect.type === "conjunction") continue;
     const pos1 = data.positions[aspect.body1];
     const pos2 = data.positions[aspect.body2];
     if (!pos1 || !pos2) continue;
