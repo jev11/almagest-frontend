@@ -106,43 +106,72 @@ export function drawPlanetRing(
 
   // House cusp angles act as fixed repulsors in the collision resolver.
   // Exclude angular cusps (1,4,7,10 = indices 0,3,6,9) — they have dedicated
-  // angle labels in the position pool and must not repel themselves.
+  // angle labels rendered separately.
   const ANGULAR_INDICES = new Set([0, 3, 6, 9]);
   const cuspBlockers = data.houses.cusps
     .filter((c, i): c is number => c !== undefined && !ANGULAR_INDICES.has(i))
     .map((cuspLon) => longitudeToAngle(cuspLon, ascendant));
 
-  // Nudge AS and DS off the horizon axis BEFORE collision resolution
-  // so the resolver gives them space at their offset positions.
+  // Angle labels are fixed (not movable). Remove them from the planet pool
+  // and add their positions as blockers so the resolver pushes planets away.
+  // Fan out multiple blocker points to cover the full angular width of each label.
+  // Angle labels occupy significant radial space (glyph + degree + sign + minute),
+  // so the exclusion zone must be wide enough to prevent overlaps.
   const axisOffsetRad = 8 / planetRingR;
-  for (const pos of glyphPositions) {
-    if (pos.body === ANGLE_IDS.asc || pos.body === ANGLE_IDS.dsc) {
-      pos.originalAngle += axisOffsetRad;
-      pos.displayAngle += axisOffsetRad;
+  const angleLabelSpan = 18 / planetRingR; // step between blocker points
+  const angleBlockerPositions: number[] = [];
+  for (const ap of anglePoints) {
+    const center = longitudeToAngle(ap.lon, ascendant) + axisOffsetRad;
+    for (let step = -1; step <= 2; step++) {
+      angleBlockerPositions.push(center + step * angleLabelSpan);
     }
   }
 
-  // Resolve collisions for ALL labels together — sorted by degree
-  const resolved = resolveCollisions(glyphPositions, planetRingR, cuspBlockers);
+  // Remove angle points from planet positions — they'll be rendered separately
+  const planetPositions = glyphPositions.filter(
+    (pos) => !anglePoints.some((ap) => ap.id === pos.body),
+  );
 
-  // Pin AS/DS back to their offset positions — only planets should be displaced
-  for (const pos of resolved) {
-    if (pos.body === ANGLE_IDS.asc || pos.body === ANGLE_IDS.dsc) {
-      pos.displayAngle = pos.originalAngle;
-      pos.displaced = false;
-    }
+  // Resolve collisions for planet labels only, with angle + cusp blockers
+  const allBlockers = [...cuspBlockers, ...angleBlockerPositions];
+  const resolved = resolveCollisions(planetPositions, planetRingR, allBlockers);
+
+  // Re-insert angle points at their fixed positions for rendering
+  for (const ap of anglePoints) {
+    const nudgedAngle = longitudeToAngle(ap.lon, ascendant) + axisOffsetRad;
+    resolved.push({
+      body: ap.id,
+      originalAngle: nudgedAngle,
+      displayAngle: nudgedAngle,
+      displaced: false,
+    });
   }
 
   // Clamp each planet label within its house boundaries.
-  // The collision resolver can push labels up to 70px, which may cross a cusp line.
+  // The collision resolver can push labels up to 89px, which may cross a cusp line.
   // We find the two cusp angles bracketing the planet's original position and hard-clamp.
+  // Angular cusps (AS/DS/MC/IC) need a wider margin because they have large labels.
+  const angularCuspAngles = new Set<number>();
+  for (const ap of anglePoints) {
+    angularCuspAngles.add(longitudeToAngle(ap.lon, ascendant));
+  }
+
   const allCuspAngles = data.houses.cusps
     .filter((c): c is number => c !== undefined)
     .map((cuspLon) => longitudeToAngle(cuspLon, ascendant))
     .sort((a, b) => a - b);
 
-  const houseMargin = 8 / planetRingR; // stay this many pixels away from cusp line
+  const houseMargin = 8 / planetRingR; // stay this many pixels away from regular cusp line
+  const angleMargin = 34 / planetRingR; // wider margin for angular cusps with labels
   const anglePointIds = new Set(anglePoints.map((ap) => ap.id));
+
+  function marginForCusp(cuspAngle: number): number {
+    // Check if this cusp is near an angular cusp (within 0.01 rad tolerance)
+    for (const ac of angularCuspAngles) {
+      if (Math.abs(cuspAngle - ac) < 0.01) return angleMargin;
+    }
+    return houseMargin;
+  }
 
   for (const pos of resolved) {
     // Only clamp planet labels, not angle point labels (ASC/DSC/MC/IC sit on cusps by design)
@@ -151,20 +180,24 @@ export function drawPlanetRing(
     // Find the two house cusp angles that bracket this planet's original position
     let lowerBound = -Infinity;
     let upperBound = Infinity;
+    let lowerCusp = 0;
+    let upperCusp = 0;
     for (const cuspAngle of allCuspAngles) {
       if (cuspAngle <= pos.originalAngle && cuspAngle > lowerBound) {
         lowerBound = cuspAngle;
+        lowerCusp = cuspAngle;
       }
       if (cuspAngle > pos.originalAngle && cuspAngle < upperBound) {
         upperBound = cuspAngle;
+        upperCusp = cuspAngle;
       }
     }
 
     if (lowerBound !== -Infinity) {
-      pos.displayAngle = Math.max(pos.displayAngle, lowerBound + houseMargin);
+      pos.displayAngle = Math.max(pos.displayAngle, lowerBound + marginForCusp(lowerCusp));
     }
     if (upperBound !== Infinity) {
-      pos.displayAngle = Math.min(pos.displayAngle, upperBound - houseMargin);
+      pos.displayAngle = Math.min(pos.displayAngle, upperBound - marginForCusp(upperCusp));
     }
 
     // Re-evaluate displaced flag after clamping

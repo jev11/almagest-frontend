@@ -1,8 +1,8 @@
-# Astro App — Frontend & Mobile
+# Almagest Frontend
 
 ## Project Overview
 
-This is the frontend monorepo for an astrology software platform. It contains the web application, chart rendering engine, client-side approximation engine, and API client SDK. The backend calculation API lives in a separate repository (astro-api).
+This is the frontend monorepo for an astrology software platform. It contains the web application, chart rendering engine, client-side approximation engine, and API client SDK. The backend calculation API lives in a separate repository (almagest-backend).
 
 **Tech stack:** TypeScript, React 18, Vite, Canvas 2D / SVG, npm workspaces
 **Design direction:** Minimalist, modern, dark-mode-first
@@ -11,7 +11,7 @@ This is the frontend monorepo for an astrology software platform. It contains th
 ## Repository Structure
 
 ```
-astro-app/
+almagest-frontend/
 ├── packages/
 │   ├── shared-types/             # TypeScript types generated from OpenAPI spec
 │   ├── chart-renderer/           # Canvas/SVG chart rendering engine (Phase 2 ✅)
@@ -95,7 +95,7 @@ cd apps/web && npx shadcn@latest add button
 
 ### New Packages in This Phase
 
-**astro-client** (`packages/astro-client/`) — TypeScript SDK for the astro-api backend. Wraps fetch calls, handles response typing, integrates with TanStack Query for caching, and coordinates the snap-to-server pattern.
+**astro-client** (`packages/astro-client/`) — TypeScript SDK for the almagest-backend backend. Wraps fetch calls, handles response typing, integrates with TanStack Query for caching, and coordinates the snap-to-server pattern.
 
 **approx-engine** (`packages/approx-engine/`) — Pure TypeScript implementation of VSOP87 (planets) and ELP2000 (Moon) for real-time client-side calculation. Used for the live chart wheel on the home screen and transit timeline scrubbing.
 
@@ -164,9 +164,9 @@ apps/web/
 
 ### Backend API
 
-The backend runs separately (astro-api repo). During development:
+The backend runs separately (almagest-backend repo). During development:
 ```bash
-# In the astro-api repo:
+# In the almagest-backend repo:
 docker-compose up    # Runs on http://localhost:8000
 
 # In apps/web/.env:

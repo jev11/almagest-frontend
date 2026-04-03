@@ -8,7 +8,7 @@ Build the user-facing Vite + React web application that connects the chart-rende
 
 ## Prerequisites
 
-- Phase 1 complete: astro-api running, `/v1/chart/natal` endpoint working
+- Phase 1 complete: almagest-backend running, `/v1/chart/natal` endpoint working
 - Phase 2 complete: chart-renderer renders radix and bi-wheel charts
 - Design complete: `design.pen` file in the repo with screen designs
 - Design system spec: `docs/DESIGN_DOCUMENT.md`
@@ -18,7 +18,7 @@ Build the user-facing Vite + React web application that connects the chart-rende
 ### 1. Vite + React App Scaffolding
 
 ```bash
-# From astro-app repo root
+# From almagest-frontend repo root
 cd apps
 npm create vite@latest web -- --template react-ts
 cd web
@@ -562,7 +562,7 @@ export function getMoonPhaseName(elongation: number): string {
 //   Error code: 404 → Response: /index.html, status 200
 // This makes React Router handle all routes client-side
 
-// CDK stack (in your infra repo or astro-api):
+// CDK stack (in your infra repo or almagest-backend):
 // S3 bucket (private, website hosting disabled)
 // CloudFront distribution with:
 //   - Origin: S3 bucket via OAC
@@ -581,7 +581,7 @@ Phase 3 is complete when:
 3. ✅ React Router navigates between all 6 pages without full reload
 4. ✅ Home screen shows live chart wheel updating every 60 seconds
 5. ✅ Home screen shows Moon phase, today's aspects, retrograde tracker
-6. ✅ New Chart form submits to astro-api and receives chart data
+6. ✅ New Chart form submits to almagest-backend and receives chart data
 7. ✅ Location search with geocoding works (autocomplete + coordinates)
 8. ✅ Local time + timezone correctly converts to UTC for API calls
 9. ✅ Chart Display page renders the chart wheel with data panels

@@ -10,6 +10,8 @@ export interface ChartInfo {
   latitude?: number;
   /** Decimal degrees, positive = East */
   longitude?: number;
+  /** IANA timezone name, e.g. "Europe/Amsterdam" */
+  timezone?: string;
 }
 
 const HOUSE_SYSTEM_LABELS: Record<string, string> = {
@@ -62,9 +64,9 @@ export function drawChartInfo(
   if (info.latitude !== undefined && info.longitude !== undefined) {
     leftLines.push(`${formatLat(info.latitude)}  ${formatLon(info.longitude)}`);
   }
+  if (info.timezone) leftLines.push(info.timezone);
 
   const rightLines: string[] = [
-    "Geocentric",
     zodiac_type === "sidereal" ? (ayanamsa ? `Sidereal · ${ayanamsa}` : "Sidereal") : "Tropical",
     HOUSE_SYSTEM_LABELS[house_system] ?? house_system,
     hasTrueNode && !hasMeanNode ? "True Node" : "Mean Node",

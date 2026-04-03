@@ -92,6 +92,10 @@ export function drawHouseOverlay(
   ctx.textBaseline = "middle";
 
   for (let i = 0; i < 12; i++) {
+    // Skip angular cusps — their labels (As, Ds, Mc, Ic + degree) are drawn
+    // by the planet-ring layer alongside planet glyphs to avoid collisions.
+    if (ANGULAR_HOUSES.has(i + 1)) continue;
+
     const cuspLon = houses.cusps[i];
     if (cuspLon === undefined) continue;
 

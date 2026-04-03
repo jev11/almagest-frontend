@@ -1,5 +1,16 @@
 # Agent Changelog
 
+## 2026-04-03 — Settings: Save/Cancel Instead of Immediate Apply
+
+### Change
+Settings page no longer applies changes immediately. All edits are held in local React state (draft). Save and Cancel buttons appear when there are unsaved changes. Settings are only persisted to Zustand/localStorage when Save is pressed.
+
+### Decisions Made
+
+**Draft state pattern:** Local `useState` holds a copy of settings. All form controls read/write the draft. On Save, draft values are committed to the Zustand store. On Cancel, draft is reset to current store values. This avoids any intermediate state leaking to other parts of the app.
+
+**Conditional button visibility:** Save/Cancel buttons only appear when the draft differs from the persisted settings (`isDirty` flag). Reset to defaults still works immediately (resets both store and draft).
+
 ## 2026-04-02 — Golden Ratio Design System
 
 ### Change

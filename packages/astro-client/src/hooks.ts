@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAstroClient } from "./provider.js";
 import { chartCache } from "./cache.js";
-import type { NatalRequest, TransitRequest } from "./types.js";
+import type { NatalRequest, TransitRequest, StoredChart } from "./types.js";
 
 /** Deterministic hash of a request for use as a cache key. */
 export function hashRequest(req: object): string {
@@ -65,20 +65,23 @@ export function useCalculateChart() {
       request,
       name,
       location,
+      nodeType,
     }: {
       request: NatalRequest;
       name: string;
       location?: string;
+      nodeType?: "mean" | "true";
     }) => {
       const response = await client.calculateNatal(request);
       const id = hashRequest(request);
 
-      const stored = {
+      const stored: StoredChart = {
         id,
         name,
         chart: response,
         request,
         location,
+        nodeType,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };

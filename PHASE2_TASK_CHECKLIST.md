@@ -277,7 +277,7 @@ This chart has:
 - All major planet positions represented
 ```
 
-Run this through the astro-api to generate the exact ChartData JSON, then hardcode it as test data in the chart-renderer package.
+Run this through the almagest-backend to generate the exact ChartData JSON, then hardcode it as test data in the chart-renderer package.
 
 ---
 

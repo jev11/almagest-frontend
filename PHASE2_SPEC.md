@@ -6,9 +6,9 @@ Build the chart-renderer package: a framework-agnostic, layer-based rendering en
 
 ## Prerequisites
 
-- Phase 1 complete (astro-api running, natal endpoint returning ChartData)
+- Phase 1 complete (almagest-backend running, natal endpoint returning ChartData)
 - Design sprint complete (design system, chart wheel design, glyph set)
-- astro-app monorepo scaffolded with npm workspaces
+- almagest-frontend monorepo scaffolded with npm workspaces
 
 ## Deliverables (in order)
 
@@ -19,7 +19,7 @@ Set up the npm workspaces monorepo before building any packages.
 **Root package.json:**
 ```json
 {
-  "name": "astro-app",
+  "name": "almagest-frontend",
   "private": true,
   "workspaces": [
     "packages/*",
