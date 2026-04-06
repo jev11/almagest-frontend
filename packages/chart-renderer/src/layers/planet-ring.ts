@@ -277,7 +277,7 @@ export function drawPlanetRing(
 
     for (const token of tokens) {
       const size = token.size ?? (token.small ? minuteFontSize : fontSize);
-      ctx.font = token.bold ? `bold ${size}px serif` : `${size}px serif`;
+      ctx.font = token.bold ? `bold ${size}px ${theme.fontFamily}` : `${size}px ${theme.fontFamily}`;
       ctx.fillStyle = token.color;
       const p = polarToCartesian(cx, cy, pos.displayAngle, currentR);
       ctx.fillText(token.text, p.x, p.y);

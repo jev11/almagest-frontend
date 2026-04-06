@@ -101,7 +101,7 @@ export function renderRadixToSvg(
     const glyphSize = glyphSizes(radius).sign;
     const glyphChar = SIGN_GLYPHS[sign as string];
     if (glyphChar) {
-      parts.push(`<text x="${glyphPos.x}" y="${glyphPos.y}" fill="${theme.signGlyphColor}" font-size="${glyphSize}" font-family="serif" text-anchor="middle" dominant-baseline="middle">${glyphChar}</text>`);
+      parts.push(`<text x="${glyphPos.x}" y="${glyphPos.y}" fill="${theme.signGlyphColor}" font-size="${glyphSize}" font-family="${theme.fontFamily}" text-anchor="middle" dominant-baseline="middle">${glyphChar}</text>`);
     }
   }
 
@@ -212,7 +212,7 @@ export function renderRadixToSvg(
     const glyphPos = polarToCartesian(cx, cy, pos.displayAngle, planetRingR);
 
     if (glyphChar) {
-      parts.push(`<text x="${glyphPos.x}" y="${glyphPos.y}" fill="${color}" font-size="${glyphSize}" font-family="serif" text-anchor="middle" dominant-baseline="middle">${glyphChar}</text>`);
+      parts.push(`<text x="${glyphPos.x}" y="${glyphPos.y}" fill="${color}" font-size="${glyphSize}" font-family="${theme.fontFamily}" text-anchor="middle" dominant-baseline="middle">${glyphChar}</text>`);
     }
 
     if (pos.displaced) {

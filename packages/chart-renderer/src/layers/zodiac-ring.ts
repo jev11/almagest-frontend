@@ -73,6 +73,7 @@ export function drawZodiacRing(
       glyphPos.y,
       glyphSizes(radius).sign,
       theme.signGlyphColor,
+      theme.fontFamily,
     );
   }
 

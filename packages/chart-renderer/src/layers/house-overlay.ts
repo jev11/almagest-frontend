@@ -121,7 +121,7 @@ export function drawHouseOverlay(
         ];
 
     const widths = tokens.map(t => {
-      ctx.font = `${t.size}px serif`;
+      ctx.font = `${t.size}px ${theme.fontFamily}`;
       return ctx.measureText(t.text).width;
     });
     const total = widths.reduce((a, w) => a + w, 0) + tokenGap * (tokens.length - 1);
@@ -129,7 +129,7 @@ export function drawHouseOverlay(
     let arcOffset = -total / 2;
     for (let t = 0; t < tokens.length; t++) {
       const w = widths[t]!;
-      ctx.font = `${tokens[t]!.size}px serif`;
+      ctx.font = `${tokens[t]!.size}px ${theme.fontFamily}`;
       const p = polarToCartesian(cx, cy, angle + (arcOffset + w / 2) / cuspLabelR, cuspLabelR);
       ctx.fillText(tokens[t]!.text, p.x, p.y);
       arcOffset += w + tokenGap;

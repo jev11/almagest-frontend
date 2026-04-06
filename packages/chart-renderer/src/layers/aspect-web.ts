@@ -92,7 +92,7 @@ export function drawAspectWeb(
       const glyphFontSize = glyphSizes(radius).degreeLabel;
       const glyphHalf = Math.round(glyphFontSize * 0.65);
       ctx.save();
-      ctx.font = `${glyphFontSize}px serif`;
+      ctx.font = `${glyphFontSize}px ${theme.fontFamily}`;
       ctx.fillStyle = color;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";

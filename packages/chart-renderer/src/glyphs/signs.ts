@@ -44,10 +44,11 @@ export function drawSignGlyph(
   y: number,
   size: number,
   color: string,
+  fontFamily = "serif",
 ): void {
   if (!glyph) return;
   ctx.save();
-  ctx.font = `${size}px serif`;
+  ctx.font = `${size}px ${fontFamily}`;
   ctx.fillStyle = color;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";

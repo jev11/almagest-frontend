@@ -127,7 +127,7 @@ export function drawTransitRing(
     ctx.stroke();
 
     // Planet glyph at the mid-radius of the transit zone
-    ctx.font = `bold ${fontSize}px serif`;
+    ctx.font = `bold ${fontSize}px ${theme.fontFamily}`;
     ctx.fillStyle = color;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
@@ -136,7 +136,7 @@ export function drawTransitRing(
 
     // Retrograde indicator just inward from the glyph
     if (isRetrograde) {
-      ctx.font = `${fontSize - 2}px serif`;
+      ctx.font = `${fontSize - 2}px ${theme.fontFamily}`;
       const retrogPt = polarToCartesian(
         cx,
         cy,
