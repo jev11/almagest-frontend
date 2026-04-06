@@ -11,7 +11,8 @@ import {
   MAJOR_ASPECTS,
   ASPECT_ANGLES,
 } from "../core/constants.js";
-import { PLANET_GLYPHS } from "../glyphs/planets.js";
+import { PLANET_PATHS } from "../glyphs/planet-paths.js";
+import { drawPathGlyph } from "../glyphs/draw.js";
 import { resolveCollisions, type GlyphPosition } from "../core/layout.js";
 import type { ChartData } from "@astro-app/shared-types";
 import type { ChartTheme } from "../themes/types.js";
@@ -114,7 +115,7 @@ export function drawTransitRing(
     const isRetrograde = zodiacPos.is_retrograde ?? false;
     // Transit planets rendered dimmer than natal to maintain visual hierarchy
     const color = isRetrograde ? theme.planetGlyphRetrograde : theme.degreeLabelColor;
-    const planetGlyph = (PLANET_GLYPHS[pos.body] ?? "") + "\uFE0E";
+    const planetPath = PLANET_PATHS[pos.body] ?? "";
 
     // Tick mark on the zodiac inner edge at the planet's true ecliptic position
     const tickOuter = polarToCartesian(cx, cy, pos.originalAngle, zodiacInnerR);
@@ -127,12 +128,8 @@ export function drawTransitRing(
     ctx.stroke();
 
     // Planet glyph at the mid-radius of the transit zone
-    ctx.font = `bold ${fontSize}px ${theme.fontFamily}`;
-    ctx.fillStyle = color;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
     const glyphPt = polarToCartesian(cx, cy, pos.displayAngle, transitMidR);
-    ctx.fillText(planetGlyph, glyphPt.x, glyphPt.y);
+    drawPathGlyph(ctx, planetPath, glyphPt.x, glyphPt.y, fontSize, color);
 
     // Retrograde indicator just inward from the glyph
     if (isRetrograde) {

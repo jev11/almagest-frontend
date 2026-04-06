@@ -1,8 +1,8 @@
 import { SIGN_ORDER, SIGN_ELEMENT, type ChartData, CelestialBody, type AspectType } from "@astro-app/shared-types";
 import { longitudeToAngle, polarToCartesian } from "../core/geometry.js";
 import { RING_PROPORTIONS, glyphSizes, MAJOR_ASPECTS } from "../core/constants.js";
-import { SIGN_GLYPHS } from "../glyphs/signs.js";
-import { PLANET_GLYPHS } from "../glyphs/planets.js";
+import { SIGN_PATHS } from "../glyphs/sign-paths.js";
+import { PLANET_PATHS } from "../glyphs/planet-paths.js";
 import { resolveCollisions, type GlyphPosition } from "../core/layout.js";
 import type { ChartTheme } from "../themes/types.js";
 
@@ -99,9 +99,12 @@ export function renderRadixToSvg(
     const glyphR = (outerR + innerR) / 2;
     const glyphPos = polarToCartesian(cx, cy, midAngle, glyphR);
     const glyphSize = glyphSizes(radius).sign;
-    const glyphChar = SIGN_GLYPHS[sign as string];
-    if (glyphChar) {
-      parts.push(`<text x="${glyphPos.x}" y="${glyphPos.y}" fill="${theme.signGlyphColor}" font-size="${glyphSize}" font-family="${theme.fontFamily}" text-anchor="middle" dominant-baseline="middle">${glyphChar}</text>`);
+    const signPathData = SIGN_PATHS[sign as string];
+    if (signPathData) {
+      const scale = glyphSize / 100;
+      const tx = glyphPos.x - glyphSize / 2;
+      const ty = glyphPos.y - glyphSize / 2;
+      parts.push(`<path d="${signPathData}" fill="${theme.signGlyphColor}" transform="translate(${tx},${ty}) scale(${scale})"/>`);
     }
   }
 
@@ -207,12 +210,15 @@ export function renderRadixToSvg(
     const isRetrograde = zodiacPos?.is_retrograde ?? false;
     const color = isRetrograde ? theme.planetGlyphRetrograde : theme.planetGlyph;
     const glyphSize = glyphSizes(radius).planet;
-    const glyphChar = PLANET_GLYPHS[pos.body];
+    const planetPathData = PLANET_PATHS[pos.body];
 
     const glyphPos = polarToCartesian(cx, cy, pos.displayAngle, planetRingR);
 
-    if (glyphChar) {
-      parts.push(`<text x="${glyphPos.x}" y="${glyphPos.y}" fill="${color}" font-size="${glyphSize}" font-family="${theme.fontFamily}" text-anchor="middle" dominant-baseline="middle">${glyphChar}</text>`);
+    if (planetPathData) {
+      const scale = glyphSize / 100;
+      const tx = glyphPos.x - glyphSize / 2;
+      const ty = glyphPos.y - glyphSize / 2;
+      parts.push(`<path d="${planetPathData}" fill="${color}" transform="translate(${tx},${ty}) scale(${scale})"/>`);
     }
 
     if (pos.displaced) {
