@@ -1,5 +1,73 @@
 # Agent Changelog
 
+## 2026-04-06 — Custom SVG Path Glyphs (cross-browser glyph rendering)
+
+### Change
+Replaced all Unicode astrological symbol rendering with custom SVG path data rendered via Canvas `Path2D` API. This eliminates cross-browser rendering differences caused by font fallback, `measureText()` variance, and `textBaseline` inconsistencies between Firefox and Chrome.
+
+### Files Added
+- `packages/chart-renderer/src/glyphs/draw.ts` — `drawPathGlyph()` function using Path2D
+- `packages/chart-renderer/src/glyphs/planet-paths.ts` — 17 planet SVG paths + width ratios
+- `packages/chart-renderer/src/glyphs/sign-paths.ts` — 12 zodiac sign SVG paths + width ratios
+- `packages/chart-renderer/src/glyphs/aspect-paths.ts` — 11 aspect SVG paths + width ratios
+
+### Files Modified
+- `zodiac-ring.ts`, `planet-ring.ts`, `house-overlay.ts`, `aspect-web.ts` — migrated to path rendering
+- `adapters/svg.ts` — SVG `<text>` elements replaced with `<path>` elements
+- `charts/biwheel.ts` — migrated transit planet glyphs to path rendering
+- `glyphs/index.ts` — updated re-exports
+- `glyphs/glyphs.test.ts` — tests for key coverage, width bounds, path validity
+
+### Files Deleted
+- `packages/chart-renderer/src/glyphs/planets.ts` — old Unicode planet glyphs
+- `packages/chart-renderer/src/glyphs/signs.ts` — old Unicode sign glyphs
+
+### Decisions Made
+- **Calligraphic style** chosen for glyph design (variable stroke width, traditional manuscript feel)
+- **100×100 design grid** for SVG paths — scales to any pixel size
+- **Fill-only rendering** — all paths are closed shapes (lines converted to thin rectangles/polygons)
+- **Width ratios** per glyph for deterministic layout (replaces `measureText()` for glyph tokens)
+- **Degree numbers, house numbers, axis labels, retrograde ℞ stay as `fillText()`** — these are standard characters that render consistently across browsers
+
+---
+
+## 2026-04-06 — Open-Path Glyph Fixes (fill-only rendering)
+
+### Change
+Converted all remaining open SVG sub-paths in glyph files to closed filled shapes. The renderer uses `ctx.fill()` only — any path without `Z` close has zero fill area and is invisible.
+
+### Files Modified
+- `packages/chart-renderer/src/glyphs/sign-paths.ts` — fixed taurus horns, cancer (2 spirals), leo (3 segments), virgo (3 strokes), libra (bar + arch + bottom curve), scorpio (3 strokes + arrow), capricorn (looping stroke), pisces (2 parentheses + bar)
+- `packages/chart-renderer/src/glyphs/planet-paths.ts` — fixed NORTH_NODE and SOUTH_NODE corner bracket L-shapes and stems
+- `packages/chart-renderer/src/glyphs/aspect-paths.ts` — fixed conjunction stem, opposition connector, semi_sextile stem and bar
+
+### Decisions Made
+- **Straight lines → 4px-wide rectangles:** `M x1 y1 L x2 y2` converted to 4-unit-wide closed rect
+- **Open curves → closed ribbons:** Offset control points ~3 units and close to form a thin filled band
+- **L-shaped brackets → closed L-polygons:** Corner bracket M/L chains converted to closed 4px-wide L-shapes
+- **Scorpio arrow barbs** converted to a single closed polygon tracing both barb lines and returning through the main stroke
+
+---
+
+## 2026-04-06 — Review Findings Bug Fixes (review_findings-1.md)
+
+### Change
+Fixed 5 of 6 findings from code review. Finding 6 (auth tokens in localStorage) deferred — requires backend cookie auth support.
+
+### Bugs Fixed
+- **Finding 1 (High):** Cloud chart detail navigation now works. `chart-view.tsx` reads `?source=cloud` search param and fetches via `client.getCloudChart(id)`, converting `CloudChart` to `StoredChart` for rendering. Shows cloud-specific error on fetch failure.
+- **Finding 2 (High):** Precise API aspects no longer overwritten with approximate aspects. Exported `calculateAspects()` from `approx-engine` and used it to recalculate aspects from the precise positions returned by the API, instead of discarding them via `calculateApproximate()`.
+- **Finding 3 (Medium):** Sidereal chart edits now preserve `ayanamsa`. Added ayanamsa state to the edit dialog, synced from stored request, conditionally shown when zodiac type is sidereal, and included in the recalculation request.
+- **Finding 4 (Medium):** Fixed stale `aspectMap` memoization in `aspect-grid.tsx` — added `gridBodies` to the dependency array so node type changes correctly update angle-to-node aspects.
+- **Finding 5 (Medium):** Added `typecheck` script to `apps/web/package.json`. Fixed `use-settings.test.ts` to include `nodeType` and `timeFormat` in state setup. Removed unused `defaults` binding in `transits.tsx`.
+
+### Deferred
+- **Finding 6 (Medium):** Auth token storage hardening. Requires backend support for httpOnly cookie-based refresh tokens before the frontend can migrate.
+
+### Decisions Made
+- **`calculateAspects` exported:** Made the previously-internal `calculateAspects()` function a public export from `@astro-app/approx-engine`. This enables recalculating aspects from any set of positions (e.g., precise API positions) with user orb settings, without re-running the full approximate calculation.
+- **Cloud chart conversion:** `CloudChart` is converted to `StoredChart` in-memory for rendering. Cloud charts are not automatically cached to IndexedDB — the user can explicitly save them.
+
 ## 2026-04-06 — Chart Renderer Bug Fixes (BUG_REPORT.md)
 
 ### Change
