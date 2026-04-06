@@ -1,8 +1,9 @@
 import { CelestialBody, SIGN_ORDER, SIGN_ELEMENT } from "@astro-app/shared-types";
 import { longitudeToAngle, polarToCartesian } from "../core/geometry.js";
 import { RING_PROPORTIONS, glyphSizes } from "../core/constants.js";
-import { PLANET_GLYPHS } from "../glyphs/planets.js";
-import { SIGN_GLYPHS } from "../glyphs/signs.js";
+import { PLANET_PATHS, PLANET_WIDTHS } from "../glyphs/planet-paths.js";
+import { SIGN_PATHS, SIGN_WIDTHS } from "../glyphs/sign-paths.js";
+import { drawPathGlyph } from "../glyphs/draw.js";
 import { resolveCollisions, type GlyphPosition } from "../core/layout.js";
 import type { ChartData } from "@astro-app/shared-types";
 import type { ChartTheme } from "../themes/types.js";
@@ -43,17 +44,22 @@ interface LabelToken {
   extraGapAfter?: boolean;
   /** Override font size (px). Falls back to fontSize or minuteFontSize based on small flag. */
   size?: number;
+  /** SVG path data — if set, render as Path2D instead of fillText. */
+  pathData?: string;
+  /** Width ratio (0–1) for path glyphs. Layout width = size * widthRatio. */
+  widthRatio?: number;
 }
 
 /** Convert an ecliptic longitude to sign degree/minute/sign glyph */
-function lonToSignParts(lon: number): { deg: string; min: string; signGlyph: string; signKey: string | undefined } {
+function lonToSignParts(lon: number): { deg: string; min: string; signPath: string; signWidthRatio: number; signKey: string | undefined } {
   const norm = ((lon % 360) + 360) % 360;
   const signIndex = Math.floor(norm / 30);
   const deg = String(Math.floor(norm % 30)).padStart(2, "0");
   const min = String(Math.floor((norm % 1) * 60)).padStart(2, "0");
   const signKey = SIGN_ORDER[signIndex];
-  const signGlyph = signKey ? (SIGN_GLYPHS[signKey] ?? "") : "";
-  return { deg, min, signGlyph, signKey };
+  const signPath = signKey ? (SIGN_PATHS[signKey] ?? "") : "";
+  const signWidthRatio = signKey ? (SIGN_WIDTHS[signKey] ?? 1.0) : 1.0;
+  return { deg, min, signPath, signWidthRatio, signKey };
 }
 
 export function drawPlanetRing(
@@ -218,14 +224,14 @@ export function drawPlanetRing(
 
     if (anglePoint) {
       // Angle label: As/Ds/Mc/Ic + degree + sign + minutes
-      const { deg, min, signGlyph, signKey } = lonToSignParts(anglePoint.lon);
+      const { deg, min, signPath, signWidthRatio, signKey } = lonToSignParts(anglePoint.lon);
       const element = signKey ? SIGN_ELEMENT[signKey as keyof typeof SIGN_ELEMENT] : undefined;
       const signColor = element ? (theme.elementColors[element as keyof typeof theme.elementColors] ?? theme.degreeLabelColor) : theme.degreeLabelColor;
       tickColor = theme.angleStroke;
       tokens = [
         { text: anglePoint.label, color: theme.angleStroke, bold: false, extraGapAfter: true, size: sizes.planet },
         { text: deg, color: theme.degreeLabelColor, bold: false },
-        { text: signGlyph, color: signColor, bold: false },
+        { text: "", color: signColor, bold: false, pathData: signPath, widthRatio: signWidthRatio },
         { text: min, color: theme.degreeLabelColor, bold: false, small: true },
       ];
     } else {
@@ -236,18 +242,20 @@ export function drawPlanetRing(
 
       const isRetrograde = zodiacPos.is_retrograde ?? false;
       const color = isRetrograde ? theme.planetGlyphRetrograde : theme.planetGlyph;
-      const planetGlyph = (PLANET_GLYPHS[pos.body] ?? "") + "\uFE0E";
+      const planetPath = PLANET_PATHS[pos.body] ?? "";
+      const planetWidthRatio = PLANET_WIDTHS[pos.body] ?? 1.0;
       const deg = String(zodiacPos.degree).padStart(2, "0");
       const min = String(zodiacPos.minute).padStart(2, "0");
-      const signGlyph = (SIGN_GLYPHS[zodiacPos.sign] ?? "");
+      const signPath = SIGN_PATHS[zodiacPos.sign] ?? "";
+      const signWidthRatio = SIGN_WIDTHS[zodiacPos.sign] ?? 1.0;
       const element = SIGN_ELEMENT[zodiacPos.sign];
       const signColor = element ? (theme.elementColors[element] ?? theme.degreeLabelColor) : theme.degreeLabelColor;
 
       tickColor = color;
       tokens = [
-        { text: planetGlyph, color, bold: true, extraGapAfter: false, size: sizes.planet },
+        { text: "", color, bold: true, extraGapAfter: false, size: sizes.planet, pathData: planetPath, widthRatio: planetWidthRatio },
         { text: deg, color: theme.degreeLabelColor, bold: false },
-        { text: signGlyph, color: signColor, bold: false },
+        { text: "", color: signColor, bold: false, pathData: signPath, widthRatio: signWidthRatio },
         { text: min, color: theme.degreeLabelColor, bold: false, small: true },
       ];
       if (isRetrograde) {
@@ -277,10 +285,14 @@ export function drawPlanetRing(
 
     for (const token of tokens) {
       const size = token.size ?? (token.small ? minuteFontSize : fontSize);
-      ctx.font = token.bold ? `bold ${size}px ${theme.fontFamily}` : `${size}px ${theme.fontFamily}`;
-      ctx.fillStyle = token.color;
       const p = polarToCartesian(cx, cy, pos.displayAngle, currentR);
-      ctx.fillText(token.text, p.x, p.y);
+      if (token.pathData) {
+        drawPathGlyph(ctx, token.pathData, p.x, p.y, size, token.color);
+      } else {
+        ctx.font = token.bold ? `bold ${size}px ${theme.fontFamily}` : `${size}px ${theme.fontFamily}`;
+        ctx.fillStyle = token.color;
+        ctx.fillText(token.text, p.x, p.y);
+      }
       currentR -= size + gap + (token.extraGapAfter ? Math.round(fontSize * 0.6) : 0);
     }
 
