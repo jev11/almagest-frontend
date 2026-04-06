@@ -1,6 +1,7 @@
 import { longitudeToAngle, polarToCartesian } from "../core/geometry.js";
 import { RING_PROPORTIONS, glyphSizes } from "../core/constants.js";
-import { SIGN_GLYPHS } from "../glyphs/signs.js";
+import { SIGN_PATHS, SIGN_WIDTHS } from "../glyphs/sign-paths.js";
+import { drawPathGlyph } from "../glyphs/draw.js";
 import { SIGN_ORDER } from "@astro-app/shared-types";
 import type { ChartData } from "@astro-app/shared-types";
 import type { ChartTheme } from "../themes/types.js";
@@ -105,22 +106,27 @@ export function drawHouseOverlay(
     const deg = String(Math.floor(normLon % 30)).padStart(2, "0");
     const minute = String(Math.floor((normLon % 1) * 60)).padStart(2, "0");
     const signKey = SIGN_ORDER[signIndex];
-    const signGlyph = signKey ? (SIGN_GLYPHS[signKey] ?? "") : "";
+    const signPath = signKey ? (SIGN_PATHS[signKey] ?? "") : "";
+    const signWidthRatio = signKey ? (SIGN_WIDTHS[signKey] ?? 1.0) : 1.0;
 
     const houseNum = i + 1;
-    const tokens = houseNum >= 7
+
+    const tokens: Array<{ text: string; size: number; pathData?: string; widthRatio?: number }> = houseNum >= 7
       ? [
           { text: minute, size: minuteFontSize },
-          { text: signGlyph, size: fontSize },
+          { text: "", size: fontSize, pathData: signPath, widthRatio: signWidthRatio },
           { text: deg, size: fontSize },
         ]
       : [
           { text: deg, size: fontSize },
-          { text: signGlyph, size: fontSize },
+          { text: "", size: fontSize, pathData: signPath, widthRatio: signWidthRatio },
           { text: minute, size: minuteFontSize },
         ];
 
     const widths = tokens.map(t => {
+      if (t.pathData) {
+        return t.size * (t.widthRatio ?? 1.0);
+      }
       ctx.font = `${t.size}px ${theme.fontFamily}`;
       return ctx.measureText(t.text).width;
     });
@@ -129,9 +135,14 @@ export function drawHouseOverlay(
     let arcOffset = -total / 2;
     for (let t = 0; t < tokens.length; t++) {
       const w = widths[t]!;
-      ctx.font = `${tokens[t]!.size}px ${theme.fontFamily}`;
+      const tok = tokens[t]!;
       const p = polarToCartesian(cx, cy, angle + (arcOffset + w / 2) / cuspLabelR, cuspLabelR);
-      ctx.fillText(tokens[t]!.text, p.x, p.y);
+      if (tok.pathData) {
+        drawPathGlyph(ctx, tok.pathData, p.x, p.y, tok.size, theme.degreeLabelColor);
+      } else {
+        ctx.font = `${tok.size}px ${theme.fontFamily}`;
+        ctx.fillText(tok.text, p.x, p.y);
+      }
       arcOffset += w + tokenGap;
     }
   }
