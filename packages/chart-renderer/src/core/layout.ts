@@ -51,7 +51,7 @@ export function resolveCollisions(
   const maxAngularDisp = maxDisp / radius; // radians
 
   for (let iter = 0; iter < COLLISION.iterations; iter++) {
-    // Only push adjacent pairs (not circular wrap for simplicity)
+    // Push adjacent pairs apart if they overlap
     for (let i = 0; i < result.length - 1; i++) {
       const curr = result[i]!;
       const next = result[i + 1]!;
@@ -64,6 +64,20 @@ export function resolveCollisions(
         // Push curr left (decreasing angle) and next right (increasing angle)
         curr.displayAngle -= push;
         next.displayAngle += push;
+      }
+    }
+
+    // Circular wrap-around: check last vs first (across 0°/2π boundary)
+    if (result.length >= 2) {
+      const last = result[result.length - 1]!;
+      const first = result[0]!;
+      const wrapDiff = (first.displayAngle + 2 * Math.PI) - last.displayAngle;
+      const wrapPixelDist = wrapDiff * radius;
+
+      if (wrapPixelDist < minGap) {
+        const push = (minAngularGap - wrapDiff) / 2;
+        last.displayAngle -= push;
+        first.displayAngle += push;
       }
     }
 

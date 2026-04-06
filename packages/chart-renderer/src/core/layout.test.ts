@@ -92,4 +92,12 @@ describe("resolveCollisions", () => {
     const result = resolveCollisions([], 200);
     expect(result).toEqual([]);
   });
+
+  it("resolves collision across the 0°/2π boundary", () => {
+    const deg2rad = (d: number) => (d * Math.PI) / 180;
+    const positions = makePositions([deg2rad(359), deg2rad(1)]);
+    const result = resolveCollisions(positions, 200);
+    const anyDisplaced = result.some((p) => p.displaced);
+    expect(anyDisplaced).toBe(true);
+  });
 });
