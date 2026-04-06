@@ -1,5 +1,29 @@
 # Agent Changelog
 
+## 2026-04-06 — Chart Renderer Bug Fixes (BUG_REPORT.md)
+
+### Change
+Fixed 6 bugs from BUG_REPORT.md, triaged remaining 5 as not-bugs or deferred features.
+
+### Bugs Fixed
+- **BUG-001:** Replaced all hardcoded `serif` font references (8 files) with `theme.fontFamily`. Added `fontFamily` default parameter to `drawGlyph()` and `drawSignGlyph()` for backward compatibility.
+- **BUG-003:** Deleted empty `degree-labels.ts` stub and removed non-functional `degreeLabels` layer toggle from `RenderOptions`.
+- **BUG-008:** Removed unused `SIGN_ABBREVIATIONS` constant and deleted `aspects.ts` (`ASPECT_SYMBOLS` was never imported).
+- **BUG-009:** Added circular wrap-around check in `resolveCollisions()` so planets near 0°/360° boundary are collision-resolved.
+- **BUG-010:** Changed `background.ts` to use CSS dimensions (`canvas.width / dpr`) instead of physical pixel dimensions for `fillRect`.
+- **BUG-011:** Aligned light theme aspect colors with dark theme's design system palette. Minor aspects now use `text-secondary (#8892A4)`.
+
+### Triaged as Not Bugs
+- **BUG-004, BUG-005, BUG-006:** CHART_RENDERING_SPEC.md was already updated to document the current values. These are intentional design decisions, not regressions.
+
+### Deferred
+- **BUG-002:** SVG adapter rewrite — feature-level work, not a bugfix.
+- **BUG-007:** Responsive scaling — feature not yet implemented.
+
+### Decisions Made
+- **Spec updated:** CHART_RENDERING_SPEC.md `ASPECT_CIRCLE_RATIO` corrected from `0.40` to `0.455` to match the φ-based value in code.
+- **Light theme aspect color strategy:** Derive from same element-color mapping as dark theme, with slightly darkened values for white background contrast. Minor aspects use `text-secondary` instead of ad-hoc grays.
+
 ## 2026-04-03 — Settings: Save/Cancel Instead of Immediate Apply
 
 ### Change

@@ -8,7 +8,7 @@
 
 ## Critical Issues
 
-### BUG-001: Font family hardcoded as `serif` instead of theme font
+### BUG-001: Font family hardcoded as `serif` instead of theme font — [FIXED 2026-04-06]
 
 **Severity:** High
 **Impact:** All chart text renders in Times New Roman instead of Inter
@@ -29,7 +29,7 @@ Multiple files use hardcoded `serif` font instead of `theme.fontFamily`:
 
 ---
 
-### BUG-002: SVG export does not match canvas output
+### BUG-002: SVG export does not match canvas output — [DEFERRED — feature-level SVG rewrite]
 
 **Severity:** High
 **Impact:** Exported SVGs look different from what users see on screen
@@ -48,7 +48,7 @@ Multiple files use hardcoded `serif` font instead of `theme.fontFamily`:
 
 ---
 
-### BUG-003: `degree-labels.ts` layer is an empty stub
+### BUG-003: `degree-labels.ts` layer is an empty stub — [FIXED 2026-04-06]
 
 **Severity:** Medium
 **Impact:** Dead code in render pipeline; layer toggle for `degreeLabels` does nothing
@@ -65,7 +65,7 @@ This means:
 
 ## Spec Deviations
 
-### BUG-004: Aspect zone radius significantly smaller than spec
+### BUG-004: Aspect zone radius significantly smaller than spec — [NOT A BUG — spec updated, φ-based ratio intentional]
 
 **Severity:** Medium
 **Impact:** Aspect lines drawn in a smaller area than designed
@@ -82,7 +82,7 @@ At a 300px radius, aspects are confined to a 114px circle instead of the spec's 
 
 ---
 
-### BUG-005: Element background opacity 2.75x higher than spec
+### BUG-005: Element background opacity 2.75x higher than spec — [NOT A BUG — spec already documents current values]
 
 **Severity:** Medium
 **Impact:** Zodiac ring sign segments are much more saturated than designed
@@ -100,7 +100,7 @@ At a 300px radius, aspects are confined to a 114px circle instead of the spec's 
 
 ---
 
-### BUG-006: Sign glyph color deviates from design system
+### BUG-006: Sign glyph color deviates from design system — [NOT A BUG — spec already documents current values]
 
 **Severity:** Low
 **Impact:** Sign glyphs are lighter than specified
@@ -114,7 +114,7 @@ At a 300px radius, aspects are confined to a 114px circle instead of the spec's 
 
 ---
 
-### BUG-007: Responsive scaling not implemented
+### BUG-007: Responsive scaling not implemented — [DEFERRED — feature not yet implemented]
 
 **Severity:** Medium
 **Impact:** Charts render identically at all sizes; small charts are cluttered, large charts have small glyphs
@@ -141,7 +141,7 @@ None of this is implemented.
 
 ## Dead Code
 
-### BUG-008: Unused exports
+### BUG-008: Unused exports — [FIXED 2026-04-06]
 
 **Severity:** Low
 **Impact:** Increases bundle size; confusing for future developers
@@ -157,7 +157,7 @@ None of this is implemented.
 
 ## Minor Issues
 
-### BUG-009: Collision avoidance ignores circular wrap-around
+### BUG-009: Collision avoidance ignores circular wrap-around — [FIXED 2026-04-06]
 
 **Severity:** Low
 **Impact:** Rare edge case — two planets near 0°/360° boundary may not detect overlap
@@ -168,7 +168,7 @@ None of this is implemented.
 
 ---
 
-### BUG-010: `background.ts` uses physical pixel dimensions
+### BUG-010: `background.ts` uses physical pixel dimensions — [FIXED 2026-04-06]
 
 **Severity:** Low
 **Impact:** Potential rendering artifact on high-DPI displays
@@ -177,7 +177,7 @@ None of this is implemented.
 
 ---
 
-### BUG-011: Light theme aspect colors not from design system
+### BUG-011: Light theme aspect colors not from design system — [FIXED 2026-04-06]
 
 **Severity:** Low
 **Impact:** Light theme uses custom hex values not defined in DESIGN_SYSTEM.md

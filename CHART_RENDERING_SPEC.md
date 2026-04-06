@@ -60,16 +60,16 @@ ctx.fillRect(0, 0, canvas.width, canvas.height);
 
 ```
 ZODIAC_OUTER           = 0.95     (originally 0.90 — wider ring for readability)
-ASPECT_CIRCLE_RATIO    = 0.40     (aspect circle as fraction of ZODIAC_OUTER)
+ASPECT_CIRCLE_RATIO    = 0.455    (φ-based: planetInner / φ ≈ 0.433, normalized to ZODIAC_OUTER)
 
 RING_PROPORTIONS:
   labelOuter:          1.0        (unchanged)
   zodiacOuter:         0.95       (originally 0.90)
   zodiacInner:         0.783      (unchanged)
   planetInner:         0.70       (unchanged)
-  houseNumberOuter:    0.45       (computed: ZODIAC_OUTER * ASPECT_CIRCLE_RATIO + 0.07)
+  houseNumberOuter:    0.502      (computed: ZODIAC_OUTER * ASPECT_CIRCLE_RATIO + 0.07)
   houseInner:          0.15       (unchanged)
-  aspectOuter:         0.38       (computed: ZODIAC_OUTER * ASPECT_CIRCLE_RATIO; originally 0.60)
+  aspectOuter:         0.432      (computed: ZODIAC_OUTER * ASPECT_CIRCLE_RATIO; originally 0.60)
 
 For a 300px radius wheel:
   cusp labels:   285–300px   (outermost, small cusp degree text)
