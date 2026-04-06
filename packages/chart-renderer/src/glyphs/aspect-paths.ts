@@ -8,10 +8,10 @@ export const ASPECT_PATHS: Record<string, string> = {
   trine:         "M 50 8 L 10 85 L 90 85 Z M 50 18 L 20 80 L 80 80 Z",
   square:        "M 15 15 L 85 15 L 85 85 L 15 85 Z M 22 22 L 78 22 L 78 78 L 22 78 Z",
   sextile:       "M 50 5 L 93 30 L 93 70 L 50 95 L 7 70 L 7 30 Z",
-  quincunx:      "M 50 8 L 50 55 M 35 55 L 65 55 M 25 75 L 50 55 L 75 75",
+  quincunx:      "M 48 8 L 52 8 L 52 55 L 48 55 Z M 35 53 L 65 53 L 65 57 L 35 57 Z M 23 73 L 26 77 L 52 57 L 48 53 Z M 48 53 L 52 57 L 77 77 L 74 73 Z",
   semi_sextile:  "M 50 45 L 50 92 M 35 45 L 65 45 M 50 8 C 62 8 72 18 72 30 C 72 38 65 45 50 45 C 35 45 28 38 28 30 C 28 18 38 8 50 8 Z",
-  semi_square:   "M 15 85 L 85 85 L 85 15 M 15 85 L 85 15",
-  sesquisquare:  "M 15 15 L 85 15 L 85 85 L 15 85 Z M 15 85 L 85 15 M 15 15 L 85 85",
+  semi_square:   "M 15 83 L 87 83 L 87 87 L 15 87 Z M 83 15 L 87 15 L 87 87 L 83 87 Z M 12 82 L 18 88 L 88 18 L 82 12 Z",
+  sesquisquare:  "M 15 15 L 85 15 L 85 85 L 15 85 Z M 13 83 L 17 87 L 87 17 L 83 13 Z M 17 13 L 13 17 L 83 87 L 87 83 Z",
   quintile:      "M 50 5 L 97 38 L 79 92 L 21 92 L 3 38 Z",
   bi_quintile:   "M 50 5 L 97 38 L 79 92 L 21 92 L 3 38 Z M 50 25 L 80 48 L 68 80 L 32 80 L 20 48 Z",
 };
