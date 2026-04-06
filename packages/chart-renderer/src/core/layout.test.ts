@@ -37,10 +37,10 @@ describe("resolveCollisions", () => {
   });
 
   it("constrains displacement to maxDisplacement", () => {
-    // maxDisplacement = 40px, radius = 200, maxAngularDisp = 0.2rad
+    // COLLISION.maxDisplacement = 89px, radius = 200, maxAngularDisp = 89/200 = 0.445rad
     const positions = makePositions([1.0, 1.001, 1.002, 1.003]); // stellium
     const result = resolveCollisions(positions, 200);
-    const maxAngularDisp = 40 / 200;
+    const maxAngularDisp = 89 / 200;
     for (const pos of result) {
       const disp = Math.abs(pos.displayAngle - pos.originalAngle);
       expect(disp).toBeLessThanOrEqual(maxAngularDisp + 0.001); // small float tolerance
