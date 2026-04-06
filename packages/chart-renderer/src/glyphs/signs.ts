@@ -3,21 +3,6 @@
  * Rendered via ctx.fillText() — no SVG path data needed.
  */
 
-export const SIGN_ABBREVIATIONS: Record<string, string> = {
-  aries:       "Ar",
-  taurus:      "Ta",
-  gemini:      "Ge",
-  cancer:      "Cn",
-  leo:         "Le",
-  virgo:       "Vi",
-  libra:       "Li",
-  scorpio:     "Sc",
-  sagittarius: "Sg",
-  capricorn:   "Cp",
-  aquarius:    "Aq",
-  pisces:      "Pi",
-};
-
 // \uFE0E (variation selector-15) forces text presentation, preventing emoji rendering
 export const SIGN_GLYPHS: Record<string, string> = {
   aries:       "♈\uFE0E",  // U+2648
