@@ -1,2 +1,4 @@
-export { PLANET_GLYPHS, drawGlyph } from "./planets.js";
-export { SIGN_GLYPHS, drawSignGlyph } from "./signs.js";
+export { PLANET_PATHS, PLANET_WIDTHS } from "./planet-paths.js";
+export { SIGN_PATHS, SIGN_WIDTHS } from "./sign-paths.js";
+export { ASPECT_PATHS, ASPECT_WIDTHS } from "./aspect-paths.js";
+export { drawPathGlyph, GLYPH_GRID } from "./draw.js";
