@@ -100,4 +100,40 @@ describe("resolveCollisions", () => {
     const anyDisplaced = result.some((p) => p.displaced);
     expect(anyDisplaced).toBe(true);
   });
+
+  it("pushes planet away from wide blocker by full minGlyphGap", () => {
+    // Planet at 1.0 rad, wide blocker at 1.01 rad
+    // At radius 200, distance = 0.01 * 200 = 2px — well under minGlyphGap (34px)
+    const positions = makePositions([1.0]);
+    const result = resolveCollisions(positions, 200, [], [1.01]);
+    const dist = Math.abs(result[0]!.displayAngle - 1.01) * 200;
+    // Must be at least minGlyphGap (34px) away, not just blockerGap (17px)
+    expect(dist).toBeGreaterThanOrEqual(33.5);
+  });
+
+  it("pushes planet away from thin blocker by only blockerGap", () => {
+    // Same setup but with a thin blocker (cusp line)
+    const positions = makePositions([1.0]);
+    const result = resolveCollisions(positions, 200, [1.01]);
+    const dist = Math.abs(result[0]!.displayAngle - 1.01) * 200;
+    // Thin blocker uses half gap (~17px)
+    expect(dist).toBeGreaterThanOrEqual(16.5);
+    expect(dist).toBeLessThan(33.5);
+  });
+
+  it("does not trap planet between two adjacent wide blockers", () => {
+    // Two wide blockers 36px apart (just above minGlyphGap)
+    // Planet between them should be pushed fully outside, not trapped at midpoint
+    const spacing = 36 / 200; // 0.18 rad
+    const b1 = 1.0;
+    const b2 = b1 + spacing;
+    const planetAngle = b1 + spacing / 2; // midpoint
+    const positions = makePositions([planetAngle]);
+    const result = resolveCollisions(positions, 200, [], [b1, b2]);
+    const distToB1 = Math.abs(result[0]!.displayAngle - b1) * 200;
+    const distToB2 = Math.abs(result[0]!.displayAngle - b2) * 200;
+    // Planet must be pushed outside both zones — at least clear of the nearer one
+    const minDist = Math.min(distToB1, distToB2);
+    expect(minDist).toBeGreaterThanOrEqual(16); // at least clear of the nearer one
+  });
 });

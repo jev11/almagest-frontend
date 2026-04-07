@@ -31,8 +31,11 @@ export function resolveCollisions(
   radius: number,
   /** Fixed angles (radians) that repel labels but don't move — e.g. house cusp lines */
   blockers: number[] = [],
+  /** Wide blockers that need full minGlyphGap clearance — e.g. angle labels (AS/DS/MC/IC) */
+  wideBlockers: number[] = [],
 ): GlyphPosition[] {
-  if (positions.length <= 1) return positions.map((p) => ({ ...p }));
+  if (positions.length <= 1 && blockers.length === 0 && wideBlockers.length === 0)
+    return positions.map((p) => ({ ...p }));
 
   // Work on a copy, do not mutate input
   const result: GlyphPosition[] = positions.map((p) => ({ ...p }));
@@ -90,6 +93,35 @@ export function resolveCollisions(
           const push = blockerAngularGap - Math.abs(diff);
           // Push away from blocker; if exactly on it, push in increasing direction
           pos.displayAngle += (diff >= 0 ? 1 : -1) * push;
+        }
+      }
+    }
+
+    // One-sided repulsion from wide blocker angles (angle labels AS/DS/MC/IC)
+    // When multiple wide blockers overlap, push away from each one but always
+    // in the same direction (determined by the nearest blocker) to avoid
+    // ping-pong between adjacent zones.
+    for (const pos of result) {
+      // Find the nearest encroaching wide blocker to set the push direction
+      let nearest: number | null = null;
+      let nearestAbsDiff = Infinity;
+      for (const blocker of wideBlockers) {
+        const absDiff = Math.abs(pos.displayAngle - blocker);
+        if (absDiff * radius < minGap && absDiff < nearestAbsDiff) {
+          nearestAbsDiff = absDiff;
+          nearest = blocker;
+        }
+      }
+      if (nearest !== null) {
+        const dir = pos.displayAngle >= nearest ? 1 : -1;
+        // Push away from every encroaching wide blocker in that same direction
+        for (const blocker of wideBlockers) {
+          const diff = pos.displayAngle - blocker;
+          const pixelDist = Math.abs(diff) * radius;
+          if (pixelDist < minGap) {
+            const push = minAngularGap - Math.abs(diff);
+            pos.displayAngle += dir * push;
+          }
         }
       }
     }
