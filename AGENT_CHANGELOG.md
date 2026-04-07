@@ -1,5 +1,48 @@
 # Agent Changelog
 
+## 2026-04-07 — Reduce planet label displacement near angle labels (stellium fix)
+
+### Change
+Planets in stelliums were being pushed too far from their true ecliptic positions, especially near angle labels (AS/DS/MC/IC). Two changes:
+1. Reduced angle label wide blocker from 4 points (spanning ~27°) to 2 points (spanning ~9°), matching actual label footprint
+2. Reduced `maxDisplacement` from 89px to 55px to keep labels closer to true positions
+
+### Files Modified
+- `packages/chart-renderer/src/core/constants.ts` — `COLLISION.maxDisplacement` 89 → 55
+- `packages/chart-renderer/src/layers/planet-ring.ts` — angle blocker loop from `step -1..2` (4 points) to `step 0..1` (2 points)
+- `packages/chart-renderer/src/core/layout.test.ts` — updated maxDisplacement test to match new 55px value
+
+### Decisions Made
+- **2 blocker points, not 3** — the actual angle label ("Ic 02♓28") is ~40-50px of arc; 2 points at 36px spacing covers this without claiming excessive space
+- **55px max displacement** — ~14° max drift at typical radius, down from ~23°; keeps labels readable while still allowing enough room for moderate clusters
+- **`minGlyphGap` unchanged at 34px** — spacing between labels is fine; the problem was blocker size and max drift, not inter-label gap
+
+## 2026-04-07 — Responsive font sizing for Aspect Grid and Element-Modality Card
+
+### Change
+Made text in the aspect grid and element-modality card scale with screen/container size using CSS container queries (`cqi` units), matching the chart wheel's responsive behavior. Previously, text was either em-relative to a non-scaling parent (aspect grid) or fixed Tailwind sizes (element-modality card), making it too small on large screens and not responsive.
+
+### Files Modified
+- `apps/web/src/components/home/aspect-grid.tsx` — added `containerType: "inline-size"` to wrapper, set grid `fontSize` to `${100/N}cqi` so existing em-relative sizes scale with container width
+- `apps/web/src/components/home/element-modality-card.tsx` — added `containerType: "inline-size"` to wrapper, set table `fontSize: "3.5cqi"`, removed fixed `text-xs`/`text-sm` Tailwind classes in favor of inherited container-relative size
+
+### Decisions Made
+- **`cqi` units over viewport units** — consistent with existing pattern in `distribution-overlay.tsx`; scales with container not viewport, so layout changes (sidebar open/close) are handled correctly
+- **Aspect grid: `100/N cqi`** — divides container width by number of columns so `1em` ≈ cell width; existing em-relative sizes (0.45em–0.75em) then fill cells proportionally
+- **Element-modality card: `3.5cqi`** — chosen to give readable text at typical right-column width (38.2% of viewport)
+
+## 2026-04-07 — Aspect Grid: Show orb degrees, A/S indicator, and minutes
+
+### Change
+Added degree value, applying/separating indicator (A/S), and minute value below the aspect glyph in each aspect grid cell. Format: `0S38` means 0° separating, 38'. For planet–planet aspects, `is_applying` comes from the backend. For angle–planet aspects, applying/separating is calculated client-side from the planet's `speed_longitude`.
+
+### Files Modified
+- `apps/web/src/components/home/aspect-grid.tsx` — added `isApplying` to `AspectEntry`, updated `detectAspect` to compute applying/separating from speeds, added orb text display below glyph
+
+### Decisions Made
+- **Angle speed is 0** — angles (ASC, MC, etc.) are treated as stationary for applying/separating calculation since this is a natal chart
+- **Angle–angle aspects default to separating** — since both speeds are 0, `isApplying` defaults to false
+
 ## 2026-04-07 — Fix: Geolocation grant doesn't update chart data
 
 ### Change

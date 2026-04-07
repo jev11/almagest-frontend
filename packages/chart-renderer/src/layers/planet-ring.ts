@@ -121,13 +121,11 @@ export function drawPlanetRing(
   // Spacing between blocker points must exceed minGlyphGap to prevent
   // equilibrium traps where a planet settles between two adjacent points.
   const axisOffsetRad = 14 / planetRingR;
-  const angleLabelSpan = (COLLISION.minGlyphGap + 2) / planetRingR;
   const angleBlockerPositions: number[] = [];
   for (const ap of anglePoints) {
-    const center = longitudeToAngle(ap.lon, ascendant) + axisOffsetRad;
-    for (let step = -1; step <= 2; step++) {
-      angleBlockerPositions.push(center + step * angleLabelSpan);
-    }
+    // Single blocker point per angle label — wide blocker clearance (minGlyphGap)
+    // on each side provides ~68px exclusion zone, enough for the label.
+    angleBlockerPositions.push(longitudeToAngle(ap.lon, ascendant) + axisOffsetRad);
   }
 
   // Remove angle points from planet positions — they'll be rendered separately
