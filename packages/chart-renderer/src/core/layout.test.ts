@@ -136,4 +136,49 @@ describe("resolveCollisions", () => {
     const minDist = Math.min(distToB1, distToB2);
     expect(minDist).toBeGreaterThanOrEqual(16); // at least clear of the nearer one
   });
+
+  it("resolves planet 2° from angle label without overlap (stellium MC/Neptune case)", () => {
+    // Simulates Neptune at 451.9° and MC blocker zone at ~453-468° (chart angles)
+    // At radius 174, 2° ecliptic ≈ 6px separation — way under minGlyphGap
+    const radius = 174;
+    const deg2rad = (d: number) => (d * Math.PI) / 180;
+
+    // MC angle label blocker points (wide blockers, spaced at 36px = ~11.8° at r=174)
+    const mcCenter = deg2rad(456.5);
+    const span = 36 / radius;
+    const mcBlockers = [-1, 0, 1, 2].map((s) => mcCenter + s * span);
+
+    // Neptune at 451.9° chart angle (2° ecliptic from MC)
+    const positions = makePositions([deg2rad(451.9)]);
+    const result = resolveCollisions(positions, radius, [], mcBlockers);
+
+    // Neptune must be pushed at least minGlyphGap (34px) from the MC label center
+    const distFromMcCenter = Math.abs(result[0]!.displayAngle - mcCenter) * radius;
+    expect(distFromMcCenter).toBeGreaterThanOrEqual(33);
+
+    // And must not be trapped between blocker points
+    for (const blocker of mcBlockers) {
+      const dist = Math.abs(result[0]!.displayAngle - blocker) * radius;
+      // Either well outside (>34px) or not between any pair
+      expect(dist).not.toBeCloseTo(0, 0);
+    }
+  });
+
+  it("planet conjunct AS is pushed clear without AS moving", () => {
+    const radius = 174;
+    const deg2rad = (d: number) => (d * Math.PI) / 180;
+
+    // AS at exactly π (9 o'clock), small offset for label
+    const asCenter = Math.PI + 8 / radius;
+    const span = 36 / radius;
+    const asBlockers = [-1, 0, 1, 2].map((s) => asCenter + s * span);
+
+    // Planet at π (exactly on the AS axis)
+    const positions = makePositions([Math.PI]);
+    const result = resolveCollisions(positions, radius, [], asBlockers);
+
+    // Planet must be pushed clear of AS label zone
+    const distFromAs = Math.abs(result[0]!.displayAngle - asCenter) * radius;
+    expect(distFromAs).toBeGreaterThanOrEqual(33);
+  });
 });
