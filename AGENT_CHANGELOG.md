@@ -1,5 +1,16 @@
 # Agent Changelog
 
+## 2026-04-07 — Fix: Geolocation grant doesn't update chart data
+
+### Change
+Added a location-watching effect to `useCurrentSky` so that when the browser geolocation resolves (after the user grants permission), precise chart data is re-fetched with the real coordinates. Previously, the precise fetch only ran once on mount with the default London coordinates, and the in-flight response would overwrite any geolocation-updated data.
+
+### Files Modified
+- `apps/web/src/hooks/use-current-sky.ts` — added effect that watches `location` and calls `fetchPrecise` when it changes
+
+### Decisions Made
+- **Ref-based skip for initial mount** — `prevLocationRef` ensures the effect doesn't double-fetch on mount (the existing `preciseFetchedRef` effect handles that)
+
 ## 2026-04-06 — Custom SVG Path Glyphs (cross-browser glyph rendering)
 
 ### Change

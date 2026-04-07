@@ -1,8 +1,8 @@
 import { SIGN_ORDER, SIGN_ELEMENT } from "@astro-app/shared-types";
 import { longitudeToAngle, polarToCartesian } from "../core/geometry.js";
 import { RING_PROPORTIONS, glyphSizes } from "../core/constants.js";
-import { SIGN_PATHS } from "../glyphs/sign-paths.js";
-import { drawPathGlyph } from "../glyphs/draw.js";
+import { SIGN_GLYPHS } from "../glyphs/sign-glyphs.js";
+import { drawGlyphText } from "../glyphs/draw.js";
 import type { ChartData } from "@astro-app/shared-types";
 import type { ChartTheme } from "../themes/types.js";
 import type { RenderDimensions } from "./types.js";
@@ -65,10 +65,10 @@ export function drawZodiacRing(
     const midAngle = longitudeToAngle(midLon, ascendant);
     const glyphR = (outerR + innerR) / 2;
     const glyphPos = polarToCartesian(cx, cy, midAngle, glyphR);
-    const pathData = SIGN_PATHS[sign as string] ?? "";
-    drawPathGlyph(
+    const char = SIGN_GLYPHS[sign as string] ?? "";
+    drawGlyphText(
       ctx,
-      pathData,
+      char,
       glyphPos.x,
       glyphPos.y,
       glyphSizes(radius).sign,

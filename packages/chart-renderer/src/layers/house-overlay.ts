@@ -1,7 +1,7 @@
 import { longitudeToAngle, polarToCartesian } from "../core/geometry.js";
 import { RING_PROPORTIONS, glyphSizes } from "../core/constants.js";
-import { SIGN_PATHS, SIGN_WIDTHS } from "../glyphs/sign-paths.js";
-import { drawPathGlyph } from "../glyphs/draw.js";
+import { SIGN_GLYPHS } from "../glyphs/sign-glyphs.js";
+import { drawGlyphText, GLYPH_FONT_FAMILY } from "../glyphs/draw.js";
 import { SIGN_ORDER } from "@astro-app/shared-types";
 import type { ChartData } from "@astro-app/shared-types";
 import type { ChartTheme } from "../themes/types.js";
@@ -93,10 +93,6 @@ export function drawHouseOverlay(
   ctx.textBaseline = "middle";
 
   for (let i = 0; i < 12; i++) {
-    // Skip angular cusps — their labels (As, Ds, Mc, Ic + degree) are drawn
-    // by the planet-ring layer alongside planet glyphs to avoid collisions.
-    if (ANGULAR_HOUSES.has(i + 1)) continue;
-
     const cuspLon = houses.cusps[i];
     if (cuspLon === undefined) continue;
 
@@ -106,26 +102,26 @@ export function drawHouseOverlay(
     const deg = String(Math.floor(normLon % 30)).padStart(2, "0");
     const minute = String(Math.floor((normLon % 1) * 60)).padStart(2, "0");
     const signKey = SIGN_ORDER[signIndex];
-    const signPath = signKey ? (SIGN_PATHS[signKey] ?? "") : "";
-    const signWidthRatio = signKey ? (SIGN_WIDTHS[signKey] ?? 1.0) : 1.0;
+    const signChar = signKey ? (SIGN_GLYPHS[signKey] ?? "") : "";
 
     const houseNum = i + 1;
 
-    const tokens: Array<{ text: string; size: number; pathData?: string; widthRatio?: number }> = houseNum >= 7
+    const tokens: Array<{ text: string; size: number; glyphChar?: string }> = houseNum >= 7
       ? [
           { text: minute, size: minuteFontSize },
-          { text: "", size: fontSize, pathData: signPath, widthRatio: signWidthRatio },
+          { text: "", size: fontSize, glyphChar: signChar },
           { text: deg, size: fontSize },
         ]
       : [
           { text: deg, size: fontSize },
-          { text: "", size: fontSize, pathData: signPath, widthRatio: signWidthRatio },
+          { text: "", size: fontSize, glyphChar: signChar },
           { text: minute, size: minuteFontSize },
         ];
 
     const widths = tokens.map(t => {
-      if (t.pathData) {
-        return t.size * (t.widthRatio ?? 1.0);
+      if (t.glyphChar) {
+        ctx.font = `${t.size}px ${GLYPH_FONT_FAMILY}`;
+        return ctx.measureText(t.glyphChar).width;
       }
       ctx.font = `${t.size}px ${theme.fontFamily}`;
       return ctx.measureText(t.text).width;
@@ -137,8 +133,8 @@ export function drawHouseOverlay(
       const w = widths[t]!;
       const tok = tokens[t]!;
       const p = polarToCartesian(cx, cy, angle + (arcOffset + w / 2) / cuspLabelR, cuspLabelR);
-      if (tok.pathData) {
-        drawPathGlyph(ctx, tok.pathData, p.x, p.y, tok.size, theme.degreeLabelColor);
+      if (tok.glyphChar) {
+        drawGlyphText(ctx, tok.glyphChar, p.x, p.y, tok.size, theme.degreeLabelColor);
       } else {
         ctx.font = `${tok.size}px ${theme.fontFamily}`;
         ctx.fillText(tok.text, p.x, p.y);

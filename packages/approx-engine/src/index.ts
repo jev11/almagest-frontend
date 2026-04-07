@@ -131,7 +131,7 @@ const MINOR_ASPECT_DEFINITIONS: Array<{ type: AspectType; angle: number; orb: nu
   { type: "semi_sextile" as AspectType, angle: 30, orb: 2, key: "semi_sextile" },
 ];
 
-function calculateAspects(
+export function calculateAspects(
   positions: Partial<Record<CelestialBody, CelestialPosition>>,
   orbOverrides?: Record<string, number>,
   includeMinor?: boolean,

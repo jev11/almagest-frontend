@@ -120,7 +120,7 @@ export function drawPlanetRing(
   // away by the full minGlyphGap (not the halved cusp-line gap).
   // Spacing between blocker points must exceed minGlyphGap to prevent
   // equilibrium traps where a planet settles between two adjacent points.
-  const axisOffsetRad = 8 / planetRingR;
+  const axisOffsetRad = 14 / planetRingR;
   const angleLabelSpan = (COLLISION.minGlyphGap + 2) / planetRingR;
   const angleBlockerPositions: number[] = [];
   for (const ap of anglePoints) {
@@ -138,12 +138,14 @@ export function drawPlanetRing(
   // Resolve collisions: cusp lines as thin blockers, angle labels as wide blockers
   const resolved = resolveCollisions(planetPositions, planetRingR, cuspBlockers, angleBlockerPositions);
 
-  // Re-insert angle points at their fixed positions for rendering
+  // Re-insert angle points at their fixed positions for rendering.
+  // originalAngle = true ecliptic position (tick mark), displayAngle = nudged (label).
   for (const ap of anglePoints) {
-    const nudgedAngle = longitudeToAngle(ap.lon, ascendant) + axisOffsetRad;
+    const trueAngle = longitudeToAngle(ap.lon, ascendant);
+    const nudgedAngle = trueAngle + axisOffsetRad;
     resolved.push({
       body: ap.id,
-      originalAngle: nudgedAngle,
+      originalAngle: trueAngle,
       displayAngle: nudgedAngle,
       displaced: false,
     });

@@ -5,8 +5,8 @@ import type { ChartData } from "@astro-app/shared-types";
 import type { AspectType } from "@astro-app/shared-types";
 import type { ChartTheme } from "../themes/types.js";
 import type { RenderDimensions } from "./types.js";
-import { ASPECT_PATHS } from "../glyphs/aspect-paths.js";
-import { drawPathGlyph } from "../glyphs/draw.js";
+import { ASPECT_GLYPHS } from "../glyphs/aspect-glyphs.js";
+import { drawGlyphText } from "../glyphs/draw.js";
 
 function hexWithOpacity(hex: string, opacity: number): string {
   const base = hex.length > 7 ? hex.slice(0, 7) : hex;
@@ -71,8 +71,8 @@ export function drawAspectWeb(
     ctx.setLineDash([]);
 
     // Draw aspect glyph at midpoint of the line
-    const pathData = ASPECT_PATHS[aspect.type as string];
-    if (pathData) {
+    const char = ASPECT_GLYPHS[aspect.type as string];
+    if (char) {
       const mx = (pt1.x + pt2.x) / 2;
       const my = (pt1.y + pt2.y) / 2;
 
@@ -83,7 +83,7 @@ export function drawAspectWeb(
       ctx.fillStyle = theme.background;
       ctx.fillRect(mx - glyphHalf, my - glyphHalf, glyphHalf * 2, glyphHalf * 2);
       ctx.restore();
-      drawPathGlyph(ctx, pathData, mx, my, glyphSize, color);
+      drawGlyphText(ctx, char, mx, my, glyphSize, color);
     }
   }
 

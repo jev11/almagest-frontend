@@ -1,25 +1,32 @@
-/** Design grid size for all glyph SVG paths. */
-export const GLYPH_GRID = 100;
+/**
+ * Font family used for astrological glyph rendering.
+ * Noto Sans Symbols covers planets, signs, nodes, and most aspects.
+ * Noto Sans Symbols 2 covers Sun (☉), trine (△), square (□).
+ */
+export const GLYPH_FONT_FAMILY = "'Noto Sans Symbols 2', 'Noto Sans Symbols', sans-serif";
 
 /**
- * Draw an SVG-path glyph on a Canvas 2D context using Path2D.
- * The glyph is centered on (x, y) and scaled from the 100×100 design grid
- * to the requested pixel size.
+ * Draw a Unicode glyph on a Canvas 2D context using fillText.
+ * The glyph is centered on (x, y) at the requested pixel size.
  */
-export function drawPathGlyph(
+export function drawGlyphText(
   ctx: CanvasRenderingContext2D,
-  pathData: string,
+  char: string,
   x: number,
   y: number,
   size: number,
   color: string,
 ): void {
-  if (!pathData) return;
-  const scale = size / GLYPH_GRID;
+  if (!char) return;
   ctx.save();
-  ctx.translate(x - size / 2, y - size / 2);
-  ctx.scale(scale, scale);
+  ctx.font = `${size}px ${GLYPH_FONT_FAMILY}`;
   ctx.fillStyle = color;
-  ctx.fill(new Path2D(pathData));
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  // Center on the actual visual bounds of the glyph, not the font's em square.
+  // textBaseline "middle" centers on the em midpoint which is uneven for many glyphs.
+  const metrics = ctx.measureText(char);
+  const verticalOffset = (metrics.actualBoundingBoxAscent - metrics.actualBoundingBoxDescent) / 2;
+  ctx.fillText(char, x, y + verticalOffset);
   ctx.restore();
 }
