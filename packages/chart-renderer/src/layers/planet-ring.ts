@@ -1,9 +1,9 @@
 import { CelestialBody, SIGN_ORDER, SIGN_ELEMENT } from "@astro-app/shared-types";
 import { longitudeToAngle, polarToCartesian } from "../core/geometry.js";
-import { RING_PROPORTIONS, glyphSizes } from "../core/constants.js";
-import { PLANET_PATHS, PLANET_WIDTHS } from "../glyphs/planet-paths.js";
-import { SIGN_PATHS, SIGN_WIDTHS } from "../glyphs/sign-paths.js";
-import { drawPathGlyph } from "../glyphs/draw.js";
+import { RING_PROPORTIONS, COLLISION, glyphSizes } from "../core/constants.js";
+import { PLANET_GLYPHS } from "../glyphs/planet-glyphs.js";
+import { SIGN_GLYPHS } from "../glyphs/sign-glyphs.js";
+import { drawGlyphText } from "../glyphs/draw.js";
 import { resolveCollisions, type GlyphPosition } from "../core/layout.js";
 import type { ChartData } from "@astro-app/shared-types";
 import type { ChartTheme } from "../themes/types.js";
@@ -44,22 +44,19 @@ interface LabelToken {
   extraGapAfter?: boolean;
   /** Override font size (px). Falls back to fontSize or minuteFontSize based on small flag. */
   size?: number;
-  /** SVG path data — if set, render as Path2D instead of fillText. */
-  pathData?: string;
-  /** Width ratio (0–1) for path glyphs. Layout width = size * widthRatio. */
-  widthRatio?: number;
+  /** Unicode glyph character — if set, render via drawGlyphText instead of fillText. */
+  glyphChar?: string;
 }
 
 /** Convert an ecliptic longitude to sign degree/minute/sign glyph */
-function lonToSignParts(lon: number): { deg: string; min: string; signPath: string; signWidthRatio: number; signKey: string | undefined } {
+function lonToSignParts(lon: number): { deg: string; min: string; signChar: string; signKey: string | undefined } {
   const norm = ((lon % 360) + 360) % 360;
   const signIndex = Math.floor(norm / 30);
   const deg = String(Math.floor(norm % 30)).padStart(2, "0");
   const min = String(Math.floor((norm % 1) * 60)).padStart(2, "0");
   const signKey = SIGN_ORDER[signIndex];
-  const signPath = signKey ? (SIGN_PATHS[signKey] ?? "") : "";
-  const signWidthRatio = signKey ? (SIGN_WIDTHS[signKey] ?? 1.0) : 1.0;
-  return { deg, min, signPath, signWidthRatio, signKey };
+  const signChar = signKey ? (SIGN_GLYPHS[signKey] ?? "") : "";
+  return { deg, min, signChar, signKey };
 }
 
 export function drawPlanetRing(
@@ -119,12 +116,12 @@ export function drawPlanetRing(
     .map((cuspLon) => longitudeToAngle(cuspLon, ascendant));
 
   // Angle labels are fixed (not movable). Remove them from the planet pool
-  // and add their positions as blockers so the resolver pushes planets away.
-  // Fan out multiple blocker points to cover the full angular width of each label.
-  // Angle labels occupy significant radial space (glyph + degree + sign + minute),
-  // so the exclusion zone must be wide enough to prevent overlaps.
+  // and pass their positions as wide blockers so the resolver pushes planets
+  // away by the full minGlyphGap (not the halved cusp-line gap).
+  // Spacing between blocker points must exceed minGlyphGap to prevent
+  // equilibrium traps where a planet settles between two adjacent points.
   const axisOffsetRad = 8 / planetRingR;
-  const angleLabelSpan = 18 / planetRingR; // step between blocker points
+  const angleLabelSpan = (COLLISION.minGlyphGap + 2) / planetRingR;
   const angleBlockerPositions: number[] = [];
   for (const ap of anglePoints) {
     const center = longitudeToAngle(ap.lon, ascendant) + axisOffsetRad;
@@ -138,9 +135,8 @@ export function drawPlanetRing(
     (pos) => !anglePoints.some((ap) => ap.id === pos.body),
   );
 
-  // Resolve collisions for planet labels only, with angle + cusp blockers
-  const allBlockers = [...cuspBlockers, ...angleBlockerPositions];
-  const resolved = resolveCollisions(planetPositions, planetRingR, allBlockers);
+  // Resolve collisions: cusp lines as thin blockers, angle labels as wide blockers
+  const resolved = resolveCollisions(planetPositions, planetRingR, cuspBlockers, angleBlockerPositions);
 
   // Re-insert angle points at their fixed positions for rendering
   for (const ap of anglePoints) {
@@ -224,14 +220,14 @@ export function drawPlanetRing(
 
     if (anglePoint) {
       // Angle label: As/Ds/Mc/Ic + degree + sign + minutes
-      const { deg, min, signPath, signWidthRatio, signKey } = lonToSignParts(anglePoint.lon);
+      const { deg, min, signChar, signKey } = lonToSignParts(anglePoint.lon);
       const element = signKey ? SIGN_ELEMENT[signKey as keyof typeof SIGN_ELEMENT] : undefined;
       const signColor = element ? (theme.elementColors[element as keyof typeof theme.elementColors] ?? theme.degreeLabelColor) : theme.degreeLabelColor;
       tickColor = theme.angleStroke;
       tokens = [
         { text: anglePoint.label, color: theme.angleStroke, bold: false, extraGapAfter: true, size: sizes.planet },
         { text: deg, color: theme.degreeLabelColor, bold: false },
-        { text: "", color: signColor, bold: false, pathData: signPath, widthRatio: signWidthRatio },
+        { text: "", color: signColor, bold: false, glyphChar: signChar },
         { text: min, color: theme.degreeLabelColor, bold: false, small: true },
       ];
     } else {
@@ -242,20 +238,18 @@ export function drawPlanetRing(
 
       const isRetrograde = zodiacPos.is_retrograde ?? false;
       const color = isRetrograde ? theme.planetGlyphRetrograde : theme.planetGlyph;
-      const planetPath = PLANET_PATHS[pos.body] ?? "";
-      const planetWidthRatio = PLANET_WIDTHS[pos.body] ?? 1.0;
+      const planetChar = PLANET_GLYPHS[pos.body] ?? "";
       const deg = String(zodiacPos.degree).padStart(2, "0");
       const min = String(zodiacPos.minute).padStart(2, "0");
-      const signPath = SIGN_PATHS[zodiacPos.sign] ?? "";
-      const signWidthRatio = SIGN_WIDTHS[zodiacPos.sign] ?? 1.0;
+      const signChar = SIGN_GLYPHS[zodiacPos.sign] ?? "";
       const element = SIGN_ELEMENT[zodiacPos.sign];
       const signColor = element ? (theme.elementColors[element] ?? theme.degreeLabelColor) : theme.degreeLabelColor;
 
       tickColor = color;
       tokens = [
-        { text: "", color, bold: true, extraGapAfter: false, size: sizes.planet, pathData: planetPath, widthRatio: planetWidthRatio },
+        { text: "", color, bold: true, extraGapAfter: false, size: sizes.planet, glyphChar: planetChar },
         { text: deg, color: theme.degreeLabelColor, bold: false },
-        { text: "", color: signColor, bold: false, pathData: signPath, widthRatio: signWidthRatio },
+        { text: "", color: signColor, bold: false, glyphChar: signChar },
         { text: min, color: theme.degreeLabelColor, bold: false, small: true },
       ];
       if (isRetrograde) {
@@ -286,8 +280,8 @@ export function drawPlanetRing(
     for (const token of tokens) {
       const size = token.size ?? (token.small ? minuteFontSize : fontSize);
       const p = polarToCartesian(cx, cy, pos.displayAngle, currentR);
-      if (token.pathData) {
-        drawPathGlyph(ctx, token.pathData, p.x, p.y, size, token.color);
+      if (token.glyphChar) {
+        drawGlyphText(ctx, token.glyphChar, p.x, p.y, size, token.color);
       } else {
         ctx.font = token.bold ? `bold ${size}px ${theme.fontFamily}` : `${size}px ${theme.fontFamily}`;
         ctx.fillStyle = token.color;
