@@ -271,6 +271,70 @@ export function moonPhaseName(elongation: number): string {
   return "Waning Crescent";
 }
 
+/**
+ * Find the nearest date when a specific lunar phase occurs.
+ * @param now - Reference date
+ * @param targetElongation - Target Moon-Sun elongation: 0 (New), 90 (First Quarter), 180 (Full), 270 (Last Quarter)
+ * @param direction - Search direction: "past" or "future"
+ * @returns Date of the phase occurrence (accurate to ~3 seconds)
+ */
+export function findNearestPhaseDate(
+  now: Date,
+  targetElongation: number,
+  direction: "past" | "future",
+): Date {
+  const msPerDay = 86_400_000;
+  const SYNODIC_MONTH = 29.53059; // days
+  const RATE = 360 / SYNODIC_MONTH; // ~12.19°/day
+
+  const currentElong = moonPhaseAngle(now);
+
+  // Angular distance from current elongation to target in the desired direction
+  let delta: number;
+  if (direction === "future") {
+    delta = targetElongation - currentElong;
+    if (delta <= 0) delta += 360; // wrap forward
+  } else {
+    delta = currentElong - targetElongation;
+    if (delta <= 0) delta += 360; // wrap backward
+  }
+
+  // Estimate days to target
+  const estDays = delta / RATE;
+  const estMs = estDays * msPerDay * (direction === "future" ? 1 : -1);
+
+  // Create a bracket: the estimate ± 2 days should contain the actual crossing
+  const estTime = now.getTime() + estMs;
+  let lo = estTime - 2 * msPerDay;
+  let hi = estTime + 2 * msPerDay;
+
+  // Find the point in [lo, hi] closest to target elongation via bisection.
+  // We use a "distance to target" metric that handles the 360° wrap.
+  function angleDist(timeMs: number): number {
+    const e = moonPhaseAngle(new Date(timeMs));
+    // Signed distance: positive means target is still ahead (in increasing elongation direction)
+    let d = targetElongation - e;
+    if (d > 180) d -= 360;
+    if (d < -180) d += 360;
+    return d;
+  }
+
+  // Bisect: find where angleDist crosses zero
+  for (let i = 0; i < 25; i++) {
+    const mid = (lo + hi) / 2;
+    const dMid = angleDist(mid);
+    if (dMid > 0) {
+      // Target is still ahead → need to go later in time
+      lo = mid;
+    } else {
+      // Target is behind or at → need to go earlier
+      hi = mid;
+    }
+  }
+
+  return new Date((lo + hi) / 2);
+}
+
 /** Calculate a single body's position. */
 export function calculateBodyPosition(date: Date, body: CelestialBody): CelestialPosition {
   const T = julianCenturies(dateToJulianDay(date));

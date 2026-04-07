@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { calculateApproximate, moonPhaseAngle, moonPhaseName } from "./index.js";
+import { calculateApproximate, moonPhaseAngle, moonPhaseName, findNearestPhaseDate } from "./index.js";
 import { CelestialBody } from "@astro-app/shared-types";
 
 // J2000.0
@@ -88,6 +88,47 @@ describe("moonPhaseName", () => {
       expect(moonPhaseName(angle)).toBe(name);
     });
   }
+});
+
+describe("findNearestPhaseDate", () => {
+  it("finds a future new moon with elongation near 0°", () => {
+    const now = new Date("2026-04-07T12:00:00Z");
+    const result = findNearestPhaseDate(now, 0, "future");
+    const elongation = moonPhaseAngle(result);
+    // Should be within 1° of target (0° wraps, so check both sides)
+    expect(elongation < 1 || elongation > 359).toBe(true);
+    expect(result.getTime()).toBeGreaterThan(now.getTime());
+  });
+
+  it("finds a past new moon with elongation near 0°", () => {
+    const now = new Date("2026-04-07T12:00:00Z");
+    const result = findNearestPhaseDate(now, 0, "past");
+    const elongation = moonPhaseAngle(result);
+    expect(elongation < 1 || elongation > 359).toBe(true);
+    expect(result.getTime()).toBeLessThan(now.getTime());
+  });
+
+  it("finds a future full moon with elongation near 180°", () => {
+    const now = new Date("2026-04-07T12:00:00Z");
+    const result = findNearestPhaseDate(now, 180, "future");
+    const elongation = moonPhaseAngle(result);
+    expect(Math.abs(elongation - 180)).toBeLessThan(1);
+    expect(result.getTime()).toBeGreaterThan(now.getTime());
+  });
+
+  it("finds nearest first quarter (90°)", () => {
+    const now = new Date("2026-04-07T12:00:00Z");
+    const result = findNearestPhaseDate(now, 90, "future");
+    const elongation = moonPhaseAngle(result);
+    expect(Math.abs(elongation - 90)).toBeLessThan(1);
+  });
+
+  it("finds nearest last quarter (270°)", () => {
+    const now = new Date("2026-04-07T12:00:00Z");
+    const result = findNearestPhaseDate(now, 270, "past");
+    const elongation = moonPhaseAngle(result);
+    expect(Math.abs(elongation - 270)).toBeLessThan(1);
+  });
 });
 
 describe("calculateApproximate with options", () => {

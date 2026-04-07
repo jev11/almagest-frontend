@@ -166,7 +166,6 @@ describe("resolveCollisions", () => {
 
   it("planet conjunct AS is pushed clear without AS moving", () => {
     const radius = 174;
-    const deg2rad = (d: number) => (d * Math.PI) / 180;
 
     // AS at exactly π (9 o'clock), small offset for label
     const asCenter = Math.PI + 8 / radius;
