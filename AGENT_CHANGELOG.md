@@ -1,5 +1,27 @@
 # Agent Changelog
 
+## 2026-04-08 — Planetary Hours card on home screen
+
+### Change
+Added a Planetary Hours card to the home screen right column, positioned below the Moon card. Shows the current planetary hour ruler, day ruler, a progress bar, and "next hour" preview. Clicking the card expands to show all 24 planetary hours (12 day + 12 night) with sunrise/sunset dividers.
+
+### Files Created
+- `apps/web/src/lib/planetary-hours.ts` — Pure calculation logic: Chaldean order, sunrise/sunset via suncalc, hour division
+- `apps/web/src/lib/planetary-hours.test.ts` — Unit tests for calculation (24 hours, contiguous, Chaldean sequence, polar edge case, before-sunrise)
+- `apps/web/src/components/home/planetary-hours.tsx` — React component with compact/expanded views
+
+### Files Modified
+- `apps/web/src/routes/home.tsx` — Added PlanetaryHours to right column after MoonCard
+- `apps/web/package.json` — Added suncalc dependency
+
+### Decisions Made
+- **suncalc over custom sunrise/sunset** — 4KB package, battle-tested, handles edge cases. Planetary hours don't need Swiss Ephemeris precision.
+- **Placed below MoonCard** — Both are "temporal awareness" cards (what's happening now), grouped by mental model rather than by "planetary" category.
+- **Accordion expand over popover** — Consistent with card-based layout, doesn't obscure other content.
+- **Calculate on page load only** — No real-time setTimeout updates. Future improvement tracked in `future_improvements.md`.
+- **Null return for polar regions** — suncalc returns NaN for sunrise/sunset during polar day/night; card shows "unavailable" message.
+- **Before-sunrise handled via yesterday's hours** — If current time is before today's sunrise, calculate from yesterday's sunset → today's sunrise.
+
 ## 2026-04-08 — Fix planet label wrap-around collision near AS axis
 
 ### Change
