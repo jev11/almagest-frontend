@@ -1,5 +1,21 @@
 # Agent Changelog
 
+## 2026-04-08 — Dignity Lookup Module (Tasks 1 & 2)
+
+### Change
+Added a pure lookup module for essential astrological dignities (domicile, exaltation, detriment, fall) and house assignment by longitude. Implemented using TDD: failing tests committed first, then full implementation.
+
+### Files Created
+- `apps/web/src/lib/dignities.ts` — Full implementation: RULERS, CO_RULERS, EXALTATIONS, DETRIMENTS, FALLS lookup tables plus reverse maps; `getDignityForPlanet`, `getDignityDetail`, `getStrongestDignity`, `getHouseForLongitude` functions
+- `apps/web/src/lib/dignities.test.ts` — 50 tests covering all dignity types, priority ordering (domicile > exaltation), peregrine cases, co-ruler handling, and house calculation including wrap-around
+
+### Decisions Made
+- **Traditional ruler takes priority in `getDignityDetail`** — `ruler` field always holds the classical planet (e.g. Mars for Scorpio, Saturn for Aquarius); the modern co-ruler is in `coRuler`. This makes the UI layer's job straightforward.
+- **No exaltation/fall for outer planets** — Uranus, Neptune, Pluto have domicile and detriment entries only. Classical tradition defines exaltations only for the seven traditional planets; assigning outers would introduce contested modern attributions.
+- **`getStrongestDignity` is an alias for `getDignityForPlanet`** — Priority (domicile > exaltation > detriment > fall) is already baked into the lookup order, so a separate ranking function would be redundant.
+- **`SIGN_DETRIMENT` uses first-entry-wins** — Some signs have two planets in detriment (e.g. Gemini: Jupiter, Scorpio: Venus/Mars). The reverse map takes the first one; consumers needing all planets should use `DETRIMENTS` directly.
+- **House wrap-around handled with circular comparison** — `getHouseForLongitude` checks if `nextCusp < cusp` to detect houses spanning 0°, avoiding the modular arithmetic pitfall.
+
 ## 2026-04-08 — Planetary Hours card on home screen
 
 ### Change
