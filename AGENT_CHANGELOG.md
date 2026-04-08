@@ -1,5 +1,20 @@
 # Agent Changelog
 
+## 2026-04-08 — PlanetCard: House Column + Expand/Collapse with Dignities (Task 3)
+
+### Change
+Added expand/collapse interaction, house number column, and essential dignities display to the PlanetCard component. Compact view now shows house numbers. Expanded view adds dignity badges per planet and a full Dignity Detail grid showing ruler/exaltation/detriment/fall for each planet's current sign.
+
+### Files Modified
+- `apps/web/src/components/home/planet-card.tsx` — Added `useState` for expanded toggle, `cursor-pointer` on card, house column in both views, `DignityBadge` component, dignity detail grid with highlighting
+
+### Decisions Made
+- **Same expand/collapse pattern as PlanetaryHoursCard** — `useState(false)`, toggle on card click, conditional rendering. Keeps interaction consistent across home page cards.
+- **DIGNITY_BODIES excludes Chiron and nodes** — Only the 10 classical+modern planets (Sun through Pluto) have traditional dignity assignments. Chiron and lunar nodes show no dignity badge or detail row.
+- **Ruler column shows co-ruler with slash** — For signs with modern co-rulers (Scorpio, Aquarius, Pisces), the Rul column displays `rulerGlyph/coRulerGlyph`. Highlighting triggers if either ruler matches the row's planet.
+- **Green for domicile/exaltation, red for detriment/fall** — Matches the existing `text-success`/`text-destructive` color tokens. Badge backgrounds use 30% opacity for subtlety.
+- **House from `getHouseForLongitude`** — Uses the dignity module's house calculation with `chartData.houses.cusps`, consistent with the chart renderer's house system.
+
 ## 2026-04-08 — Dignity Lookup Module (Tasks 1 & 2)
 
 ### Change
