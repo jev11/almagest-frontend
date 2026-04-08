@@ -1,5 +1,35 @@
 # Agent Changelog
 
+## 2026-04-08 — Home page design polish: typography, atmosphere, card hierarchy
+
+### Change
+Three visual improvements to the home page:
+1. **Typography**: Replaced Inter with Cormorant Garamond (display/headings) + DM Sans (body/data). Gives the app an editorial, refined quality.
+2. **Background atmosphere**: Added dark-mode-only radial gradients (blue glow top-center, faint purple bottom-right) and a barely-visible noise texture for depth.
+3. **Card visual hierarchy**: Chart wheel is now borderless with a subtle primary-color glow (hero). Moon card has a gradient accent border. All cards have hover lift. Sections fade in with stagger on load.
+
+### Files Modified
+- `apps/web/index.html` — Google Fonts link updated
+- `apps/web/src/index.css` — font variables, atmospheric background, card utilities, animations
+- `apps/web/src/routes/home.tsx` — display font on heading, staggered animation delays
+- `apps/web/src/components/home/chart-wheel.tsx` — borderless with glow shadow
+- `apps/web/src/components/home/moon-card.tsx` — gradient accent border, display font
+- `apps/web/src/components/home/planet-card.tsx` — card-hover class
+- `apps/web/src/components/home/retrograde-tracker.tsx` — card-hover, display font
+- `apps/web/src/components/home/element-modality-card.tsx` — card-hover class
+- `apps/web/src/components/home/aspects-timeline.tsx` — card-hover, display font
+- `apps/web/src/components/layout/sidebar.tsx` — display font on brand name
+- `apps/web/src/components/chart/distribution-overlay.tsx` — DM Sans font reference
+
+### Decisions Made
+- **Cormorant Garamond over Playfair Display** — lighter weight, more elegant for an astrology app; Playfair is too heavy/editorial
+- **DM Sans over Outfit** — closer to Inter in metrics so less layout disruption, but more geometric character
+- **Noise at 3% opacity** — any higher and it becomes distracting; any lower and it's invisible. 3% adds texture without drawing attention
+- **Radial gradients use OKLch** — consistent with existing color system
+- **Gradient border via mask-composite** — standard CSS technique, no JS, works in all modern browsers
+- **Animation delay 50ms stagger** — fast enough to feel snappy, slow enough to create visual sequence
+- **No entry animation on individual cards** — animating columns as groups is more cohesive than per-card stagger which looks "waterfall-y"
+
 ## 2026-04-07 — Reduce planet label displacement near angle labels (stellium fix)
 
 ### Change
