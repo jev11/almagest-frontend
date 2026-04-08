@@ -1,5 +1,32 @@
 # Agent Changelog
 
+## 2026-04-08 — Emil Kowalski design engineering polish
+
+### Change
+Applied Emil Kowalski's design engineering principles across the UI:
+1. **Custom easing curves**: Replaced all generic `ease-out`/`ease` with `cubic-bezier(0.23, 1, 0.32, 1)` — a strong ease-out that makes animations feel intentional
+2. **Button press feedback**: Changed `:active` from `translate-y-px` to `scale(0.97)` on all buttons including sidebar nav
+3. **Hover media query**: Wrapped `.card-hover:hover` in `@media (hover: hover) and (pointer: fine)` to prevent false positives on touch devices
+4. **Explicit transitions**: Replaced all `transition-all` with specific properties (`background-color`, `border-color`, `transform`) in button component, chart cards, and chart list items
+5. **Reduced motion**: Added `prefers-reduced-motion: reduce` media query that disables stagger fade-in animations
+6. **Tooltip delay**: Changed default from 0ms to 300ms with instant close, preventing accidental tooltip activation on hover
+
+### Files Modified
+- `apps/web/src/index.css` — custom easing on `.animate-fade-in` and `.card-hover`, hover media query guard, reduced motion query
+- `apps/web/src/components/ui/button.tsx` — `transition-all` → explicit properties, `translate-y-px` → `scale-[0.97]`
+- `apps/web/src/components/ui/tooltip.tsx` — default delay 0 → 300ms, added closeDelay=0
+- `apps/web/src/components/layout/sidebar.tsx` — explicit transition properties, added `active:scale-[0.97]`
+- `apps/web/src/components/home/planet-card.tsx` — `transition-colors` → explicit `transition-[background-color]` with 120ms duration
+- `apps/web/src/components/chart/chart-card.tsx` — `transition-all` → explicit properties
+- `apps/web/src/routes/charts.tsx` — `transition-all` → explicit properties (2 instances)
+
+### Decisions Made
+- **`cubic-bezier(0.23, 1, 0.32, 1)` over built-in `ease-out`** — Emil's recommended strong ease-out curve; starts fast giving instant feedback
+- **`scale(0.97)` over `translateY(1px)`** — scale feels more physical and works regardless of element size
+- **300ms tooltip delay** — prevents accidental activation while keeping UI responsive; Base UI's `closeDelay=0` ensures instant subsequent tooltips
+- **`duration-160` on buttons** — 160ms is the sweet spot for press feedback per Emil's guidelines
+- **`duration-120` on table row hover** — faster for high-frequency interactions (scanning planet list)
+
 ## 2026-04-08 — Home page design polish: typography, atmosphere, card hierarchy
 
 ### Change
