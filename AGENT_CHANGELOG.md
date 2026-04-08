@@ -1,5 +1,18 @@
 # Agent Changelog
 
+## 2026-04-08 — Fix planet label wrap-around collision near AS axis
+
+### Change
+Fixed a bug where planet labels near the Ascendant (AS) were not pushed away by the collision avoidance system. The issue: `longitudeToAngle` maps angles to [π, 3π), so a planet with longitude just below the ascendant wraps to ~3π. The blocker checks used simple `Math.abs(a - b)` which gave ~2π instead of the true circular distance ~0. Added a `circularDiff` helper and applied it in both thin and wide blocker repulsion loops.
+
+### Files Modified
+- `packages/chart-renderer/src/core/layout.ts` — added `circularDiff()` helper; updated thin blocker and wide blocker loops to use circular distance
+- `packages/chart-renderer/src/core/layout.test.ts` — added wrap-around test case for planet near 3π being pushed from AS blocker at π
+
+### Decisions Made
+- **`circularDiff` returns signed value in (-π, π]** — preserves push direction semantics (positive = CCW from blocker) while fixing the distance calculation
+- **Applied to both thin and wide blockers** — house cusp blockers near AS could have the same wrap-around issue
+
 ## 2026-04-08 — Emil Kowalski design engineering polish
 
 ### Change

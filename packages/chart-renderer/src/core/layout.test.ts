@@ -180,4 +180,21 @@ describe("resolveCollisions", () => {
     const distFromAs = Math.abs(result[0]!.displayAngle - asCenter) * radius;
     expect(distFromAs).toBeGreaterThanOrEqual(33);
   });
+
+  it("planet just before AS (wrap-around near 3π) is pushed clear", () => {
+    const radius = 174;
+
+    // AS wide blocker at π + small offset (same as real rendering)
+    const asBlocker = Math.PI + 14 / radius;
+
+    // Planet longitude slightly less than ascendant → chart angle wraps to ~3π
+    const planetAngle = 3 * Math.PI - 0.02; // visually just before AS
+    const positions = makePositions([planetAngle]);
+    const result = resolveCollisions(positions, radius, [], [asBlocker]);
+
+    // Circular distance: the planet should be pushed clear of the AS blocker
+    const rawDiff = result[0]!.displayAngle - asBlocker;
+    const circDist = Math.abs(((rawDiff % (2 * Math.PI)) + 3 * Math.PI) % (2 * Math.PI) - Math.PI) * radius;
+    expect(circDist).toBeGreaterThanOrEqual(33);
+  });
 });

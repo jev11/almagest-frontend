@@ -1,5 +1,16 @@
 import { COLLISION } from "./constants.js";
 
+const TWO_PI = 2 * Math.PI;
+
+/**
+ * Signed angular difference (a - b) on a circle, result in (-π, π].
+ * Positive means a is counter-clockwise from b.
+ */
+function circularDiff(a: number, b: number): number {
+  let d = ((a - b) % TWO_PI + TWO_PI + Math.PI) % TWO_PI - Math.PI;
+  return d;
+}
+
 export interface GlyphPosition {
   /** Celestial body identifier */
   body: string;
@@ -87,7 +98,7 @@ export function resolveCollisions(
     // One-sided repulsion from fixed blocker angles (house cusps, etc.)
     for (const pos of result) {
       for (const blocker of blockers) {
-        const diff = pos.displayAngle - blocker;
+        const diff = circularDiff(pos.displayAngle, blocker);
         const pixelDist = Math.abs(diff) * radius;
         if (pixelDist < blockerGap) {
           const push = blockerAngularGap - Math.abs(diff);
@@ -101,22 +112,24 @@ export function resolveCollisions(
     // When multiple wide blockers overlap, push away from each one but always
     // in the same direction (determined by the nearest blocker) to avoid
     // ping-pong between adjacent zones.
+    // Uses circularDiff to handle wrap-around (e.g. planet at ~3π near AS at ~π).
     for (const pos of result) {
       // Find the nearest encroaching wide blocker to set the push direction
-      let nearest: number | null = null;
+      let nearestDiff: number | null = null;
       let nearestAbsDiff = Infinity;
       for (const blocker of wideBlockers) {
-        const absDiff = Math.abs(pos.displayAngle - blocker);
+        const diff = circularDiff(pos.displayAngle, blocker);
+        const absDiff = Math.abs(diff);
         if (absDiff * radius < minGap && absDiff < nearestAbsDiff) {
           nearestAbsDiff = absDiff;
-          nearest = blocker;
+          nearestDiff = diff;
         }
       }
-      if (nearest !== null) {
-        const dir = pos.displayAngle >= nearest ? 1 : -1;
+      if (nearestDiff !== null) {
+        const dir = nearestDiff >= 0 ? 1 : -1;
         // Push away from every encroaching wide blocker in that same direction
         for (const blocker of wideBlockers) {
-          const diff = pos.displayAngle - blocker;
+          const diff = circularDiff(pos.displayAngle, blocker);
           const pixelDist = Math.abs(diff) * radius;
           if (pixelDist < minGap) {
             const push = minAngularGap - Math.abs(diff);
