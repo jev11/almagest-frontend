@@ -1,6 +1,6 @@
 import { CelestialBody, SIGN_ORDER, SIGN_ELEMENT } from "@astro-app/shared-types";
 import { longitudeToAngle, polarToCartesian } from "../core/geometry.js";
-import { RING_PROPORTIONS, COLLISION, glyphSizes } from "../core/constants.js";
+import { RING_PROPORTIONS, glyphSizes } from "../core/constants.js";
 import { PLANET_GLYPHS } from "../glyphs/planet-glyphs.js";
 import { SIGN_GLYPHS } from "../glyphs/sign-glyphs.js";
 import { drawGlyphText } from "../glyphs/draw.js";

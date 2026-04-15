@@ -1,5 +1,109 @@
 # Agent Changelog
 
+## 2026-04-15 — shadcn migration PR 5: interactive primitives + close-out
+
+### Change
+Replaced the last hand-rolled interactive bits inside cards with shadcn primitives. Migration is COMPLETE — all 5 PRs landed. Net effect across PRs 1-5: 13 shadcn primitives installed; 4 ad-hoc styling constants removed; 6 manual outside-click/keyboard handlers removed; ~600 lines of custom interaction code replaced with primitive calls.
+
+### Files Modified (this PR)
+- `apps/web/src/components/home/planet-card.tsx` — DignityBadge `<span>` → `Badge`; expand/collapse ternary → single template + `Collapsible` wrapping the dignity-detail addendum
+- `apps/web/src/components/home/planetary-hours.tsx` — custom progress `<div>` → `Progress`; expand/collapse ternary → single template + `Collapsible` wrapping the day/night hour list
+- `apps/web/src/components/chart/chart-card.tsx` — delete `Dialog` → `AlertDialog`; `⋯` button + manual conditional dropdown → `DropdownMenu`. Rename `Dialog` left as `Dialog` (form, not confirmation).
+- `apps/web/src/components/ui/collapsible.tsx` — added height transition animation via `--collapsible-panel-height` CSS var (snapped instantly before)
+
+### Decisions Made (this PR)
+- **planet-card Option A** (per user choice) — always render the 5-column position table with dignity badges visible in compact view. Lost the "Positions & Dignities" h3 heading and "click to collapse" hint. Gained badge visibility in compact view (intentional UX shift).
+- **Collapsible primitive needed an animation fix** — base-ui's `Collapsible.Panel` exposes `--collapsible-panel-height` but ships no styles. Added `overflow-hidden transition-[height] duration-200 ease-out h-(--collapsible-panel-height) data-[state=closed]:h-0` to the wrapper. Benefits both planet-card and planetary-hours.
+- **Rename Dialog stays as `Dialog`** — it's a form (input + buttons), not a confirmation. `AlertDialog` is for confirmations.
+- **`AlertDialogCancel` and `AlertDialogAction` bring shadcn defaults** — Cancel is `variant="outline"` (was bare text); Action wraps Button with destructive className override. Slight style drift vs. the old flat buttons; aligns with shadcn conventions.
+- **`AlertDialogFooter` has `-mx-4 -mb-4 bg-muted/50 border-t` baked in** — produces a subtle footer band vs. the old flat layout. Visual delta worth eyeballing.
+- **A11y follow-ups deferred** — DropdownMenuItem currently uses `onClick`; `onSelect` would handle keyboard activation more cleanly. planet-card's Card-as-trigger pattern lacks `aria-expanded` since we don't use `CollapsibleTrigger`. Pre-migration code had the same gaps; not regressions, but worth a future a11y pass.
+- **Manual QA recommended:**
+  - Click delete confirmation dialog → confirm AlertDialog Cancel/Delete behave correctly; visual footer drift acceptable
+  - Open chart-card `⋯` menu via keyboard (Tab to button, Enter); use Arrow keys + Enter to activate Rename/Delete; verify menu closes
+  - Expand/collapse planet-card and planetary-hours; verify smooth height animation (newly added)
+
+## 2026-04-15 — shadcn migration PR 4: card wrappers
+
+### Change
+Wrapped six home/chart cards with shadcn `Card` + `CardContent`. Replaced two inner `border-t` dividers with `Separator`. Internals (tables, SVG ring, dignity grids, chart-card's `⋯` menu and dialogs) deliberately untouched — those are PR 5 territory. PR 4 of 5.
+
+### Files Modified
+- `apps/web/src/components/home/moon-card.tsx`
+- `apps/web/src/components/home/planet-card.tsx` — also Separator for inner divider
+- `apps/web/src/components/home/retrograde-tracker.tsx`
+- `apps/web/src/components/home/element-modality-card.tsx`
+- `apps/web/src/components/home/planetary-hours.tsx` — two Cards (no-result branch + main), Separator for day/night divider
+- `apps/web/src/components/chart/chart-card.tsx` — outer wrap only
+
+### Decisions Made
+- **`py-0` on every Card wrapper** — shadcn `Card` ships with `py-4` baked in; combined with `CardContent`'s `p-phi-N` this produced double vertical padding. `py-0` neutralizes Card's default so `CardContent` controls vertical padding alone.
+- **~~`px-0` on every CardContent~~ (REVERTED)** — Initial fix added `px-0 p-phi-N` to make padding deterministic, but Tailwind v4 sorts utilities alphabetically: `px-0` sorts AFTER `p-phi-N` and won the cascade for `padding-left/right`, zeroing horizontal padding. Reverted to plain `p-phi-N`. The `--spacing-phi-N` chain registers `p-phi-N` as a real Tailwind v4 utility, so `twMerge` correctly dedupes it against shadcn's baked-in `px-4`. No `px-0` needed.
+- **chart-card hover uses `ring`, not `border`** — shadcn `Card` uses `ring-1 ring-foreground/10` (no border), so `hover:border-primary/40` did nothing visible. Changed to `hover:ring-primary/40`.
+- **Visual deltas accepted per spec (worth eyeballing on your end):**
+  - Cards now have `rounded-xl` instead of `rounded-lg` (slightly larger corner radius)
+  - Cards now have `ring-1 ring-foreground/10` instead of `border border-border` (semitransparent ring vs solid border — usually visually similar in dark mode)
+  - Card has `overflow-hidden` baked in. May clip transforms or shadows that previously bled outside the card rect (e.g. `card-hover` glow effects). Visual check recommended for moon-card and chart-card.
+- **Indentation drift** — when a new wrapping JSX level was introduced, inner content was NOT re-indented (preserves git diff focus + avoids accidentally touching internals). Cosmetic readability hit; can be fixed in a future formatter pass.
+
+## 2026-04-15 — shadcn migration PR 3: layout surface
+
+### Change
+Migrated the sidebar's user menu and avatar to shadcn primitives. Net ~33-line reduction (deleted UserMenu was 77 lines + 23 lines of state/conditional/refs; replacement is ~67 lines). Removed two hand-rolled effects (mousedown outside-click, escape keydown) and a ref. PR 3 of 5 in the shadcn/ui migration.
+
+### Files Modified
+- `apps/web/src/components/layout/sidebar.tsx` — Deleted inline `UserMenu({ onClose })` function and `menuOpen` state. Replaced user trigger button with `DropdownMenu` (using base-ui's `nativeButton={false}` + `render={<button>}` pattern). Replaced custom user-circle div with `Avatar` + `AvatarFallback`. Hoisted `useAstroClient` and `clearAuth` into `Sidebar` from the deleted `UserMenu` scope.
+
+### Decisions Made
+- **`useEffect` retained, `useState`/`useRef` removed** — Cmd+B keyboard shortcut handler still uses `useEffect`. The deleted `UserMenu` was the sole consumer of `useRef` and `useState` (for `menuOpen`).
+- **Sign-out async ordering kept as-is** — `onClick={async () => { await client.logout(); clearAuth(); toast.success(...); navigate("/login"); }}` returns a promise that base-ui's `DropdownMenuItem` doesn't await. Pre-migration `UserMenu` had the same pattern. Worth a future follow-up to fire `clearAuth`/`toast`/`navigate` synchronously and let logout race in the background — flagged in code review but not changed here.
+- **`Avatar` redundant `shrink-0`** — shadcn `Avatar` root already includes `shrink-0`. Kept the explicit class for clarity; harmless duplication.
+- **a11y follow-ups noted** — `aria-label={displayName}` on `Avatar` when `collapsed` would help screen readers. Not introduced by this PR but logged for future.
+- **Manual QA recommended** — verify (1) sign-out flow under throttled network, (2) sidebar's `onDoubleClick={toggle}` doesn't fire spuriously when double-clicking the trigger button.
+
+## 2026-04-15 — shadcn migration PR 2: forms surface
+
+### Change
+Migrated all three forms-package components to shadcn primitives. Removed three ad-hoc styling constants (`selectClass`, `labelClass`, `inputClass`) and the manual outside-click handler in location-search. PR 2 of 5 in the shadcn/ui migration.
+
+### Files Modified
+- `apps/web/src/components/forms/birth-data-form.tsx` — 4 native `<select>` → `Select`; 7 `<label className={labelClass}>` → `Label`; name `<input>` → `Input`; styled `errors.submit` `<p>` → `Alert variant="destructive"`. Removed `selectClass` and `labelClass` constants.
+- `apps/web/src/components/forms/date-time-picker.tsx` — both `<input>` → `Input`. Auto-slash and auto-colon insertion handlers preserved verbatim. Removed `inputClass` constant.
+- `apps/web/src/components/forms/location-search.tsx` — search `<input>` → `Input`; conditional `<ul>` → `Popover`/`PopoverTrigger`/`PopoverContent`. Removed `containerRef` and `mousedown` outside-click `useEffect`. Aligned z-10 on search icon and loading spinner.
+
+### Decisions Made
+- **base-ui's `Select` `onValueChange` emits `null` on clear** — strict typecheck requires guarding with `if (v) setX(v as T)`. Since none of the four selects expose a clear action, the guard never triggers in practice but is required for type safety.
+- **Non-name labels intentionally lack `htmlFor`** — `DateTimePicker`, `LocationSearch`, and `Select`'s `SelectTrigger` don't expose a stable single id. Adding a wrong `htmlFor` would be worse than none. Future task could add ids to these child components.
+- **Visual delta from shadcn defaults is expected** — `Input` ships with `rounded-md`, transparent bg, and focus ring (vs the legacy `bg-input rounded-lg` with focus border-color). Aligns with the spec's choice to keep shadcn defaults rather than mapping tokens.
+- **Alert visual delta** — shadcn's `destructive` Alert renders with a left border and different padding than the old pill (`bg-destructive/10 border rounded-lg px-3 py-2`). Acceptable per spec; more consistent with the rest of shadcn.
+- **base-ui Popover differs from Radix** — no `PopoverAnchor`; uses `render={<div>...</div>}` slot pattern; needs `nativeButton={false}` for non-button triggers; uses `initialFocus={false}` instead of Radix's `onOpenAutoFocus` to keep typing focus on the Input. `--anchor-width` CSS var matches content to trigger width.
+- **a11y/keyboard-nav follow-ups deferred** — location-search popover lacks combobox ARIA roles and ArrowDown/Enter handling. The pre-migration code lacked these too; adding them is out of scope for this refactor and tracked separately.
+
+## 2026-04-15 — shadcn migration PR 1: foundation install
+
+### Change
+Verified `@shadcn` registry coverage for the 13 primitives in the migration spec, then installed all of them into `apps/web/src/components/ui/`. No application code touched. PR 1 of 5 in the shadcn/ui migration (see `docs/superpowers/specs/2026-04-15-shadcn-migration-design.md`).
+
+### Files Created
+- `apps/web/src/components/ui/card.tsx` — smoke-tested first to confirm `base-nova` style resolves cleanly
+- `apps/web/src/components/ui/alert.tsx`
+- `apps/web/src/components/ui/alert-dialog.tsx`
+- `apps/web/src/components/ui/avatar.tsx`
+- `apps/web/src/components/ui/badge.tsx`
+- `apps/web/src/components/ui/collapsible.tsx`
+- `apps/web/src/components/ui/dropdown-menu.tsx`
+- `apps/web/src/components/ui/input.tsx`
+- `apps/web/src/components/ui/label.tsx`
+- `apps/web/src/components/ui/popover.tsx`
+- `apps/web/src/components/ui/progress.tsx`
+- `apps/web/src/components/ui/select.tsx`
+- `apps/web/src/components/ui/separator.tsx`
+
+### Decisions Made
+- **No `base-nova` fallbacks needed** — all 13 primitives exist in the `@shadcn` registry under the configured style. No primitive required falling back to the default style.
+- **Inline execution for PR 1** — pure CLI installs with no app code changes; subagent dispatch overhead would have outweighed the benefit. Subagents start at PR 2 (forms refactor).
+- **Pre-existing baseline build was broken** — fixed in a separate `chore:` commit (null-asserted `planetary-hours.test.ts` Moscow test results, removed unused `COLLISION` import in `planet-ring.ts`). Without this the per-task build gate would have been red regardless.
+
 ## 2026-04-08 — PlanetCard: House Column + Expand/Collapse with Dignities (Task 3)
 
 ### Change
