@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "figma": {
+      "command": "",
+      "args": [
+        "https://mcp.figma.com/mcp"
+      ]
+    }
+  }
+}
