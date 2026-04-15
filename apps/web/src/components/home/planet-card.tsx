@@ -20,6 +20,10 @@ import { ErrorCard } from "@/components/ui/error-card";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import {
+  Collapsible,
+  CollapsibleContent,
+} from "@/components/ui/collapsible";
 
 const BASE_BODIES = [
   CelestialBody.Sun,
@@ -117,122 +121,65 @@ export function PlanetCard({
         />
       )}
 
-      {!expanded ? (
-        /* Compact view */
-        <table className="w-full text-sm">
-          <tbody>
-            {displayBodies.map((body) => {
-              const zp = chartData.zodiac_positions[body];
-              if (!zp) return null;
-              const pos = chartData.positions[body];
-              const house = pos
-                ? getHouseForLongitude(pos.longitude, chartData.houses.cusps)
-                : null;
-              const glyph = PLANET_GLYPHS[body] ?? body;
-              const signGlyph = SIGN_GLYPHS[zp.sign];
-              return (
-                <tr
-                  key={body}
-                  className="border-b border-border last:border-0 hover:bg-secondary transition-[background-color] duration-120 ease-out"
+      {/* Always-visible 5-column position table */}
+      <table className="w-full text-sm">
+        <tbody>
+          {displayBodies.map((body) => {
+            const zp = chartData.zodiac_positions[body];
+            if (!zp) return null;
+            const pos = chartData.positions[body];
+            const house = pos
+              ? getHouseForLongitude(pos.longitude, chartData.houses.cusps)
+              : null;
+            const glyph = PLANET_GLYPHS[body] ?? body;
+            const signGlyph = SIGN_GLYPHS[zp.sign];
+            const dignity = isDignityBody(body)
+              ? getStrongestDignity(body, zp.sign)
+              : null;
+            return (
+              <tr
+                key={body}
+                className="border-b border-border last:border-0 hover:bg-secondary transition-[background-color] duration-120 ease-out"
+              >
+                <td className="py-1 w-[40px]">
+                  <span className="text-primary text-base">{glyph}</span>
+                </td>
+                <td
+                  className="py-1"
+                  style={{ color: ELEMENT_COLORS[SIGN_ELEMENT[zp.sign]] }}
                 >
-                  <td className="py-1 w-[40px]">
-                    <span className="text-primary text-base">{glyph}</span>
-                  </td>
-                  <td
-                    className="py-1"
-                    style={{ color: ELEMENT_COLORS[SIGN_ELEMENT[zp.sign]] }}
-                  >
-                    {signGlyph}
-                  </td>
-                  <td className="py-1 text-foreground tabular-nums">
-                    {formatDegree(zp.degree, zp.minute)}
-                    {zp.is_retrograde && (
-                      <span className="text-destructive text-xs font-semibold ml-1">
-                        ℞
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-1 text-muted-foreground text-xs text-right w-[24px]">
-                    {house}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      ) : (
-        /* Expanded view */
-        <>
-          <div className="flex items-start justify-between mb-phi-3">
-            <h3 className="text-foreground font-semibold text-sm font-display">
-              Positions & Dignities
-            </h3>
-            <span className="text-muted-foreground text-xs shrink-0 ml-2">
-              click to collapse
-            </span>
-          </div>
+                  {signGlyph}
+                </td>
+                <td className="py-1 text-foreground tabular-nums">
+                  {formatDegree(zp.degree, zp.minute)}
+                  {zp.is_retrograde && (
+                    <span className="text-destructive text-xs font-semibold ml-1">
+                      ℞
+                    </span>
+                  )}
+                </td>
+                <td className="py-1 text-muted-foreground text-xs text-right w-[24px]">
+                  {house}
+                </td>
+                <td className="py-1 text-right">
+                  {isDignityBody(body) ? (
+                    dignity ? (
+                      <DignityBadge dignity={dignity} />
+                    ) : (
+                      <span className="text-muted-foreground text-xs">—</span>
+                    )
+                  ) : null}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
 
-          {/* Position table with dignity badge */}
-          <table className="w-full text-sm">
-            <tbody>
-              {displayBodies.map((body) => {
-                const zp = chartData.zodiac_positions[body];
-                if (!zp) return null;
-                const pos = chartData.positions[body];
-                const house = pos
-                  ? getHouseForLongitude(pos.longitude, chartData.houses.cusps)
-                  : null;
-                const glyph = PLANET_GLYPHS[body] ?? body;
-                const signGlyph = SIGN_GLYPHS[zp.sign];
-                const dignity = isDignityBody(body)
-                  ? getStrongestDignity(body, zp.sign)
-                  : null;
-                return (
-                  <tr
-                    key={body}
-                    className="border-b border-border last:border-0 hover:bg-secondary transition-[background-color] duration-120 ease-out"
-                  >
-                    <td className="py-1 w-[40px]">
-                      <span className="text-primary text-base">{glyph}</span>
-                    </td>
-                    <td
-                      className="py-1"
-                      style={{ color: ELEMENT_COLORS[SIGN_ELEMENT[zp.sign]] }}
-                    >
-                      {signGlyph}
-                    </td>
-                    <td className="py-1 text-foreground tabular-nums">
-                      {formatDegree(zp.degree, zp.minute)}
-                      {zp.is_retrograde && (
-                        <span className="text-destructive text-xs font-semibold ml-1">
-                          ℞
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-1 text-muted-foreground text-xs text-right w-[24px]">
-                      {house}
-                    </td>
-                    <td className="py-1 text-right">
-                      {isDignityBody(body) ? (
-                        dignity ? (
-                          <DignityBadge dignity={dignity} />
-                        ) : (
-                          <span className="text-muted-foreground text-xs">
-                            —
-                          </span>
-                        )
-                      ) : null}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-
-          {/* Divider */}
+      {/* Collapsible dignity-detail addendum */}
+      <Collapsible open={expanded}>
+        <CollapsibleContent>
           <Separator className="my-phi-3" />
-
-          {/* Dignity Detail */}
           <div className="text-muted-foreground text-[11px] uppercase tracking-wider mb-phi-2">
             Dignity Detail
           </div>
@@ -334,8 +281,8 @@ export function PlanetCard({
               })}
             </tbody>
           </table>
-        </>
-      )}
+        </CollapsibleContent>
+      </Collapsible>
       </CardContent>
     </Card>
   );
