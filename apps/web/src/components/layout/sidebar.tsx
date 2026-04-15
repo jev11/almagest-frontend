@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Home,
@@ -12,6 +12,14 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAstroClient } from "@astro-app/astro-client";
 import { useSidebar } from "@/hooks/use-sidebar";
 import { useAuth } from "@/hooks/use-auth";
@@ -69,90 +77,13 @@ function NavButton({
   return btn;
 }
 
-function UserMenu({ onClose }: { onClose: () => void }) {
-  const navigate = useNavigate();
-  const client = useAstroClient();
-  const user = useAuth((s) => s.user);
-  const clearAuth = useAuth((s) => s.clearAuth);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        onClose();
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [onClose]);
-
-  useEffect(() => {
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, [onClose]);
-
-  const items = [
-    {
-      label: "Settings",
-      icon: Settings,
-      onClick: () => { navigate("/settings"); onClose(); },
-    },
-    {
-      label: "Sign out",
-      icon: LogOut,
-      onClick: async () => {
-        try { await client.logout(); } catch { /* ignore */ }
-        clearAuth();
-        toast.success("Signed out");
-        navigate("/login");
-        onClose();
-      },
-      destructive: true,
-    },
-  ];
-
-  return (
-    <div
-      ref={menuRef}
-      className="absolute bottom-full left-0 mb-2 w-56 bg-popover border border-border rounded-lg shadow-lg py-1 z-50"
-    >
-      {/* User info header */}
-      {user && (
-        <div className="px-3 py-2 border-b border-border">
-          <p className="text-sm text-foreground font-medium truncate">{user.display_name}</p>
-          <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-        </div>
-      )}
-
-      {/* Menu items */}
-      {items.map(({ label, icon: Icon, onClick, destructive }) => (
-        <button
-          key={label}
-          onClick={onClick}
-          className={cn(
-            "w-full flex items-center gap-3 px-3 py-2 text-sm transition-colors",
-            destructive
-              ? "text-destructive hover:bg-destructive/10"
-              : "text-foreground hover:bg-secondary",
-          )}
-        >
-          <Icon size={16} className="shrink-0" />
-          {label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 export function Sidebar() {
   const { collapsed, toggle } = useSidebar();
   const location = useLocation();
   const navigate = useNavigate();
   const user = useAuth((s) => s.user);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const clearAuth = useAuth((s) => s.clearAuth);
+  const client = useAstroClient();
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -218,24 +149,55 @@ export function Sidebar() {
 
       {/* User area */}
       <div className={cn("relative p-phi-2 border-t border-border", collapsed && "flex justify-center px-0")}>
-        {menuOpen && <UserMenu onClose={() => setMenuOpen(false)} />}
-
-        <button
-          onClick={() => setMenuOpen((v) => !v)}
-          className={cn(
-            "flex items-center gap-phi-2 rounded-lg transition-colors cursor-pointer",
-            collapsed
-              ? "p-0"
-              : "w-full py-1 hover:bg-secondary px-phi-2",
-          )}
-        >
-          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center shrink-0">
-            <span className="text-primary-foreground text-xs font-semibold">{initial}</span>
-          </div>
-          {!collapsed && (
-            <span className="text-foreground text-sm font-medium leading-none truncate">{displayName}</span>
-          )}
-        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            nativeButton={false}
+            render={
+              <button
+                className={cn(
+                  "flex items-center gap-phi-2 rounded-lg transition-colors cursor-pointer",
+                  collapsed ? "p-0" : "w-full py-1 hover:bg-secondary px-phi-2",
+                )}
+              >
+                <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center shrink-0">
+                  <span className="text-primary-foreground text-xs font-semibold">{initial}</span>
+                </div>
+                {!collapsed && (
+                  <span className="text-foreground text-sm font-medium leading-none truncate">{displayName}</span>
+                )}
+              </button>
+            }
+          />
+          <DropdownMenuContent side="top" align="start" className="w-56">
+            {user && (
+              <>
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col">
+                    <p className="text-sm text-foreground font-medium truncate">{user.display_name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+              </>
+            )}
+            <DropdownMenuItem onClick={() => navigate("/settings")}>
+              <Settings size={16} />
+              Settings
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={async () => {
+                try { await client.logout(); } catch { /* ignore */ }
+                clearAuth();
+                toast.success("Signed out");
+                navigate("/login");
+              }}
+            >
+              <LogOut size={16} />
+              Sign out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </aside>
   );
