@@ -15,6 +15,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface LocationValue {
   name: string;
@@ -43,8 +46,6 @@ const AYANAMSA_OPTIONS = [
   { value: "fagan_bradley", label: "Fagan-Bradley" },
   { value: "djwhal_khul", label: "Djwhal Khul" },
 ];
-
-const labelClass = "block text-xs text-muted-foreground mb-1.5 font-medium";
 
 export function BirthDataForm() {
   const navigate = useNavigate();
@@ -143,19 +144,22 @@ export function BirthDataForm() {
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
       {/* Name */}
       <div>
-        <label className={labelClass}>Name (optional)</label>
-        <input
+        <Label htmlFor="chart-name" className="text-xs text-muted-foreground mb-1.5 font-medium">
+          Name (optional)
+        </Label>
+        <Input
+          id="chart-name"
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="My Chart"
-          className="w-full bg-input border border-border rounded-lg px-3 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors min-h-[44px]"
+          className="min-h-[44px]"
         />
       </div>
 
       {/* Date of Birth */}
       <div>
-        <label className={labelClass}>Date of Birth</label>
+        <Label className="text-xs text-muted-foreground mb-1.5 font-medium">Date of Birth</Label>
         <DateTimePicker
           date={date}
           time={time}
@@ -169,7 +173,7 @@ export function BirthDataForm() {
 
       {/* Birth Location */}
       <div>
-        <label className={labelClass}>Birth Location</label>
+        <Label className="text-xs text-muted-foreground mb-1.5 font-medium">Birth Location</Label>
         <LocationSearch
           value={location}
           onChange={(v) => { setLocation(v); setErrors((e) => ({ ...e, location: "" })); }}
@@ -181,7 +185,7 @@ export function BirthDataForm() {
 
       {/* House System */}
       <div>
-        <label className={labelClass}>House System</label>
+        <Label className="text-xs text-muted-foreground mb-1.5 font-medium">House System</Label>
         <Select
           value={houseSystem}
           onValueChange={(v) => { if (v) setHouseSystem(v as HouseSystem); }}
@@ -199,7 +203,7 @@ export function BirthDataForm() {
 
       {/* Zodiac Type */}
       <div>
-        <label className={labelClass}>Zodiac Type</label>
+        <Label className="text-xs text-muted-foreground mb-1.5 font-medium">Zodiac Type</Label>
         <Select
           value={zodiacType}
           onValueChange={(v) => { if (v) setZodiacType(v as ZodiacType); }}
@@ -217,7 +221,7 @@ export function BirthDataForm() {
       {/* Ayanamsa (sidereal only) */}
       {zodiacType === ZodiacType.Sidereal && (
         <div>
-          <label className={labelClass}>Ayanamsa</label>
+          <Label className="text-xs text-muted-foreground mb-1.5 font-medium">Ayanamsa</Label>
           <Select
             value={ayanamsa}
             onValueChange={(v) => { if (v) setAyanamsa(v); }}
@@ -246,7 +250,7 @@ export function BirthDataForm() {
       {showAdvanced && (
         <div className="flex flex-col gap-4 pl-4 border-l-2 border-border">
           <div>
-            <label className={labelClass}>Lunar Node</label>
+            <Label className="text-xs text-muted-foreground mb-1.5 font-medium">Lunar Node</Label>
             <Select
               value={nodeType}
               onValueChange={(v) => { if (v) setNodeType(v as "mean" | "true"); }}
@@ -264,9 +268,9 @@ export function BirthDataForm() {
       )}
 
       {errors.submit && (
-        <p className="text-sm text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2">
-          {errors.submit}
-        </p>
+        <Alert variant="destructive">
+          <AlertDescription>{errors.submit}</AlertDescription>
+        </Alert>
       )}
 
       <button
