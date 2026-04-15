@@ -8,6 +8,13 @@ import { useAuth } from "@/hooks/use-auth";
 import { localTimeToUtc } from "@/lib/utils";
 import { LocationSearch } from "./location-search";
 import { DateTimePicker } from "./date-time-picker";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface LocationValue {
   name: string;
@@ -36,9 +43,6 @@ const AYANAMSA_OPTIONS = [
   { value: "fagan_bradley", label: "Fagan-Bradley" },
   { value: "djwhal_khul", label: "Djwhal Khul" },
 ];
-
-const selectClass =
-  "w-full bg-input border border-border rounded-lg px-3 py-3 text-sm text-foreground focus:outline-none focus:border-primary transition-colors appearance-none cursor-pointer min-h-[44px]";
 
 const labelClass = "block text-xs text-muted-foreground mb-1.5 font-medium";
 
@@ -178,52 +182,55 @@ export function BirthDataForm() {
       {/* House System */}
       <div>
         <label className={labelClass}>House System</label>
-        <div className="relative">
-          <select
-            value={houseSystem}
-            onChange={(e) => setHouseSystem(e.target.value as HouseSystem)}
-            className={selectClass}
-          >
+        <Select
+          value={houseSystem}
+          onValueChange={(v) => { if (v) setHouseSystem(v as HouseSystem); }}
+        >
+          <SelectTrigger className="min-h-[44px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
             {HOUSE_SYSTEMS.map((h) => (
-              <option key={h.value} value={h.value}>{h.label}</option>
+              <SelectItem key={h.value} value={h.value}>{h.label}</SelectItem>
             ))}
-          </select>
-          <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">▼</div>
-        </div>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Zodiac Type */}
       <div>
         <label className={labelClass}>Zodiac Type</label>
-        <div className="relative">
-          <select
-            value={zodiacType}
-            onChange={(e) => setZodiacType(e.target.value as ZodiacType)}
-            className={selectClass}
-          >
-            <option value={ZodiacType.Tropical}>Tropical</option>
-            <option value={ZodiacType.Sidereal}>Sidereal</option>
-          </select>
-          <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">▼</div>
-        </div>
+        <Select
+          value={zodiacType}
+          onValueChange={(v) => { if (v) setZodiacType(v as ZodiacType); }}
+        >
+          <SelectTrigger className="min-h-[44px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ZodiacType.Tropical}>Tropical</SelectItem>
+            <SelectItem value={ZodiacType.Sidereal}>Sidereal</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Ayanamsa (sidereal only) */}
       {zodiacType === ZodiacType.Sidereal && (
         <div>
           <label className={labelClass}>Ayanamsa</label>
-          <div className="relative">
-            <select
-              value={ayanamsa}
-              onChange={(e) => setAyanamsa(e.target.value)}
-              className={selectClass}
-            >
+          <Select
+            value={ayanamsa}
+            onValueChange={(v) => { if (v) setAyanamsa(v); }}
+          >
+            <SelectTrigger className="min-h-[44px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
               {AYANAMSA_OPTIONS.map((a) => (
-                <option key={a.value} value={a.value}>{a.label}</option>
+                <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
               ))}
-            </select>
-            <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">▼</div>
-          </div>
+            </SelectContent>
+          </Select>
         </div>
       )}
 
@@ -240,17 +247,18 @@ export function BirthDataForm() {
         <div className="flex flex-col gap-4 pl-4 border-l-2 border-border">
           <div>
             <label className={labelClass}>Lunar Node</label>
-            <div className="relative">
-              <select
-                value={nodeType}
-                onChange={(e) => setNodeType(e.target.value as "mean" | "true")}
-                className={selectClass}
-              >
-                <option value="mean">Mean Node</option>
-                <option value="true">True Node</option>
-              </select>
-              <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">▼</div>
-            </div>
+            <Select
+              value={nodeType}
+              onValueChange={(v) => { if (v) setNodeType(v as "mean" | "true"); }}
+            >
+              <SelectTrigger className="min-h-[44px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="mean">Mean Node</SelectItem>
+                <SelectItem value="true">True Node</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
       )}
