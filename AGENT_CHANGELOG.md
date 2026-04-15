@@ -1,5 +1,28 @@
 # Agent Changelog
 
+## 2026-04-15 — shadcn migration PR 5: interactive primitives + close-out
+
+### Change
+Replaced the last hand-rolled interactive bits inside cards with shadcn primitives. Migration is COMPLETE — all 5 PRs landed. Net effect across PRs 1-5: 13 shadcn primitives installed; 4 ad-hoc styling constants removed; 6 manual outside-click/keyboard handlers removed; ~600 lines of custom interaction code replaced with primitive calls.
+
+### Files Modified (this PR)
+- `apps/web/src/components/home/planet-card.tsx` — DignityBadge `<span>` → `Badge`; expand/collapse ternary → single template + `Collapsible` wrapping the dignity-detail addendum
+- `apps/web/src/components/home/planetary-hours.tsx` — custom progress `<div>` → `Progress`; expand/collapse ternary → single template + `Collapsible` wrapping the day/night hour list
+- `apps/web/src/components/chart/chart-card.tsx` — delete `Dialog` → `AlertDialog`; `⋯` button + manual conditional dropdown → `DropdownMenu`. Rename `Dialog` left as `Dialog` (form, not confirmation).
+- `apps/web/src/components/ui/collapsible.tsx` — added height transition animation via `--collapsible-panel-height` CSS var (snapped instantly before)
+
+### Decisions Made (this PR)
+- **planet-card Option A** (per user choice) — always render the 5-column position table with dignity badges visible in compact view. Lost the "Positions & Dignities" h3 heading and "click to collapse" hint. Gained badge visibility in compact view (intentional UX shift).
+- **Collapsible primitive needed an animation fix** — base-ui's `Collapsible.Panel` exposes `--collapsible-panel-height` but ships no styles. Added `overflow-hidden transition-[height] duration-200 ease-out h-(--collapsible-panel-height) data-[state=closed]:h-0` to the wrapper. Benefits both planet-card and planetary-hours.
+- **Rename Dialog stays as `Dialog`** — it's a form (input + buttons), not a confirmation. `AlertDialog` is for confirmations.
+- **`AlertDialogCancel` and `AlertDialogAction` bring shadcn defaults** — Cancel is `variant="outline"` (was bare text); Action wraps Button with destructive className override. Slight style drift vs. the old flat buttons; aligns with shadcn conventions.
+- **`AlertDialogFooter` has `-mx-4 -mb-4 bg-muted/50 border-t` baked in** — produces a subtle footer band vs. the old flat layout. Visual delta worth eyeballing.
+- **A11y follow-ups deferred** — DropdownMenuItem currently uses `onClick`; `onSelect` would handle keyboard activation more cleanly. planet-card's Card-as-trigger pattern lacks `aria-expanded` since we don't use `CollapsibleTrigger`. Pre-migration code had the same gaps; not regressions, but worth a future a11y pass.
+- **Manual QA recommended:**
+  - Click delete confirmation dialog → confirm AlertDialog Cancel/Delete behave correctly; visual footer drift acceptable
+  - Open chart-card `⋯` menu via keyboard (Tab to button, Enter); use Arrow keys + Enter to activate Rename/Delete; verify menu closes
+  - Expand/collapse planet-card and planetary-hours; verify smooth height animation (newly added)
+
 ## 2026-04-15 — shadcn migration PR 4: card wrappers
 
 ### Change
