@@ -1,5 +1,28 @@
 # Agent Changelog
 
+## 2026-04-15 — shadcn migration PR 4: card wrappers
+
+### Change
+Wrapped six home/chart cards with shadcn `Card` + `CardContent`. Replaced two inner `border-t` dividers with `Separator`. Internals (tables, SVG ring, dignity grids, chart-card's `⋯` menu and dialogs) deliberately untouched — those are PR 5 territory. PR 4 of 5.
+
+### Files Modified
+- `apps/web/src/components/home/moon-card.tsx`
+- `apps/web/src/components/home/planet-card.tsx` — also Separator for inner divider
+- `apps/web/src/components/home/retrograde-tracker.tsx`
+- `apps/web/src/components/home/element-modality-card.tsx`
+- `apps/web/src/components/home/planetary-hours.tsx` — two Cards (no-result branch + main), Separator for day/night divider
+- `apps/web/src/components/chart/chart-card.tsx` — outer wrap only
+
+### Decisions Made
+- **`py-0` on every Card wrapper** — shadcn `Card` ships with `py-4` baked in; combined with `CardContent`'s `p-phi-N` this produced double vertical padding. `py-0` neutralizes Card's default so `CardContent` controls vertical padding alone.
+- **`px-0` on every CardContent** — shadcn `CardContent` has `px-4` baked in. The project's custom `p-phi-3`/`p-phi-4` utilities aren't standard Tailwind, so `twMerge` can't dedupe them against `px-4` (both rules emit; cascade order decides). `px-0 p-phi-N` makes padding deterministic.
+- **chart-card hover uses `ring`, not `border`** — shadcn `Card` uses `ring-1 ring-foreground/10` (no border), so `hover:border-primary/40` did nothing visible. Changed to `hover:ring-primary/40`.
+- **Visual deltas accepted per spec (worth eyeballing on your end):**
+  - Cards now have `rounded-xl` instead of `rounded-lg` (slightly larger corner radius)
+  - Cards now have `ring-1 ring-foreground/10` instead of `border border-border` (semitransparent ring vs solid border — usually visually similar in dark mode)
+  - Card has `overflow-hidden` baked in. May clip transforms or shadows that previously bled outside the card rect (e.g. `card-hover` glow effects). Visual check recommended for moon-card and chart-card.
+- **Indentation drift** — when a new wrapping JSX level was introduced, inner content was NOT re-indented (preserves git diff focus + avoids accidentally touching internals). Cosmetic readability hit; can be fixed in a future formatter pass.
+
 ## 2026-04-15 — shadcn migration PR 3: layout surface
 
 ### Change
