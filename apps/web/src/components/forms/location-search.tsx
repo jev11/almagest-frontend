@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface LocationResult {
   displayName: string;
@@ -72,23 +74,11 @@ export function LocationSearch({ value, onChange, className }: LocationSearchPro
   const [loading, setLoading] = useState(false);
   const [searchError, setSearchError] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   // Sync input when value cleared externally
   useEffect(() => {
     if (!value) setQuery("");
   }, [value]);
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    function handle(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handle);
-    return () => document.removeEventListener("mousedown", handle);
-  }, []);
 
   function handleInput(e: React.ChangeEvent<HTMLInputElement>) {
     const q = e.target.value;
@@ -138,37 +128,48 @@ export function LocationSearch({ value, onChange, className }: LocationSearchPro
   }
 
   return (
-    <div ref={containerRef} className={cn("relative", className)}>
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-        <input
-          type="text"
-          value={query}
-          onChange={handleInput}
-          onFocus={() => results.length > 0 && setOpen(true)}
-          placeholder="Search city..."
-          className="w-full bg-input border border-border rounded-lg pl-9 pr-3 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors min-h-[44px]"
+    <div className={cn("relative", className)}>
+      <Popover open={open && results.length > 0} onOpenChange={setOpen}>
+        <PopoverTrigger
+          nativeButton={false}
+          render={
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none z-10" />
+              <Input
+                type="text"
+                value={query}
+                onChange={handleInput}
+                onFocus={() => results.length > 0 && setOpen(true)}
+                placeholder="Search city..."
+                className="pl-9 min-h-[44px] w-full"
+              />
+              {loading && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              )}
+            </div>
+          }
         />
-        {loading && (
-          <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-        )}
-      </div>
-
-      {open && results.length > 0 && (
-        <ul className="absolute z-50 mt-1 w-full bg-secondary border border-border rounded-lg overflow-hidden shadow-lg">
-          {results.map((r, i) => (
-            <li key={i}>
-              <button
-                type="button"
-                className="w-full text-left px-3 py-3 text-sm text-foreground hover:bg-border transition-colors truncate min-h-[44px]"
-                onClick={() => handleSelect(r)}
-              >
-                {r.displayName}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+        <PopoverContent
+          className="p-0 w-[var(--anchor-width)] min-w-[200px]"
+          align="start"
+          sideOffset={4}
+          initialFocus={false}
+        >
+          <ul>
+            {results.map((r, i) => (
+              <li key={i}>
+                <button
+                  type="button"
+                  className="w-full text-left px-3 py-3 text-sm text-foreground hover:bg-border transition-colors truncate min-h-[44px]"
+                  onClick={() => handleSelect(r)}
+                >
+                  {r.displayName}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </PopoverContent>
+      </Popover>
 
       {searchError && (
         <p className="mt-1.5 text-xs text-destructive">Location search unavailable. Try again.</p>
