@@ -41,7 +41,7 @@ export function PlanetaryHours({ lat, lon }: PlanetaryHoursProps) {
 
   if (!result) {
     return (
-      <Card>
+      <Card className="py-0">
         <CardContent className="p-phi-4">
         <h3 className="text-foreground font-semibold text-sm mb-phi-3 font-display">
           Planetary Hours
@@ -65,7 +65,7 @@ export function PlanetaryHours({ lat, lon }: PlanetaryHoursProps) {
 
   return (
     <Card
-      className="card-hover cursor-pointer"
+      className="card-hover cursor-pointer py-0"
       onClick={() => setExpanded((v) => !v)}
     >
       <CardContent className="p-phi-4">

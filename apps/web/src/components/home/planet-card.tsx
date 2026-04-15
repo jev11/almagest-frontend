@@ -103,7 +103,7 @@ export function PlanetCard({
 
   return (
     <Card
-      className="card-hover cursor-pointer"
+      className="card-hover cursor-pointer py-0"
       onClick={() => setExpanded((v) => !v)}
     >
       <CardContent className="p-phi-3">
