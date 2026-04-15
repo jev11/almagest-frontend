@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { calculateApproximate } from "@astro-app/approx-engine";
 import { CelestialBody } from "@astro-app/shared-types";
 import { PLANET_GLYPHS } from "@/lib/format";
+import { Card, CardContent } from "@/components/ui/card";
 
 const PLANET_NAMES: Record<string, string> = {
   mercury: "Mercury",
@@ -48,7 +49,8 @@ export function RetrogradeTracker() {
   }, []);
 
   return (
-    <div className="bg-card border border-border rounded-lg p-phi-4 card-hover">
+    <Card className="card-hover">
+      <CardContent className="p-phi-4">
       <h3 className="text-foreground font-semibold text-sm mb-phi-3 font-display">Retrograde Tracker</h3>
       {retroBodies.length === 0 ? (
         <p className="text-success text-sm">All planets direct ✓</p>
@@ -74,6 +76,7 @@ export function RetrogradeTracker() {
           ))}
         </div>
       )}
-    </div>
+      </CardContent>
+    </Card>
   );
 }
