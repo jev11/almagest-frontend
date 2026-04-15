@@ -20,6 +20,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAstroClient } from "@astro-app/astro-client";
 import { useSidebar } from "@/hooks/use-sidebar";
 import { useAuth } from "@/hooks/use-auth";
@@ -159,9 +160,11 @@ export function Sidebar() {
                   collapsed ? "p-0" : "w-full py-1 hover:bg-secondary px-phi-2",
                 )}
               >
-                <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center shrink-0">
-                  <span className="text-primary-foreground text-xs font-semibold">{initial}</span>
-                </div>
+                <Avatar className="w-8 h-8 shrink-0">
+                  <AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">
+                    {initial}
+                  </AvatarFallback>
+                </Avatar>
                 {!collapsed && (
                   <span className="text-foreground text-sm font-medium leading-none truncate">{displayName}</span>
                 )}
