@@ -15,7 +15,7 @@ Wrapped six home/chart cards with shadcn `Card` + `CardContent`. Replaced two in
 
 ### Decisions Made
 - **`py-0` on every Card wrapper** — shadcn `Card` ships with `py-4` baked in; combined with `CardContent`'s `p-phi-N` this produced double vertical padding. `py-0` neutralizes Card's default so `CardContent` controls vertical padding alone.
-- **`px-0` on every CardContent** — shadcn `CardContent` has `px-4` baked in. The project's custom `p-phi-3`/`p-phi-4` utilities aren't standard Tailwind, so `twMerge` can't dedupe them against `px-4` (both rules emit; cascade order decides). `px-0 p-phi-N` makes padding deterministic.
+- **~~`px-0` on every CardContent~~ (REVERTED)** — Initial fix added `px-0 p-phi-N` to make padding deterministic, but Tailwind v4 sorts utilities alphabetically: `px-0` sorts AFTER `p-phi-N` and won the cascade for `padding-left/right`, zeroing horizontal padding. Reverted to plain `p-phi-N`. The `--spacing-phi-N` chain registers `p-phi-N` as a real Tailwind v4 utility, so `twMerge` correctly dedupes it against shadcn's baked-in `px-4`. No `px-0` needed.
 - **chart-card hover uses `ring`, not `border`** — shadcn `Card` uses `ring-1 ring-foreground/10` (no border), so `hover:border-primary/40` did nothing visible. Changed to `hover:ring-primary/40`.
 - **Visual deltas accepted per spec (worth eyeballing on your end):**
   - Cards now have `rounded-xl` instead of `rounded-lg` (slightly larger corner radius)
