@@ -14,6 +14,16 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Card, CardContent } from "@/components/ui/card";
 
 interface ChartCardProps {
@@ -124,32 +134,25 @@ export function ChartCard({ stored, onDeleted, onRenamed }: ChartCardProps) {
       </Card>
 
       {/* Delete dialog */}
-      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <DialogContent className="bg-card border-border text-foreground max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Delete chart?</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            "{stored.name}" will be permanently deleted.
-          </p>
-          <DialogFooter>
-            <button
-              type="button"
-              onClick={() => setDeleteOpen(false)}
-              className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent className="bg-card border-border text-foreground max-w-sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete chart?</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{stored.name}" will be permanently deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
               onClick={handleDelete}
-              className="px-4 py-2 text-sm bg-destructive hover:bg-destructive/80 text-white rounded-lg transition-colors"
+              className="bg-destructive hover:bg-destructive/80 text-white"
             >
               Delete
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Rename dialog */}
       <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
