@@ -19,6 +19,7 @@ const ELEMENT_COLORS: Record<Element, string> = {
 import { ErrorCard } from "@/components/ui/error-card";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 
 const BASE_BODIES = [
   CelestialBody.Sun,
@@ -63,15 +64,16 @@ const DIGNITY_LABELS: Record<DignityType, string> = {
 function DignityBadge({ dignity }: { dignity: DignityType }) {
   const isPositive = dignity === "domicile" || dignity === "exaltation";
   return (
-    <span
-      className={`inline-block px-1.5 py-0.5 rounded text-[10px] leading-none font-medium ${
+    <Badge
+      variant="outline"
+      className={`px-1.5 py-0.5 text-[10px] leading-none font-medium border-0 h-auto ${
         isPositive
           ? "bg-green-900/30 text-success"
           : "bg-red-900/30 text-destructive"
       }`}
     >
       {DIGNITY_LABELS[dignity]}
-    </span>
+    </Badge>
   );
 }
 
