@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { calculatePlanetaryHours } from "@/lib/planetary-hours";
 import { PLANET_GLYPHS, formatTime } from "@/lib/format";
 import { useSettings } from "@/hooks/use-settings";
+import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 
 const PLANET_NAMES: Record<string, string> = {
   sun: "Sun",
@@ -39,14 +41,16 @@ export function PlanetaryHours({ lat, lon }: PlanetaryHoursProps) {
 
   if (!result) {
     return (
-      <div className="bg-card border border-border rounded-lg p-phi-4">
+      <Card>
+        <CardContent className="p-phi-4">
         <h3 className="text-foreground font-semibold text-sm mb-phi-3 font-display">
           Planetary Hours
         </h3>
         <p className="text-muted-foreground text-sm">
           Planetary hours unavailable at this latitude.
         </p>
-      </div>
+        </CardContent>
+      </Card>
     );
   }
 
@@ -60,10 +64,11 @@ export function PlanetaryHours({ lat, lon }: PlanetaryHoursProps) {
   const nightHours = allHours.filter((h) => !h.isDay);
 
   return (
-    <div
-      className="bg-card border border-border rounded-lg p-phi-4 card-hover cursor-pointer"
+    <Card
+      className="card-hover cursor-pointer"
       onClick={() => setExpanded((v) => !v)}
     >
+      <CardContent className="p-phi-4">
       {!expanded ? (
         /* Compact view */
         <>
@@ -150,7 +155,7 @@ export function PlanetaryHours({ lat, lon }: PlanetaryHoursProps) {
           </div>
 
           {/* Divider */}
-          <div className="border-t border-border my-phi-3" />
+          <Separator className="my-phi-3" />
 
           {/* Night hours section */}
           <div>
@@ -193,6 +198,7 @@ export function PlanetaryHours({ lat, lon }: PlanetaryHoursProps) {
           </div>
         </>
       )}
-    </div>
+      </CardContent>
+    </Card>
   );
 }
