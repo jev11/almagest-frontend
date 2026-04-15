@@ -7,7 +7,18 @@ Verified `@shadcn` registry coverage for the 13 primitives in the migration spec
 
 ### Files Created
 - `apps/web/src/components/ui/card.tsx` — smoke-tested first to confirm `base-nova` style resolves cleanly
-- `apps/web/src/components/ui/{input,label,select,dropdown-menu,popover,separator,badge,collapsible,progress,alert,alert-dialog,avatar}.tsx` — bulk install
+- `apps/web/src/components/ui/alert.tsx`
+- `apps/web/src/components/ui/alert-dialog.tsx`
+- `apps/web/src/components/ui/avatar.tsx`
+- `apps/web/src/components/ui/badge.tsx`
+- `apps/web/src/components/ui/collapsible.tsx`
+- `apps/web/src/components/ui/dropdown-menu.tsx`
+- `apps/web/src/components/ui/input.tsx`
+- `apps/web/src/components/ui/label.tsx`
+- `apps/web/src/components/ui/popover.tsx`
+- `apps/web/src/components/ui/progress.tsx`
+- `apps/web/src/components/ui/select.tsx`
+- `apps/web/src/components/ui/separator.tsx`
 
 ### Decisions Made
 - **No `base-nova` fallbacks needed** — all 13 primitives exist in the `@shadcn` registry under the configured style. No primitive required falling back to the default style.
