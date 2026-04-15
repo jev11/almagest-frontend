@@ -1,6 +1,7 @@
 import { CelestialBody, ZodiacSign, Element, SIGN_ELEMENT } from "@astro-app/shared-types";
 import type { ChartData } from "@astro-app/shared-types";
 import { PLANET_GLYPHS } from "@/lib/format";
+import { Card, CardContent } from "@/components/ui/card";
 
 type Modality = "cardinal" | "fixed" | "mutable";
 
@@ -74,10 +75,8 @@ export function ElementModalityCard({ chartData }: Props) {
   }
 
   return (
-    <div
-      className="bg-card border border-border rounded-lg p-phi-4 card-hover"
-      style={{ containerType: "inline-size" }}
-    >
+    <Card className="card-hover" style={{ containerType: "inline-size" }}>
+      <CardContent className="p-phi-4">
       <table className="w-full border-collapse text-center table-fixed" style={{ fontSize: "3.5cqi" }}>
         <thead>
           <tr>
@@ -113,6 +112,7 @@ export function ElementModalityCard({ chartData }: Props) {
           ))}
         </tbody>
       </table>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
