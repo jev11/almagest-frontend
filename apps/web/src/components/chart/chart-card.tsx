@@ -74,7 +74,7 @@ export function ChartCard({ stored, onDeleted, onRenamed }: ChartCardProps) {
         className="cursor-pointer hover:ring-primary/40 hover:bg-secondary transition-[border-color,background-color] duration-160 ease-out group relative py-0"
         onClick={() => navigate(`/chart/${stored.id}`)}
       >
-        <CardContent className="px-0 p-4 flex flex-col items-center gap-3">
+        <CardContent className="p-4 flex flex-col items-center gap-3">
         {/* ⋯ menu button */}
         <button
           type="button"

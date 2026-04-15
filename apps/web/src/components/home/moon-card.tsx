@@ -201,7 +201,7 @@ export function MoonCard() {
 
   return (
     <Card className="card-moon card-hover animate-fade-in py-0">
-      <CardContent className="px-0 p-phi-4">
+      <CardContent className="p-phi-4">
         <div className="flex flex-wrap items-center justify-between gap-phi-3">
         {/* Phase info */}
         <div
