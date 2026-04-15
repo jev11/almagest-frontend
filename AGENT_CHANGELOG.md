@@ -1,5 +1,19 @@
 # Agent Changelog
 
+## 2026-04-15 — shadcn migration PR 1: foundation install
+
+### Change
+Verified `@shadcn` registry coverage for the 13 primitives in the migration spec, then installed all of them into `apps/web/src/components/ui/`. No application code touched. PR 1 of 5 in the shadcn/ui migration (see `docs/superpowers/specs/2026-04-15-shadcn-migration-design.md`).
+
+### Files Created
+- `apps/web/src/components/ui/card.tsx` — smoke-tested first to confirm `base-nova` style resolves cleanly
+- `apps/web/src/components/ui/{input,label,select,dropdown-menu,popover,separator,badge,collapsible,progress,alert,alert-dialog,avatar}.tsx` — bulk install
+
+### Decisions Made
+- **No `base-nova` fallbacks needed** — all 13 primitives exist in the `@shadcn` registry under the configured style. No primitive required falling back to the default style.
+- **Inline execution for PR 1** — pure CLI installs with no app code changes; subagent dispatch overhead would have outweighed the benefit. Subagents start at PR 2 (forms refactor).
+- **Pre-existing baseline build was broken** — fixed in a separate `chore:` commit (null-asserted `planetary-hours.test.ts` Moscow test results, removed unused `COLLISION` import in `planet-ring.ts`). Without this the per-task build gate would have been red regardless.
+
 ## 2026-04-08 — PlanetCard: House Column + Expand/Collapse with Dignities (Task 3)
 
 ### Change
