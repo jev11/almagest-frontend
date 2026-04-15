@@ -1,0 +1,86 @@
+import { useEffect, useRef, useMemo } from "react";
+import type { ChartData } from "@astro-app/shared-types";
+import {
+  renderRadix,
+  renderBiwheel,
+  darkTheme,
+  lightTheme,
+  type ChartTheme,
+  type ChartInfo,
+  type RenderOptions,
+} from "@astro-app/chart-renderer";
+import { cn } from "@/lib/utils";
+import { filterNodeType } from "@/lib/format";
+import { useSettings } from "@/hooks/use-settings";
+
+interface ChartCanvasProps {
+  data: ChartData;
+  outerData?: ChartData;
+  theme?: ChartTheme;
+  className?: string;
+  layers?: RenderOptions["layers"];
+  padding?: number;
+  chartInfo?: ChartInfo;
+  /** Override global node type setting for this chart */
+  nodeType?: "mean" | "true";
+}
+
+export function ChartCanvas({
+  data,
+  outerData,
+  theme,
+  className,
+  layers,
+  padding = 20,
+  chartInfo,
+  nodeType: nodeTypeProp,
+}: ChartCanvasProps) {
+  const appTheme = useSettings((s) => s.appearance.theme);
+  const globalNodeType = useSettings((s) => s.defaults.nodeType);
+  const nodeType = nodeTypeProp ?? globalNodeType;
+  const filteredData = useMemo(() => filterNodeType(data, nodeType), [data, nodeType]);
+  const filteredOuterData = useMemo(
+    () => outerData ? filterNodeType(outerData, nodeType) : undefined,
+    [outerData, nodeType],
+  );
+  const resolvedTheme = theme ?? (() => {
+    if (appTheme === "light") return lightTheme;
+    if (appTheme === "dark") return darkTheme;
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? darkTheme : lightTheme;
+  })();
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
+
+    const render = () => {
+      const { width, height } = container.getBoundingClientRect();
+      if (width === 0 || height === 0) return;
+
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+
+      if (filteredOuterData) {
+        renderBiwheel({ data: filteredData, outerData: filteredOuterData, theme: resolvedTheme, canvas, layers, padding, chartInfo });
+      } else {
+        renderRadix({ data: filteredData, theme: resolvedTheme, canvas, layers, padding, chartInfo });
+      }
+    };
+
+    render();
+
+    const observer = new ResizeObserver(render);
+    observer.observe(container);
+
+    return () => observer.disconnect();
+  }, [filteredData, filteredOuterData, resolvedTheme, layers, padding, chartInfo]);
+
+  return (
+    <div ref={containerRef} className={cn("w-full h-full", className)}>
+      <canvas ref={canvasRef} className="block" />
+    </div>
+  );
+}
