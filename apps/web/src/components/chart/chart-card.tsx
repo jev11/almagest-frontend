@@ -14,6 +14,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Card, CardContent } from "@/components/ui/card";
 
 interface ChartCardProps {
   stored: StoredChart;
@@ -69,10 +70,11 @@ export function ChartCard({ stored, onDeleted, onRenamed }: ChartCardProps) {
 
   return (
     <>
-      <div
-        className="bg-card border border-border rounded-lg p-4 flex flex-col items-center gap-3 cursor-pointer hover:border-primary/40 hover:bg-secondary transition-[border-color,background-color] duration-160 ease-out group relative"
+      <Card
+        className="cursor-pointer hover:border-primary/40 hover:bg-secondary transition-[border-color,background-color] duration-160 ease-out group relative"
         onClick={() => navigate(`/chart/${stored.id}`)}
       >
+        <CardContent className="p-4 flex flex-col items-center gap-3">
         {/* ⋯ menu button */}
         <button
           type="button"
@@ -118,7 +120,8 @@ export function ChartCard({ stored, onDeleted, onRenamed }: ChartCardProps) {
           <p className="text-muted-foreground text-xs">{signGlyph} {signName}</p>
         )}
         <p className="text-dim-foreground text-[11px]">{dateStr}</p>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* Delete dialog */}
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
