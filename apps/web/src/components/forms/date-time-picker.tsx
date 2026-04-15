@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { useSettings } from "@/hooks/use-settings";
+import { Input } from "@/components/ui/input";
 
 interface DateTimePickerProps {
   date: string;        // "YYYY-MM-DD"
@@ -71,9 +72,6 @@ export function DateTimePicker({ date, time, onDateChange, onTimeChange, classNa
   const timeFormat = useSettings((s) => s.appearance.timeFormat);
   const is12h = timeFormat === "12h";
 
-  const inputClass =
-    "bg-input border border-border rounded-lg px-3 py-3 text-sm text-foreground focus:outline-none focus:border-primary transition-colors w-full min-h-[44px] [color-scheme:dark]";
-
   const [dateText, setDateText] = useState(() => toDisplayDate(date));
   const [dateError, setDateError] = useState(false);
 
@@ -114,7 +112,7 @@ export function DateTimePicker({ date, time, onDateChange, onTimeChange, classNa
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
       <div className="flex gap-3">
-        <input
+        <Input
           type="text"
           value={dateText}
           onChange={(e) => {
@@ -139,10 +137,10 @@ export function DateTimePicker({ date, time, onDateChange, onTimeChange, classNa
           onBlur={handleDateBlur}
           placeholder="DD/MM/YYYY"
           maxLength={10}
-          className={cn(inputClass, dateError && "border-destructive")}
+          className={cn("min-h-[44px] [color-scheme:dark]", dateError && "border-destructive")}
           style={{ flex: "1 1 0" }}
         />
-        <input
+        <Input
           type="text"
           value={timeText}
           onChange={(e) => {
@@ -161,7 +159,7 @@ export function DateTimePicker({ date, time, onDateChange, onTimeChange, classNa
           onBlur={handleTimeBlur}
           placeholder={is12h ? "12:00 PM" : "12:00"}
           maxLength={is12h ? 8 : 5}
-          className={cn(inputClass, timeError && "border-destructive")}
+          className={cn("min-h-[44px] [color-scheme:dark]", timeError && "border-destructive")}
           style={{ flex: "0 0 120px" }}
         />
       </div>
