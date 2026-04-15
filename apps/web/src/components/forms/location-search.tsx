@@ -144,7 +144,7 @@ export function LocationSearch({ value, onChange, className }: LocationSearchPro
                 className="pl-9 min-h-[44px] w-full"
               />
               {loading && (
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin z-10" />
               )}
             </div>
           }
