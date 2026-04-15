@@ -4,6 +4,7 @@ import { CelestialBody, Element, SIGN_ORDER, SIGN_ELEMENT } from "@astro-app/sha
 import type { ZodiacSign } from "@astro-app/shared-types";
 import { getMoonPhaseName, SIGN_GLYPHS, formatDegree, formatTime } from "@/lib/format";
 import { useSettings } from "@/hooks/use-settings";
+import { Card, CardContent } from "@/components/ui/card";
 
 const PHASE_ICONS: Record<string, string> = {
   "New Moon": "🌑",
@@ -199,8 +200,9 @@ export function MoonCard() {
     : null;
 
   return (
-    <div className="card-moon p-phi-4 card-hover animate-fade-in">
-      <div className="flex flex-wrap items-center justify-between gap-phi-3">
+    <Card className="card-moon card-hover animate-fade-in">
+      <CardContent className="p-phi-4">
+        <div className="flex flex-wrap items-center justify-between gap-phi-3">
         {/* Phase info */}
         <div
           className="flex items-center gap-phi-2 shrink-0 min-w-0 animate-fade-in"
@@ -236,6 +238,7 @@ export function MoonCard() {
           <MoonCycleRing progress={progress} size={89} />
         </div>
       </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
