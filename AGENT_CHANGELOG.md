@@ -1,5 +1,23 @@
 # Agent Changelog
 
+## 2026-04-15 — shadcn migration PR 2: forms surface
+
+### Change
+Migrated all three forms-package components to shadcn primitives. Removed three ad-hoc styling constants (`selectClass`, `labelClass`, `inputClass`) and the manual outside-click handler in location-search. PR 2 of 5 in the shadcn/ui migration.
+
+### Files Modified
+- `apps/web/src/components/forms/birth-data-form.tsx` — 4 native `<select>` → `Select`; 7 `<label className={labelClass}>` → `Label`; name `<input>` → `Input`; styled `errors.submit` `<p>` → `Alert variant="destructive"`. Removed `selectClass` and `labelClass` constants.
+- `apps/web/src/components/forms/date-time-picker.tsx` — both `<input>` → `Input`. Auto-slash and auto-colon insertion handlers preserved verbatim. Removed `inputClass` constant.
+- `apps/web/src/components/forms/location-search.tsx` — search `<input>` → `Input`; conditional `<ul>` → `Popover`/`PopoverTrigger`/`PopoverContent`. Removed `containerRef` and `mousedown` outside-click `useEffect`. Aligned z-10 on search icon and loading spinner.
+
+### Decisions Made
+- **base-ui's `Select` `onValueChange` emits `null` on clear** — strict typecheck requires guarding with `if (v) setX(v as T)`. Since none of the four selects expose a clear action, the guard never triggers in practice but is required for type safety.
+- **Non-name labels intentionally lack `htmlFor`** — `DateTimePicker`, `LocationSearch`, and `Select`'s `SelectTrigger` don't expose a stable single id. Adding a wrong `htmlFor` would be worse than none. Future task could add ids to these child components.
+- **Visual delta from shadcn defaults is expected** — `Input` ships with `rounded-md`, transparent bg, and focus ring (vs the legacy `bg-input rounded-lg` with focus border-color). Aligns with the spec's choice to keep shadcn defaults rather than mapping tokens.
+- **Alert visual delta** — shadcn's `destructive` Alert renders with a left border and different padding than the old pill (`bg-destructive/10 border rounded-lg px-3 py-2`). Acceptable per spec; more consistent with the rest of shadcn.
+- **base-ui Popover differs from Radix** — no `PopoverAnchor`; uses `render={<div>...</div>}` slot pattern; needs `nativeButton={false}` for non-button triggers; uses `initialFocus={false}` instead of Radix's `onOpenAutoFocus` to keep typing focus on the Input. `--anchor-width` CSS var matches content to trigger width.
+- **a11y/keyboard-nav follow-ups deferred** — location-search popover lacks combobox ARIA roles and ArrowDown/Enter handling. The pre-migration code lacked these too; adding them is out of scope for this refactor and tracked separately.
+
 ## 2026-04-15 — shadcn migration PR 1: foundation install
 
 ### Change
