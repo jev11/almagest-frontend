@@ -76,7 +76,7 @@ export function ElementModalityCard({ chartData }: Props) {
 
   return (
     <Card className="card-hover py-0" style={{ containerType: "inline-size" }}>
-      <CardContent className="p-phi-4">
+      <CardContent className="px-0 p-phi-4">
       <table className="w-full border-collapse text-center table-fixed" style={{ fontSize: "3.5cqi" }}>
         <thead>
           <tr>

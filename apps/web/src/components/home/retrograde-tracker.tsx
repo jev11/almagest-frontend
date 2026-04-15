@@ -50,7 +50,7 @@ export function RetrogradeTracker() {
 
   return (
     <Card className="card-hover py-0">
-      <CardContent className="p-phi-4">
+      <CardContent className="px-0 p-phi-4">
       <h3 className="text-foreground font-semibold text-sm mb-phi-3 font-display">Retrograde Tracker</h3>
       {retroBodies.length === 0 ? (
         <p className="text-success text-sm">All planets direct ✓</p>

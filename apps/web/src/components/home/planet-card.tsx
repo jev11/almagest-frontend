@@ -106,7 +106,7 @@ export function PlanetCard({
       className="card-hover cursor-pointer py-0"
       onClick={() => setExpanded((v) => !v)}
     >
-      <CardContent className="p-phi-3">
+      <CardContent className="px-0 p-phi-3">
       {apiError && retry && (
         <ErrorCard
           message="Showing approximation."
