@@ -96,9 +96,12 @@ These are NOT debt; they are intentionally custom and serve a domain need:
 - `apps/web/src/components/ui/error-card.tsx` — a domain-specific error component built from icon + message + retry. Could be assembled from `Alert` + `Button` but works well as-is.
 - `apps/web/src/components/ui/error-boundary.tsx` — React error boundary, not a primitive concern.
 - `apps/web/src/components/layout/mobile-tabs.tsx` — minimal bottom tab bar; flat `<button>`s with active/inactive styling. Could use `Button variant="ghost"` for consistency but the current approach is lean.
+- `apps/web/src/routes/home.tsx` — route-level composition shell that assembles already-migrated child components. It does not duplicate form/control primitives on its own, so there is no meaningful shadcn migration value here.
+- `apps/web/src/routes/chart-new.tsx` — thin wrapper around `birth-data-form` with simple centering/card layout. The only ad-hoc markup is the page shell, not a reusable primitive concern.
 - `apps/web/src/components/chart/chart-canvas.tsx`, `distribution-overlay.tsx`, `home/chart-wheel.tsx`, `home/aspect-grid.tsx`, `home/aspects-timeline.tsx` — domain visualizations using canvas/SVG; intentionally framework-agnostic per project conventions.
 
 ---
+
 
 ## Recommended cleanup order
 
