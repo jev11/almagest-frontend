@@ -17,6 +17,8 @@ const ELEMENT_COLORS: Record<Element, string> = {
   [Element.Water]: "var(--color-water)",
 };
 import { ErrorCard } from "@/components/ui/error-card";
+import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 
 const BASE_BODIES = [
   CelestialBody.Sun,
@@ -100,10 +102,11 @@ export function PlanetCard({
     (DIGNITY_BODIES as CelestialBody[]).includes(body);
 
   return (
-    <div
-      className="bg-card border border-border rounded-lg p-phi-3 card-hover cursor-pointer"
+    <Card
+      className="card-hover cursor-pointer"
       onClick={() => setExpanded((v) => !v)}
     >
+      <CardContent className="p-phi-3">
       {apiError && retry && (
         <ErrorCard
           message="Showing approximation."
@@ -225,7 +228,7 @@ export function PlanetCard({
           </table>
 
           {/* Divider */}
-          <div className="border-t border-border my-phi-3" />
+          <Separator className="my-phi-3" />
 
           {/* Dignity Detail */}
           <div className="text-muted-foreground text-[11px] uppercase tracking-wider mb-phi-2">
@@ -331,6 +334,7 @@ export function PlanetCard({
           </table>
         </>
       )}
-    </div>
+      </CardContent>
+    </Card>
   );
 }
