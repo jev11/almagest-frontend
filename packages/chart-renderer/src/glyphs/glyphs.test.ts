@@ -1,32 +1,42 @@
 import { describe, it, expect } from "vitest";
-import { PLANET_GLYPHS, SIGN_GLYPHS } from "./index.js";
+import { PLANET_GLYPHS } from "./planet-glyphs.js";
+import { SIGN_GLYPHS } from "./sign-glyphs.js";
+import { ASPECT_GLYPHS } from "./aspect-glyphs.js";
+import { CelestialBody, ZodiacSign, AspectType } from "@astro-app/shared-types";
+
+function allEnumValues(enumObj: Record<string, string>): string[] {
+  return Object.values(enumObj);
+}
 
 describe("PLANET_GLYPHS", () => {
-  it("has entries for all major planets", () => {
-    const required = ["sun", "moon", "mercury", "venus", "mars", "jupiter", "saturn", "uranus", "neptune", "pluto"];
-    for (const planet of required) {
-      expect(PLANET_GLYPHS).toHaveProperty(planet);
-      expect(typeof PLANET_GLYPHS[planet]).toBe("string");
-      expect(PLANET_GLYPHS[planet]!.length).toBeGreaterThan(0);
-    }
-  });
+  const bodies = allEnumValues(CelestialBody);
 
-  it("has valid Unicode glyph characters (non-ASCII)", () => {
-    for (const [_name, glyph] of Object.entries(PLANET_GLYPHS)) {
-      if (glyph) {
-        expect(glyph.codePointAt(0)).toBeGreaterThan(127);
-      }
+  it("has a glyph for every CelestialBody enum value", () => {
+    for (const body of bodies) {
+      expect(PLANET_GLYPHS).toHaveProperty(body);
+      expect(PLANET_GLYPHS[body]!.length).toBeGreaterThan(0);
     }
   });
 });
 
 describe("SIGN_GLYPHS", () => {
-  it("has entries for all 12 zodiac signs", () => {
-    const signs = ["aries", "taurus", "gemini", "cancer", "leo", "virgo", "libra", "scorpio", "sagittarius", "capricorn", "aquarius", "pisces"];
+  const signs = allEnumValues(ZodiacSign);
+
+  it("has a glyph for every ZodiacSign enum value", () => {
     for (const sign of signs) {
       expect(SIGN_GLYPHS).toHaveProperty(sign);
-      expect(typeof SIGN_GLYPHS[sign]).toBe("string");
       expect(SIGN_GLYPHS[sign]!.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("ASPECT_GLYPHS", () => {
+  const aspects = allEnumValues(AspectType);
+
+  it("has a glyph for every AspectType enum value", () => {
+    for (const aspect of aspects) {
+      expect(ASPECT_GLYPHS).toHaveProperty(aspect);
+      expect(ASPECT_GLYPHS[aspect]!.length).toBeGreaterThan(0);
     }
   });
 });

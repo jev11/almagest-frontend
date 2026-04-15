@@ -1,7 +1,8 @@
 import { SIGN_ORDER, SIGN_ELEMENT } from "@astro-app/shared-types";
 import { longitudeToAngle, polarToCartesian } from "../core/geometry.js";
-import { RING_PROPORTIONS, GLYPH_SIZES } from "../core/constants.js";
-import { SIGN_GLYPHS, drawSignGlyph } from "../glyphs/signs.js";
+import { RING_PROPORTIONS, glyphSizes } from "../core/constants.js";
+import { SIGN_GLYPHS } from "../glyphs/sign-glyphs.js";
+import { drawGlyphText } from "../glyphs/draw.js";
 import type { ChartData } from "@astro-app/shared-types";
 import type { ChartTheme } from "../themes/types.js";
 import type { RenderDimensions } from "./types.js";
@@ -64,14 +65,13 @@ export function drawZodiacRing(
     const midAngle = longitudeToAngle(midLon, ascendant);
     const glyphR = (outerR + innerR) / 2;
     const glyphPos = polarToCartesian(cx, cy, midAngle, glyphR);
-    // SIGN_GLYPHS is keyed by enum value strings (e.g. "aries")
-    const glyphPath = SIGN_GLYPHS[sign as string] ?? "";
-    drawSignGlyph(
+    const char = SIGN_GLYPHS[sign as string] ?? "";
+    drawGlyphText(
       ctx,
-      glyphPath,
+      char,
       glyphPos.x,
       glyphPos.y,
-      GLYPH_SIZES.sign,
+      glyphSizes(radius).sign,
       theme.signGlyphColor,
     );
   }
@@ -95,14 +95,15 @@ export function drawZodiacRing(
     let tickLen: number;
     let tickW: number;
 
+    const ts = radius / 300;
     if (deg % 10 === 0) {
-      tickLen = 6;
+      tickLen = 6 * ts;
       tickW = 1;
     } else if (deg % 5 === 0) {
-      tickLen = 4;
+      tickLen = 4 * ts;
       tickW = 1;
     } else {
-      tickLen = 2;
+      tickLen = 2 * ts;
       tickW = 0.5;
     }
 

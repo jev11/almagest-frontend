@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-This is the frontend monorepo for an astrology software platform. It contains the web application, chart rendering engine, client-side approximation engine, and API client SDK. The backend calculation API lives in a separate repository (astro-api).
+This is the frontend monorepo for an astrology software platform. It contains the web application, chart rendering engine, client-side approximation engine, and API client SDK. The backend calculation API lives in a separate repository (almagest-backend).
 
 **Tech stack:** TypeScript, React 18, Vite, Canvas 2D / SVG, npm workspaces
 **Design direction:** Minimalist, modern, dark-mode-first
@@ -11,7 +11,7 @@ This is the frontend monorepo for an astrology software platform. It contains th
 ## Repository Structure
 
 ```
-astro-app/
+almagest-frontend/
 ├── packages/
 │   ├── shared-types/             # TypeScript types generated from OpenAPI spec
 │   │   ├── src/

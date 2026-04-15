@@ -7,11 +7,12 @@ import {
 } from "../core/geometry.js";
 import {
   RING_PROPORTIONS,
-  GLYPH_SIZES,
+  glyphSizes,
   MAJOR_ASPECTS,
   ASPECT_ANGLES,
 } from "../core/constants.js";
-import { PLANET_GLYPHS } from "../glyphs/planets.js";
+import { PLANET_GLYPHS } from "../glyphs/planet-glyphs.js";
+import { drawGlyphText } from "../glyphs/draw.js";
 import { resolveCollisions, type GlyphPosition } from "../core/layout.js";
 import type { ChartData } from "@astro-app/shared-types";
 import type { ChartTheme } from "../themes/types.js";
@@ -103,7 +104,8 @@ export function drawTransitRing(
   }
 
   const resolved = resolveCollisions(glyphPositions, transitMidR);
-  const fontSize = GLYPH_SIZES.degreeLabel + 1;
+  const s = radius / 300;
+  const fontSize = glyphSizes(radius).degreeLabel + 1;
 
   for (const pos of resolved) {
     const body = pos.body as CelestialBody;
@@ -113,11 +115,11 @@ export function drawTransitRing(
     const isRetrograde = zodiacPos.is_retrograde ?? false;
     // Transit planets rendered dimmer than natal to maintain visual hierarchy
     const color = isRetrograde ? theme.planetGlyphRetrograde : theme.degreeLabelColor;
-    const planetGlyph = (PLANET_GLYPHS[pos.body] ?? "") + "\uFE0E";
+    const planetChar = PLANET_GLYPHS[pos.body] ?? "";
 
     // Tick mark on the zodiac inner edge at the planet's true ecliptic position
     const tickOuter = polarToCartesian(cx, cy, pos.originalAngle, zodiacInnerR);
-    const tickInner = polarToCartesian(cx, cy, pos.originalAngle, zodiacInnerR - 5);
+    const tickInner = polarToCartesian(cx, cy, pos.originalAngle, zodiacInnerR - 5 * s);
     ctx.beginPath();
     ctx.moveTo(tickOuter.x, tickOuter.y);
     ctx.lineTo(tickInner.x, tickInner.y);
@@ -126,16 +128,12 @@ export function drawTransitRing(
     ctx.stroke();
 
     // Planet glyph at the mid-radius of the transit zone
-    ctx.font = `bold ${fontSize}px serif`;
-    ctx.fillStyle = color;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
     const glyphPt = polarToCartesian(cx, cy, pos.displayAngle, transitMidR);
-    ctx.fillText(planetGlyph, glyphPt.x, glyphPt.y);
+    drawGlyphText(ctx, planetChar, glyphPt.x, glyphPt.y, fontSize, color);
 
     // Retrograde indicator just inward from the glyph
     if (isRetrograde) {
-      ctx.font = `${fontSize - 2}px serif`;
+      ctx.font = `${fontSize - 2}px ${theme.fontFamily}`;
       const retrogPt = polarToCartesian(
         cx,
         cy,
@@ -147,7 +145,7 @@ export function drawTransitRing(
 
     // Arc leader line along the zodiac inner edge if the glyph was displaced
     if (pos.displaced) {
-      const arcR = zodiacInnerR - 4;
+      const arcR = zodiacInnerR - 4 * s;
       const fromAngle = pos.originalAngle;
       const toAngle = pos.displayAngle;
       // Draw short arc along the inner edge of the zodiac ring

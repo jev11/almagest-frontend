@@ -14,30 +14,47 @@ import { AspectType } from "@astro-app/shared-types";
 /** Fraction of total radius occupied by the zodiac sign ring outer edge. */
 export const ZODIAC_OUTER = 0.95;
 
-/** Aspect circle radius as a fraction of total radius. Expressed as a ratio of ZODIAC_OUTER. */
-export const ASPECT_CIRCLE_RATIO = 0.40;
+/**
+ * Aspect circle radius as a fraction of ZODIAC_OUTER.
+ * φ-based: planetInner / φ = 0.70 / 1.618 ≈ 0.433, then 0.433 / 0.95 ≈ 0.455
+ */
+export const ASPECT_CIRCLE_RATIO = 0.455;
 
+/**
+ * Ring proportions as fractions of total radius.
+ * Zodiac ring width : planet ring width = φ (1.618).
+ *   zodiac ring width = 0.95 - 0.796 = 0.154
+ *   planet ring width = 0.796 - 0.70  = 0.096
+ *   ratio = 0.154 / 0.096 ≈ 1.604 ≈ φ
+ */
 export const RING_PROPORTIONS = {
   labelOuter: 1.0,
   zodiacOuter: ZODIAC_OUTER,
-  zodiacInner: 0.783,
+  zodiacInner: 0.796,
   planetInner: 0.70,
   houseNumberOuter: ZODIAC_OUTER * ASPECT_CIRCLE_RATIO + 0.07,
   houseInner: 0.15,
   aspectOuter: ZODIAC_OUTER * ASPECT_CIRCLE_RATIO,
 } as const;
 
-export const GLYPH_SIZES = {
-  planet: 18,
-  sign: 20,
-  degreeLabel: 11,
-  houseNumber: 13,
-} as const;
+/** Fibonacci base radius — glyph sizes are exact Fibonacci numbers at this radius. */
+const GLYPH_BASE_RADIUS = 233;
+
+/** Returns glyph font sizes scaled proportionally to the given wheel radius. Fibonacci at base. */
+export function glyphSizes(radius: number) {
+  const s = radius / GLYPH_BASE_RADIUS;
+  return {
+    planet: Math.round(13 * s),
+    sign: Math.round(21 * s),
+    degreeLabel: Math.round(8 * s),
+    houseNumber: Math.round(13 * s),
+  };
+}
 
 export const COLLISION = {
-  minGlyphGap: 15,
-  maxDisplacement: 70,
-  iterations: 80,
+  minGlyphGap: 34,
+  maxDisplacement: 55,
+  iterations: 89,
 } as const;
 
 export const ASPECT_ANGLES: Record<string, number> = {

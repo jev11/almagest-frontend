@@ -66,6 +66,9 @@ export interface StoredChart {
   name: string;
   chart: ChartData;
   request: NatalRequest;
+  location?: string;
+  /** Per-chart lunar node preference. Falls back to global setting if absent. */
+  nodeType?: "mean" | "true";
   createdAt: number;
   updatedAt: number;
 }

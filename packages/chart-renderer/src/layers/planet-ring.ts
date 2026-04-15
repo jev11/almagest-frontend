@@ -1,8 +1,9 @@
-import { CelestialBody, SIGN_ORDER } from "@astro-app/shared-types";
+import { CelestialBody, SIGN_ORDER, SIGN_ELEMENT } from "@astro-app/shared-types";
 import { longitudeToAngle, polarToCartesian } from "../core/geometry.js";
-import { RING_PROPORTIONS, GLYPH_SIZES } from "../core/constants.js";
-import { PLANET_GLYPHS } from "../glyphs/planets.js";
-import { SIGN_GLYPHS } from "../glyphs/signs.js";
+import { RING_PROPORTIONS, COLLISION, glyphSizes } from "../core/constants.js";
+import { PLANET_GLYPHS } from "../glyphs/planet-glyphs.js";
+import { SIGN_GLYPHS } from "../glyphs/sign-glyphs.js";
+import { drawGlyphText } from "../glyphs/draw.js";
 import { resolveCollisions, type GlyphPosition } from "../core/layout.js";
 import type { ChartData } from "@astro-app/shared-types";
 import type { ChartTheme } from "../themes/types.js";
@@ -40,17 +41,22 @@ interface LabelToken {
   color: string;
   bold: boolean;
   small?: boolean;
+  extraGapAfter?: boolean;
+  /** Override font size (px). Falls back to fontSize or minuteFontSize based on small flag. */
+  size?: number;
+  /** Unicode glyph character — if set, render via drawGlyphText instead of fillText. */
+  glyphChar?: string;
 }
 
 /** Convert an ecliptic longitude to sign degree/minute/sign glyph */
-function lonToSignParts(lon: number): { deg: string; min: string; signGlyph: string } {
+function lonToSignParts(lon: number): { deg: string; min: string; signChar: string; signKey: string | undefined } {
   const norm = ((lon % 360) + 360) % 360;
   const signIndex = Math.floor(norm / 30);
   const deg = String(Math.floor(norm % 30)).padStart(2, "0");
   const min = String(Math.floor((norm % 1) * 60)).padStart(2, "0");
   const signKey = SIGN_ORDER[signIndex];
-  const signGlyph = signKey ? (SIGN_GLYPHS[signKey] ?? "") : "";
-  return { deg, min, signGlyph };
+  const signChar = signKey ? (SIGN_GLYPHS[signKey] ?? "") : "";
+  return { deg, min, signChar, signKey };
 }
 
 export function drawPlanetRing(
@@ -86,8 +92,8 @@ export function drawPlanetRing(
   const anglePoints: Array<{ id: string; lon: number; label: string; labelOffset: number }> = [
     { id: ANGLE_IDS.asc, lon: data.houses.ascendant, label: "As", labelOffset: 0 },
     { id: ANGLE_IDS.dsc, lon: data.houses.descendant, label: "Ds", labelOffset: 0 },
-    { id: ANGLE_IDS.mc, lon: data.houses.midheaven, label: "Mc", labelOffset: 3 },
-    { id: ANGLE_IDS.ic, lon: data.houses.imum_coeli, label: "Ic", labelOffset: 3 },
+    { id: ANGLE_IDS.mc, lon: data.houses.midheaven, label: "Mc", labelOffset: 0 },
+    { id: ANGLE_IDS.ic, lon: data.houses.imum_coeli, label: "Ic", labelOffset: 0 },
   ];
 
   for (const ap of anglePoints) {
@@ -101,11 +107,109 @@ export function drawPlanetRing(
     });
   }
 
-  // Resolve collisions for ALL labels together — sorted by degree
-  const resolved = resolveCollisions(glyphPositions, planetRingR);
+  // House cusp angles act as fixed repulsors in the collision resolver.
+  // Exclude angular cusps (1,4,7,10 = indices 0,3,6,9) — they have dedicated
+  // angle labels rendered separately.
+  const ANGULAR_INDICES = new Set([0, 3, 6, 9]);
+  const cuspBlockers = data.houses.cusps
+    .filter((c, i): c is number => c !== undefined && !ANGULAR_INDICES.has(i))
+    .map((cuspLon) => longitudeToAngle(cuspLon, ascendant));
 
-  const fontSize = GLYPH_SIZES.degreeLabel;
-  const tokenStep = fontSize + 1;
+  // Angle labels are fixed (not movable). Remove them from the planet pool
+  // and pass their positions as wide blockers so the resolver pushes planets
+  // away by the full minGlyphGap (not the halved cusp-line gap).
+  // Spacing between blocker points must exceed minGlyphGap to prevent
+  // equilibrium traps where a planet settles between two adjacent points.
+  const axisOffsetRad = 14 / planetRingR;
+  const angleBlockerPositions: number[] = [];
+  for (const ap of anglePoints) {
+    // Single blocker point per angle label — wide blocker clearance (minGlyphGap)
+    // on each side provides ~68px exclusion zone, enough for the label.
+    angleBlockerPositions.push(longitudeToAngle(ap.lon, ascendant) + axisOffsetRad);
+  }
+
+  // Remove angle points from planet positions — they'll be rendered separately
+  const planetPositions = glyphPositions.filter(
+    (pos) => !anglePoints.some((ap) => ap.id === pos.body),
+  );
+
+  // Resolve collisions: cusp lines as thin blockers, angle labels as wide blockers
+  const resolved = resolveCollisions(planetPositions, planetRingR, cuspBlockers, angleBlockerPositions);
+
+  // Re-insert angle points at their fixed positions for rendering.
+  // originalAngle = true ecliptic position (tick mark), displayAngle = nudged (label).
+  for (const ap of anglePoints) {
+    const trueAngle = longitudeToAngle(ap.lon, ascendant);
+    const nudgedAngle = trueAngle + axisOffsetRad;
+    resolved.push({
+      body: ap.id,
+      originalAngle: trueAngle,
+      displayAngle: nudgedAngle,
+      displaced: false,
+    });
+  }
+
+  // Clamp each planet label within its house boundaries.
+  // The collision resolver can push labels up to 89px, which may cross a cusp line.
+  // We find the two cusp angles bracketing the planet's original position and hard-clamp.
+  // Angular cusps (AS/DS/MC/IC) need a wider margin because they have large labels.
+  const angularCuspAngles = new Set<number>();
+  for (const ap of anglePoints) {
+    angularCuspAngles.add(longitudeToAngle(ap.lon, ascendant));
+  }
+
+  const allCuspAngles = data.houses.cusps
+    .filter((c): c is number => c !== undefined)
+    .map((cuspLon) => longitudeToAngle(cuspLon, ascendant))
+    .sort((a, b) => a - b);
+
+  const houseMargin = 8 / planetRingR; // stay this many pixels away from regular cusp line
+  const angleMargin = 34 / planetRingR; // wider margin for angular cusps with labels
+  const anglePointIds = new Set(anglePoints.map((ap) => ap.id));
+
+  function marginForCusp(cuspAngle: number): number {
+    // Check if this cusp is near an angular cusp (within 0.01 rad tolerance)
+    for (const ac of angularCuspAngles) {
+      if (Math.abs(cuspAngle - ac) < 0.01) return angleMargin;
+    }
+    return houseMargin;
+  }
+
+  for (const pos of resolved) {
+    // Only clamp planet labels, not angle point labels (ASC/DSC/MC/IC sit on cusps by design)
+    if (anglePointIds.has(pos.body)) continue;
+
+    // Find the two house cusp angles that bracket this planet's original position
+    let lowerBound = -Infinity;
+    let upperBound = Infinity;
+    let lowerCusp = 0;
+    let upperCusp = 0;
+    for (const cuspAngle of allCuspAngles) {
+      if (cuspAngle <= pos.originalAngle && cuspAngle > lowerBound) {
+        lowerBound = cuspAngle;
+        lowerCusp = cuspAngle;
+      }
+      if (cuspAngle > pos.originalAngle && cuspAngle < upperBound) {
+        upperBound = cuspAngle;
+        upperCusp = cuspAngle;
+      }
+    }
+
+    if (lowerBound !== -Infinity) {
+      pos.displayAngle = Math.max(pos.displayAngle, lowerBound + marginForCusp(lowerCusp));
+    }
+    if (upperBound !== Infinity) {
+      pos.displayAngle = Math.min(pos.displayAngle, upperBound - marginForCusp(upperCusp));
+    }
+
+    // Re-evaluate displaced flag after clamping
+    pos.displaced = Math.abs(pos.displayAngle - pos.originalAngle) > 0.001;
+  }
+
+  const sizes = glyphSizes(radius);
+  const fontSize = sizes.degreeLabel;
+  const minuteFontSize = Math.round(fontSize * 0.70);
+  const gap = Math.max(1.5, Math.round(radius / 300));
 
   // Draw all labels: each character upright, placed along the radial spoke
   for (const pos of resolved) {
@@ -116,12 +220,14 @@ export function drawPlanetRing(
 
     if (anglePoint) {
       // Angle label: As/Ds/Mc/Ic + degree + sign + minutes
-      const { deg, min, signGlyph } = lonToSignParts(anglePoint.lon);
+      const { deg, min, signChar, signKey } = lonToSignParts(anglePoint.lon);
+      const element = signKey ? SIGN_ELEMENT[signKey as keyof typeof SIGN_ELEMENT] : undefined;
+      const signColor = element ? (theme.elementColors[element as keyof typeof theme.elementColors] ?? theme.degreeLabelColor) : theme.degreeLabelColor;
       tickColor = theme.angleStroke;
       tokens = [
-        { text: anglePoint.label, color: theme.angleStroke, bold: true },
+        { text: anglePoint.label, color: theme.angleStroke, bold: false, extraGapAfter: true, size: sizes.planet },
         { text: deg, color: theme.degreeLabelColor, bold: false },
-        { text: signGlyph, color: theme.degreeLabelColor, bold: false },
+        { text: "", color: signColor, bold: false, glyphChar: signChar },
         { text: min, color: theme.degreeLabelColor, bold: false, small: true },
       ];
     } else {
@@ -132,51 +238,62 @@ export function drawPlanetRing(
 
       const isRetrograde = zodiacPos.is_retrograde ?? false;
       const color = isRetrograde ? theme.planetGlyphRetrograde : theme.planetGlyph;
-      const planetGlyph = (PLANET_GLYPHS[pos.body] ?? "") + "\uFE0E";
+      const planetChar = PLANET_GLYPHS[pos.body] ?? "";
       const deg = String(zodiacPos.degree).padStart(2, "0");
       const min = String(zodiacPos.minute).padStart(2, "0");
-      const signGlyph = (SIGN_GLYPHS[zodiacPos.sign] ?? "");
+      const signChar = SIGN_GLYPHS[zodiacPos.sign] ?? "";
+      const element = SIGN_ELEMENT[zodiacPos.sign];
+      const signColor = element ? (theme.elementColors[element] ?? theme.degreeLabelColor) : theme.degreeLabelColor;
 
       tickColor = color;
       tokens = [
-        { text: planetGlyph, color, bold: true },
+        { text: "", color, bold: true, extraGapAfter: false, size: sizes.planet, glyphChar: planetChar },
         { text: deg, color: theme.degreeLabelColor, bold: false },
-        { text: signGlyph, color: theme.degreeLabelColor, bold: false },
+        { text: "", color: signColor, bold: false, glyphChar: signChar },
         { text: min, color: theme.degreeLabelColor, bold: false, small: true },
       ];
       if (isRetrograde) {
-        tokens.push({ text: "℞", color, bold: false });
+        tokens.push({ text: "℞", color, bold: false, small: true });
       }
     }
 
     // Draw tick mark at true ecliptic position on zodiac inner edge
-    const tickOuter = polarToCartesian(cx, cy, pos.originalAngle, zodiacInnerR);
-    const tickInner = polarToCartesian(cx, cy, pos.originalAngle, zodiacInnerR - 6);
-    ctx.beginPath();
-    ctx.moveTo(tickOuter.x, tickOuter.y);
-    ctx.lineTo(tickInner.x, tickInner.y);
-    ctx.strokeStyle = tickColor;
-    ctx.lineWidth = 1;
-    ctx.stroke();
+    // Skip for AS/DS only — their axis lines already indicate position. MC/IC keep ticks.
+    const isAscDsc = pos.body === ANGLE_IDS.asc || pos.body === ANGLE_IDS.dsc;
+    const s = radius / 300;
+    if (!isAscDsc) {
+      const tickOuter = polarToCartesian(cx, cy, pos.originalAngle, zodiacInnerR);
+      const tickInner = polarToCartesian(cx, cy, pos.originalAngle, zodiacInnerR - 6 * s);
+      ctx.beginPath();
+      ctx.moveTo(tickOuter.x, tickOuter.y);
+      ctx.lineTo(tickInner.x, tickInner.y);
+      ctx.strokeStyle = tickColor;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
 
     // Place each token along the radial spoke, stepping inward from the zodiac ring
-    let currentR = zodiacInnerR - 13;
+    let currentR = zodiacInnerR - 20 * s;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
 
     for (const token of tokens) {
-      const size = token.small ? fontSize - 2 : fontSize;
-      ctx.font = token.bold ? `bold ${size}px serif` : `${size}px serif`;
-      ctx.fillStyle = token.color;
+      const size = token.size ?? (token.small ? minuteFontSize : fontSize);
       const p = polarToCartesian(cx, cy, pos.displayAngle, currentR);
-      ctx.fillText(token.text, p.x, p.y);
-      currentR -= tokenStep;
+      if (token.glyphChar) {
+        drawGlyphText(ctx, token.glyphChar, p.x, p.y, size, token.color);
+      } else {
+        ctx.font = token.bold ? `bold ${size}px ${theme.fontFamily}` : `${size}px ${theme.fontFamily}`;
+        ctx.fillStyle = token.color;
+        ctx.fillText(token.text, p.x, p.y);
+      }
+      currentR -= size + gap + (token.extraGapAfter ? Math.round(fontSize * 0.6) : 0);
     }
 
     // Leader line from displaced label back to true position on zodiac inner edge
     if (pos.displaced) {
-      const leaderFrom = polarToCartesian(cx, cy, pos.displayAngle, zodiacInnerR - 13);
-      const leaderTo = polarToCartesian(cx, cy, pos.originalAngle, zodiacInnerR - 4);
+      const leaderFrom = polarToCartesian(cx, cy, pos.displayAngle, zodiacInnerR - 13 * s);
+      const leaderTo = polarToCartesian(cx, cy, pos.originalAngle, zodiacInnerR - 4 * s);
       ctx.beginPath();
       ctx.moveTo(leaderFrom.x, leaderFrom.y);
       ctx.lineTo(leaderTo.x, leaderTo.y);

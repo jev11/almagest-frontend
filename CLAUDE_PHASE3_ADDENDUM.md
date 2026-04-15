@@ -1,6 +1,6 @@
 # Astro App — Phase 3 Addendum to CLAUDE.md
 
-Add the following to the existing CLAUDE.md in the astro-app repo root.
+Add the following to the existing CLAUDE.md in the almagest-frontend repo root.
 
 ---
 
@@ -21,7 +21,7 @@ Add the following to the existing CLAUDE.md in the astro-app repo root.
 
 ### New Packages in This Phase
 
-**astro-client** (`packages/astro-client/`) — TypeScript SDK for the astro-api backend. Wraps fetch calls, handles response typing, integrates with TanStack Query for caching, and coordinates the snap-to-server pattern.
+**astro-client** (`packages/astro-client/`) — TypeScript SDK for the almagest-backend backend. Wraps fetch calls, handles response typing, integrates with TanStack Query for caching, and coordinates the snap-to-server pattern.
 
 **approx-engine** (`packages/approx-engine/`) — Pure TypeScript implementation of VSOP87 (planets) and ELP2000 (Moon) for real-time client-side calculation. Used for the live chart wheel on the home screen and transit timeline scrubbing.
 
@@ -30,7 +30,7 @@ Add the following to the existing CLAUDE.md in the astro-app repo root.
 ### Updated Project Structure
 
 ```
-astro-app/
+almagest-frontend/
 ├── packages/
 │   ├── shared-types/             # Phase 2 ✅
 │   ├── chart-renderer/           # Phase 2 ✅
@@ -162,9 +162,9 @@ cd apps/web && npx shadcn@latest add button
 
 ### Backend API
 
-The backend runs separately (astro-api repo). During development:
+The backend runs separately (almagest-backend repo). During development:
 ```bash
-# In the astro-api repo:
+# In the almagest-backend repo:
 docker-compose up    # Runs on http://localhost:8000
 
 # In apps/web/.env:

@@ -4,7 +4,7 @@
 
 **Stack:** Vite + React 18 + React Router v7 + shadcn/ui + Tailwind CSS
 **Design reference:** `apps/web/design.pen` and `docs/DESIGN_DOCUMENT.md`
-**Backend:** astro-api must be running on `http://localhost:8000` during development
+**Backend:** almagest-backend must be running on `http://localhost:8000` during development
 
 ---
 
@@ -96,7 +96,7 @@
   - [x] Error handling (4xx, 5xx, timeout)
   - [x] Request hashing determinism
   - [x] Cache CRUD operations
-- [x] Integration test: calculate a chart against running astro-api
+- [x] Integration test: calculate a chart against running almagest-backend
 
 **Definition of done:** API calls work, responses typed, caching works.
 
@@ -126,7 +126,7 @@
   - [x] All planets calculable
   - [x] Moon phase names correct at known dates
   - [x] Performance: all bodies < 1ms
-- [x] Cross-reference: compare output vs astro-api for same datetime
+- [x] Cross-reference: compare output vs almagest-backend for same datetime
 
 **Definition of done:** Approximate positions match API within tolerance. < 1ms.
 

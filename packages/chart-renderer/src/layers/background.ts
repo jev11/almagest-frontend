@@ -6,10 +6,14 @@ export function drawBackground(
   ctx: CanvasRenderingContext2D,
   _data: ChartData,
   theme: ChartTheme,
-  _dim: RenderDimensions,
+  dim: RenderDimensions,
 ): void {
+  // After high-DPI setup, the context is scaled by dpr.
+  // Use CSS dimensions (canvas physical size / dpr) for correct fill.
   const canvas = ctx.canvas;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const cssWidth = canvas.width / dim.dpr;
+  const cssHeight = canvas.height / dim.dpr;
+  ctx.clearRect(0, 0, cssWidth, cssHeight);
   ctx.fillStyle = theme.background;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillRect(0, 0, cssWidth, cssHeight);
 }

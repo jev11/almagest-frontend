@@ -1,25 +1,12 @@
 import { MAJOR_ASPECTS } from "../core/constants.js";
 import { longitudeToAngle, polarToCartesian } from "../core/geometry.js";
-import { RING_PROPORTIONS, GLYPH_SIZES } from "../core/constants.js";
+import { RING_PROPORTIONS, glyphSizes } from "../core/constants.js";
 import type { ChartData } from "@astro-app/shared-types";
 import type { AspectType } from "@astro-app/shared-types";
 import type { ChartTheme } from "../themes/types.js";
 import type { RenderDimensions } from "./types.js";
-
-// \uFE0E = text presentation selector (prevents emoji rendering)
-const ASPECT_GLYPHS: Record<string, string> = {
-  conjunction:   "☌\uFE0E",
-  opposition:    "☍\uFE0E",
-  trine:         "△",      // U+25B3 geometric — safe
-  square:        "□",      // U+25A1 geometric — safe
-  sextile:       "⚹\uFE0E",
-  quincunx:      "⚻\uFE0E",
-  semi_sextile:  "⚺\uFE0E",
-  semi_square:   "∠",      // U+2220 math — safe
-  sesquisquare:  "⚼\uFE0E",
-  quintile:      "Q",
-  bi_quintile:   "bQ",
-};
+import { ASPECT_GLYPHS } from "../glyphs/aspect-glyphs.js";
+import { drawGlyphText } from "../glyphs/draw.js";
 
 function hexWithOpacity(hex: string, opacity: number): string {
   const base = hex.length > 7 ? hex.slice(0, 7) : hex;
@@ -57,6 +44,7 @@ export function drawAspectWeb(
   ctx.clip();
 
   for (const aspect of data.aspects) {
+    if (aspect.type === "conjunction") continue;
     const pos1 = data.positions[aspect.body1];
     const pos2 = data.positions[aspect.body2];
     if (!pos1 || !pos2) continue;
@@ -83,22 +71,19 @@ export function drawAspectWeb(
     ctx.setLineDash([]);
 
     // Draw aspect glyph at midpoint of the line
-    const glyph = ASPECT_GLYPHS[aspect.type as string];
-    if (glyph) {
+    const char = ASPECT_GLYPHS[aspect.type as string];
+    if (char) {
       const mx = (pt1.x + pt2.x) / 2;
       const my = (pt1.y + pt2.y) / 2;
 
+      const glyphSize = glyphSizes(radius).degreeLabel;
+      const glyphHalf = Math.round(glyphSize * 0.65);
       ctx.save();
-      ctx.font = `${GLYPH_SIZES.degreeLabel}px serif`;
-      ctx.fillStyle = color;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
       // Small background behind glyph so it's readable over other lines
       ctx.fillStyle = theme.background;
-      ctx.fillRect(mx - 7, my - 7, 14, 14);
-      ctx.fillStyle = color;
-      ctx.fillText(glyph, mx, my);
+      ctx.fillRect(mx - glyphHalf, my - glyphHalf, glyphHalf * 2, glyphHalf * 2);
       ctx.restore();
+      drawGlyphText(ctx, char, mx, my, glyphSize, color);
     }
   }
 

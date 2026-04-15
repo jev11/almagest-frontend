@@ -6,8 +6,8 @@ import { drawZodiacRing } from "../layers/zodiac-ring.js";
 import { drawHouseOverlay } from "../layers/house-overlay.js";
 import { drawPlanetRing } from "../layers/planet-ring.js";
 import { drawAspectWeb } from "../layers/aspect-web.js";
-import { drawDegreeLabels } from "../layers/degree-labels.js";
 import { drawTransitRing, drawInterChartAspects } from "../charts/biwheel.js";
+import { drawChartInfo, type ChartInfo } from "../layers/chart-info.js";
 import { RING_PROPORTIONS } from "./constants.js";
 
 export interface RenderOptions {
@@ -24,11 +24,14 @@ export interface RenderOptions {
     houseOverlay?: boolean;
     planetRing?: boolean;
     aspectWeb?: boolean;
-    degreeLabels?: boolean;
   };
   /** Padding around the wheel in CSS pixels */
   padding?: number;
+  /** Optional metadata shown in the upper-right corner */
+  chartInfo?: ChartInfo;
 }
+
+export type { ChartInfo };
 
 /**
  * Render a natal chart wheel on the given canvas.
@@ -47,7 +50,6 @@ export function renderRadix(options: RenderOptions): RenderDimensions {
     houseOverlay: true,
     planetRing: true,
     aspectWeb: true,
-    degreeLabels: true,
     ...options.layers,
   };
 
@@ -80,7 +82,7 @@ export function renderRadix(options: RenderOptions): RenderDimensions {
   if (layers.houseOverlay) drawHouseOverlay(ctx, data, theme, dim);
   if (layers.aspectWeb) drawAspectWeb(ctx, data, theme, dim);
   if (layers.planetRing) drawPlanetRing(ctx, data, theme, dim);
-  if (layers.degreeLabels) drawDegreeLabels(ctx, data, theme, dim);
+  if (options.chartInfo) drawChartInfo(ctx, data, theme, dim, options.chartInfo);
 
   return dim;
 }
@@ -161,6 +163,8 @@ export function renderBiwheel(
   drawPlanetRing(ctx, data, theme, innerDim);
 
   ctx.restore();
+
+  if (options.chartInfo) drawChartInfo(ctx, data, theme, outerDim, options.chartInfo);
 
   return outerDim;
 }
