@@ -4,6 +4,7 @@ import { PLANET_GLYPHS, formatTime } from "@/lib/format";
 import { useSettings } from "@/hooks/use-settings";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
 
 const PLANET_NAMES: Record<string, string> = {
   sun: "Sun",
@@ -87,12 +88,10 @@ export function PlanetaryHours({ lat, lon }: PlanetaryHoursProps) {
           </div>
 
           {/* Progress bar */}
-          <div className="mt-phi-3 h-1 rounded-full bg-border overflow-hidden">
-            <div
-              className="h-full rounded-full bg-primary transition-all"
-              style={{ width: `${Math.min(100, Math.max(0, progress * 100))}%` }}
-            />
-          </div>
+          <Progress
+            value={Math.min(100, Math.max(0, progress * 100))}
+            className="mt-phi-3"
+          />
 
           {/* Next hour */}
           <div className="mt-phi-2 text-muted-foreground text-xs">
