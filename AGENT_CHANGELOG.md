@@ -1,5 +1,20 @@
 # Agent Changelog
 
+## 2026-04-15 — shadcn migration PR 3: layout surface
+
+### Change
+Migrated the sidebar's user menu and avatar to shadcn primitives. Net ~33-line reduction (deleted UserMenu was 77 lines + 23 lines of state/conditional/refs; replacement is ~67 lines). Removed two hand-rolled effects (mousedown outside-click, escape keydown) and a ref. PR 3 of 5 in the shadcn/ui migration.
+
+### Files Modified
+- `apps/web/src/components/layout/sidebar.tsx` — Deleted inline `UserMenu({ onClose })` function and `menuOpen` state. Replaced user trigger button with `DropdownMenu` (using base-ui's `nativeButton={false}` + `render={<button>}` pattern). Replaced custom user-circle div with `Avatar` + `AvatarFallback`. Hoisted `useAstroClient` and `clearAuth` into `Sidebar` from the deleted `UserMenu` scope.
+
+### Decisions Made
+- **`useEffect` retained, `useState`/`useRef` removed** — Cmd+B keyboard shortcut handler still uses `useEffect`. The deleted `UserMenu` was the sole consumer of `useRef` and `useState` (for `menuOpen`).
+- **Sign-out async ordering kept as-is** — `onClick={async () => { await client.logout(); clearAuth(); toast.success(...); navigate("/login"); }}` returns a promise that base-ui's `DropdownMenuItem` doesn't await. Pre-migration `UserMenu` had the same pattern. Worth a future follow-up to fire `clearAuth`/`toast`/`navigate` synchronously and let logout race in the background — flagged in code review but not changed here.
+- **`Avatar` redundant `shrink-0`** — shadcn `Avatar` root already includes `shrink-0`. Kept the explicit class for clarity; harmless duplication.
+- **a11y follow-ups noted** — `aria-label={displayName}` on `Avatar` when `collapsed` would help screen readers. Not introduced by this PR but logged for future.
+- **Manual QA recommended** — verify (1) sign-out flow under throttled network, (2) sidebar's `onDoubleClick={toggle}` doesn't fire spuriously when double-clicking the trigger button.
+
 ## 2026-04-15 — shadcn migration PR 2: forms surface
 
 ### Change
