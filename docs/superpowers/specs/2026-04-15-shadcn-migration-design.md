@@ -43,13 +43,16 @@ Skipped primitives and the trigger to revisit each: `docs/ui-migration-skipped.m
 ## Migration Order
 
 ### PR 1 — Foundation
-Install all primitives listed above. No application code changes.
+Install all primitives listed above using the shadcn CLI (`npx shadcn@latest add <name>` from `apps/web`). No application code changes.
 
 Steps:
-1. Add `card` first as a smoke test. Run `npm run build`. Confirm the `base-nova` registry resolves cleanly.
-2. If any primitive is missing from `base-nova`, fall back to the default `new-york` style for that one component (note in PR description).
-3. Bulk-add the remaining primitives.
-4. Verify `npm run typecheck` and `npm run build` pass.
+1. Use the shadcn MCP (`mcp__shadcn__list_items_in_registries`, `view_items_in_registries`) to verify each primitive in the set exists in the `@shadcn` registry under `style: base-nova` before adding.
+2. Add `card` first as a smoke test. Run `npm run build`. Confirm the `base-nova` style resolves cleanly.
+3. If any primitive is missing from `base-nova`, fall back to the default style for that one component (note in PR description).
+4. Bulk-add the remaining primitives via the CLI.
+5. Verify `npm run typecheck` and `npm run build` pass.
+
+The shadcn MCP is helpful but not required — the CLI works standalone.
 
 ### PR 2 — Forms surface
 Migrate `birth-data-form.tsx`, `date-time-picker.tsx`, `location-search.tsx`.
