@@ -24,6 +24,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Card, CardContent } from "@/components/ui/card";
 
 interface ChartCardProps {
@@ -34,7 +40,6 @@ interface ChartCardProps {
 
 export function ChartCard({ stored, onDeleted, onRenamed }: ChartCardProps) {
   const navigate = useNavigate();
-  const [menuOpen, setMenuOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
   const [newName, setNewName] = useState(stored.name);
@@ -85,39 +90,40 @@ export function ChartCard({ stored, onDeleted, onRenamed }: ChartCardProps) {
         onClick={() => navigate(`/chart/${stored.id}`)}
       >
         <CardContent className="p-4 flex flex-col items-center gap-3">
-        {/* ⋯ menu button */}
-        <button
-          type="button"
-          className="absolute top-2 right-2 w-9 h-9 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-border transition-colors opacity-0 group-hover:opacity-100"
-          onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v); }}
-        >
-          <MoreHorizontal size={16} />
-        </button>
-
-        {/* Dropdown */}
-        {menuOpen && (
-          <div
-            className="absolute top-10 right-3 z-20 bg-secondary border border-border rounded-lg shadow-lg overflow-hidden min-w-[140px]"
+        {/* ⋯ menu */}
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            nativeButton={false}
+            render={
+              <button
+                type="button"
+                className="absolute top-2 right-2 w-9 h-9 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-border transition-colors opacity-0 group-hover:opacity-100"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MoreHorizontal size={16} />
+              </button>
+            }
+          />
+          <DropdownMenuContent
+            align="end"
             onClick={(e) => e.stopPropagation()}
+            className="min-w-[140px]"
           >
-            <button
-              type="button"
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-border transition-colors"
-              onClick={() => { setMenuOpen(false); setNewName(stored.name); setRenameOpen(true); }}
+            <DropdownMenuItem
+              onClick={() => { setNewName(stored.name); setRenameOpen(true); }}
             >
               <Pencil size={14} className="text-muted-foreground" />
               Rename
-            </button>
-            <button
-              type="button"
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-border transition-colors"
-              onClick={() => { setMenuOpen(false); setDeleteOpen(true); }}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={() => setDeleteOpen(true)}
             >
               <Trash2 size={14} />
               Delete
-            </button>
-          </div>
-        )}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         {/* Mini chart wheel */}
         <div className="w-[120px] h-[120px] rounded-full overflow-hidden shrink-0">
