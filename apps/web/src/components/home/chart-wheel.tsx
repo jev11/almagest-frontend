@@ -38,11 +38,8 @@ export function ChartWheel({ sky, locationName }: Props) {
 
   return (
     <div
-      className="relative w-full aspect-square rounded-lg overflow-hidden bg-card"
-      style={{
-        containerType: "inline-size",
-        boxShadow: "0 0 80px -20px oklch(62% 0.15 265 / 0.15)",
-      }}
+      className="relative w-full aspect-square rounded-lg overflow-hidden bg-card card-hover chart-wheel-glow"
+      style={{ containerType: "inline-size" }}
     >
       {/* Chart canvas — info labels suppressed; we overlay HTML chips below */}
       <ChartCanvas data={chartData} className="w-full h-full" />

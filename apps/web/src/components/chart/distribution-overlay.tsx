@@ -78,7 +78,7 @@ export function DistributionOverlay({ chartData }: Props) {
   return (
     <>
       {/* Elements — bottom left */}
-      <div className="absolute bottom-phi-2 left-phi-2 flex flex-col" style={overlayFont}>
+      <div className="absolute bottom-2 left-2 flex flex-col" style={overlayFont}>
         {ELEMENT_LABELS.map(({ key, label, color }) => {
           const count = dist.elements.get(key) ?? 0;
           const pct = Math.round((count / dist.total) * 100);
@@ -91,7 +91,7 @@ export function DistributionOverlay({ chartData }: Props) {
       </div>
 
       {/* Modalities — bottom right */}
-      <div className="absolute bottom-phi-2 right-phi-2 flex flex-col text-right" style={overlayFont}>
+      <div className="absolute bottom-2 right-2 flex flex-col text-right" style={overlayFont}>
         {MODALITY_LABELS.map(({ key, label, color }) => {
           const count = dist.modalities.get(key) ?? 0;
           const pct = Math.round((count / dist.total) * 100);

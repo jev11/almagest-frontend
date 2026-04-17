@@ -16,6 +16,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
+  "dependencies": {
+    "@astro-app/shared-types": "*"
+  },
   "devDependencies": {
     "typescript": "^5.5",
     "vitest": "^2.0"

@@ -86,7 +86,7 @@ function UpcomingPhasesList({
         return (
           <div
             key={i}
-            className="grid items-center gap-phi-2 whitespace-nowrap"
+            className="grid items-center gap-2 whitespace-nowrap"
             style={{ gridTemplateColumns: "42px 1fr auto" }}
           >
             <div className="text-muted-foreground flex items-center">
@@ -214,25 +214,22 @@ export function MoonCard() {
   const nextSignIdx = moonZp
     ? (SIGN_ORDER.indexOf(moonZp.sign) + 1) % 12
     : -1;
-  const nextSignName =
-    nextSignIdx >= 0
-      ? SIGN_ORDER[nextSignIdx]!.charAt(0).toUpperCase() +
-        SIGN_ORDER[nextSignIdx]!.slice(1).toLowerCase()
-      : "";
+  const nextSign = nextSignIdx >= 0 ? SIGN_ORDER[nextSignIdx]! : null;
+  const nextSignGlyph = nextSign ? SIGN_GLYPHS[nextSign] : null;
 
   return (
     <Card className="card-moon card-hover animate-fade-in py-0">
-      <CardContent className="p-phi-4">
+      <CardContent className="p-pad">
         {/* Header */}
-        <div className="flex items-baseline justify-between mb-phi-3">
+        <div className="flex items-baseline justify-between mb-3.5">
           <div className="card-title">Moon</div>
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-muted/60 border border-border text-[11px] text-muted-foreground tabular-nums">
+          <span className="mono inline-flex items-center px-2 py-0.5 rounded-full bg-muted/60 border border-border text-[11px] text-muted-foreground tabular-nums">
             {illumination}% lit
           </span>
         </div>
 
         {/* Main row: ring + phase info */}
-        <div className="flex items-center gap-phi-3 animate-fade-in">
+        <div className="flex items-center gap-[18px] animate-fade-in">
           <MoonCycleRing progress={progress} size={76} />
           <div className="flex-1 min-w-0">
             <div className="font-display text-foreground text-[22px] leading-tight">
@@ -247,9 +244,9 @@ export function MoonCard() {
                 <span className="ml-1">in {moonSignName}</span>
               </div>
             )}
-            {ingressStr && nextSignName && (
+            {ingressStr && nextSignGlyph && (
               <div className="text-[12px] text-dim-foreground mt-1">
-                ingress {ingressStr} → {nextSignName}
+                ingress {ingressStr} → <span>{nextSignGlyph}</span>
               </div>
             )}
           </div>
@@ -262,7 +259,7 @@ export function MoonCard() {
           </span>
         </div>
 
-        <Separator className="my-phi-3" />
+        <Separator className="my-3.5" />
 
         {/* Upcoming phases */}
         <UpcomingPhasesList phases={phases} timeFormat={timeFormat} now={now} />

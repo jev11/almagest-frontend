@@ -12,22 +12,22 @@ import { ZodiacSign } from "@astro-app/shared-types";
 
 describe("formatDegree", () => {
   it("formats whole degrees with zero minutes", () => {
-    expect(formatDegree(15, 0)).toBe("15°00'");
+    expect(formatDegree(15, 0)).toBe("15°00\u2032");
   });
 
   it("pads single-digit minutes", () => {
-    expect(formatDegree(7, 5)).toBe("7°05'");
+    expect(formatDegree(7, 5)).toBe("7°05\u2032");
   });
 
   it("formats two-digit minutes", () => {
-    expect(formatDegree(29, 59)).toBe("29°59'");
+    expect(formatDegree(29, 59)).toBe("29°59\u2032");
   });
 });
 
 describe("formatZodiacPosition", () => {
   it("includes sign glyph and degree", () => {
     const result = formatZodiacPosition(ZodiacSign.Aries, 15, 30);
-    expect(result).toBe("♈ 15°30'");
+    expect(result).toBe("♈ 15°30\u2032");
   });
 
   it("uses correct glyph for each sign", () => {
@@ -38,15 +38,15 @@ describe("formatZodiacPosition", () => {
 
 describe("formatOrb", () => {
   it("formats zero orb", () => {
-    expect(formatOrb(0)).toBe("0°00'");
+    expect(formatOrb(0)).toBe("0°00\u2032");
   });
 
   it("formats fractional degrees to minutes", () => {
-    expect(formatOrb(1.5)).toBe("1°30'");
+    expect(formatOrb(1.5)).toBe("1°30\u2032");
   });
 
   it("formats orb with rounding", () => {
-    expect(formatOrb(2.25)).toBe("2°15'");
+    expect(formatOrb(2.25)).toBe("2°15\u2032");
   });
 });
 

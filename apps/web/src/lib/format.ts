@@ -1,8 +1,20 @@
-import { ZodiacSign, CelestialBody } from "@astro-app/shared-types";
+import { ZodiacSign, CelestialBody, SIGN_ORDER } from "@astro-app/shared-types";
 import type { ChartData } from "@astro-app/shared-types";
 
 export function formatDegree(degree: number, minute: number): string {
-  return `${degree}°${minute.toString().padStart(2, "0")}'`;
+  return `${degree}°${minute.toString().padStart(2, "0")}\u2032`;
+}
+
+/** Convert an ecliptic longitude (in degrees) to sign/degree/minute within sign. */
+export function longitudeToZp(
+  lon: number,
+): { sign: ZodiacSign; degree: number; minute: number } {
+  const normalized = ((lon % 360) + 360) % 360;
+  const signIdx = Math.floor(normalized / 30);
+  const within = normalized - signIdx * 30;
+  const degree = Math.floor(within);
+  const minute = Math.floor((within - degree) * 60);
+  return { sign: SIGN_ORDER[signIdx]!, degree, minute };
 }
 
 export function formatZodiacPosition(sign: ZodiacSign, degree: number, minute: number): string {
@@ -12,7 +24,7 @@ export function formatZodiacPosition(sign: ZodiacSign, degree: number, minute: n
 export function formatOrb(orb: number): string {
   const deg = Math.floor(orb);
   const min = Math.round((orb - deg) * 60);
-  return `${deg}°${min.toString().padStart(2, "0")}'`;
+  return `${deg}°${min.toString().padStart(2, "0")}\u2032`;
 }
 
 // \uFE0E (variation selector-15) forces text presentation, matching the wheel renderer
@@ -75,21 +87,6 @@ export function formatTime(
     hour12: timeFormat === "12h",
     timeZone: options?.timeZone,
   });
-}
-
-export function formatDateTime(
-  date: Date,
-  timeFormat: "12h" | "24h",
-  options?: { timeZone?: string },
-): string {
-  const datePart = date.toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-    timeZone: options?.timeZone,
-  });
-  const timePart = formatTime(date, timeFormat, options);
-  return `${datePart} · ${timePart}`;
 }
 
 const MEAN_NODES: string[] = [CelestialBody.MeanNorthNode, CelestialBody.MeanSouthNode];

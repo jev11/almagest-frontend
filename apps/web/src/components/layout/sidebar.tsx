@@ -51,10 +51,10 @@ function NavButton({
     <button
       onClick={onClick}
       className={cn(
-        "flex items-center gap-phi-2 rounded-lg text-sm transition-[background-color,color,transform] duration-160 ease-out active:scale-[0.97]",
+        "flex items-center gap-2 rounded-lg text-sm transition-[background-color,color,transform] duration-160 ease-out active:scale-[0.97]",
         collapsed
           ? "w-[34px] h-[34px] justify-center"
-          : "w-full h-[34px] px-phi-2 justify-start",
+          : "w-full h-[34px] px-2 justify-start",
         isActive
           ? "bg-primary/10 text-primary"
           : "text-muted-foreground hover:text-foreground hover:bg-secondary",
@@ -113,8 +113,8 @@ export function Sidebar() {
       {/* Header */}
       <div
         className={cn(
-          "flex items-center p-phi-2 gap-phi-2",
-          collapsed ? "justify-center py-phi-2 px-0" : "",
+          "flex items-center p-2 gap-2",
+          collapsed ? "justify-center py-2 px-0" : "",
         )}
       >
         <button
@@ -123,7 +123,7 @@ export function Sidebar() {
           className="w-[26px] h-[26px] rounded-[7px] grid place-items-center shrink-0 font-display italic text-[15px] text-white cursor-pointer"
           style={{
             background:
-              "linear-gradient(135deg, oklch(62% 0.15 265), oklch(55% 0.18 305))",
+              "linear-gradient(135deg, var(--primary), oklch(55% 0.18 calc(var(--accent-h) + 40)))",
             boxShadow: "inset 0 0 0 1px oklch(100% 0 0 / 0.15)",
           }}
         >
@@ -136,7 +136,7 @@ export function Sidebar() {
             </span>
             <button
               onClick={toggle}
-              className="p-phi-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
               aria-label="Collapse sidebar"
             >
               <PanelLeftClose size={18} />
@@ -146,7 +146,7 @@ export function Sidebar() {
       </div>
 
       {/* Top nav */}
-      <nav className={cn("flex flex-col gap-phi-1 px-phi-2", collapsed && "items-center px-0 mx-auto")}>
+      <nav className={cn("flex flex-col gap-1 px-2", collapsed && "items-center px-0 mx-auto")}>
         {TOP_NAV.map(({ label, icon, path }) => (
           <NavButton
             key={path}
@@ -164,15 +164,15 @@ export function Sidebar() {
       <div className="flex-1" />
 
       {/* User area */}
-      <div className={cn("relative p-phi-2 border-t border-border", collapsed && "flex justify-center px-0")}>
+      <div className={cn("relative p-2 border-t border-border", collapsed && "flex justify-center px-0")}>
         <DropdownMenu>
           <DropdownMenuTrigger
             nativeButton={false}
             render={
               <button
                 className={cn(
-                  "flex items-center gap-phi-2 rounded-lg transition-colors cursor-pointer",
-                  collapsed ? "p-0" : "w-full py-1 hover:bg-secondary px-phi-2 min-w-0",
+                  "flex items-center gap-2 rounded-lg transition-colors cursor-pointer",
+                  collapsed ? "p-0" : "w-full py-1 hover:bg-secondary px-2 min-w-0",
                 )}
               >
                 <Avatar className="w-8 h-8 shrink-0">

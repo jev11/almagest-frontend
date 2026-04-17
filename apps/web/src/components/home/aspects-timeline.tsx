@@ -7,10 +7,10 @@ import { useSettings } from "@/hooks/use-settings";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-export const DAY_COUNT = 10;
-export const DAY_OFFSET = -2;
-export const SAMPLES_PER_DAY = 4;
-export const TOTAL_SAMPLES = DAY_COUNT * SAMPLES_PER_DAY;
+const DAY_COUNT = 10;
+const DAY_OFFSET = -2;
+const SAMPLES_PER_DAY = 4;
+const TOTAL_SAMPLES = DAY_COUNT * SAMPLES_PER_DAY;
 
 const VIEWBOX_W = 1000;
 const TOP_PAD = 32;
@@ -19,17 +19,14 @@ const ROW_HEIGHT = 20;
 const LEFT_PAD = 56;
 
 /**
- * Ordered slowest-to-fastest by apparent motion. Used to:
- *   1. Decide which body is "group" and which is "other" in an aspect pair —
- *      slower body wins (smaller index), keeping the glyph trio consistent
- *      across renders (e.g. always `☉☌☽`, never `☽☌☉`).
- *   2. Let the untracked shadcn-timeline variant iterate bars by group planet.
- *
- * Every body that `calculateApproximate` produces aspects for is included, so
- * the timeline surfaces Moon/Sun/Mercury/Venus aspects too — not just slow-
- * planet transits.
+ * Ordered slowest-to-fastest by apparent motion. Decides which body is "group"
+ * and which is "other" in an aspect pair — slower body wins (smaller index),
+ * keeping the glyph trio consistent across renders (e.g. always `☉☌☽`, never
+ * `☽☌☉`). Every body that `calculateApproximate` produces aspects for is
+ * included, so the timeline surfaces Moon/Sun/Mercury/Venus aspects too — not
+ * just slow-planet transits.
  */
-export const GROUP_PLANETS: CelestialBody[] = [
+const GROUP_PLANETS: CelestialBody[] = [
   CelestialBody.Pluto,
   CelestialBody.Neptune,
   CelestialBody.Uranus,
@@ -43,22 +40,7 @@ export const GROUP_PLANETS: CelestialBody[] = [
   CelestialBody.Moon,
 ];
 
-/** Retained for the shadcn timeline variant (aspects-timeline-shadcn.tsx). */
-export const GROUP_PLANET_NAMES: Partial<Record<CelestialBody, string>> = {
-  [CelestialBody.Pluto]: "Pluto",
-  [CelestialBody.Neptune]: "Neptune",
-  [CelestialBody.Uranus]: "Uranus",
-  [CelestialBody.Chiron]: "Chiron",
-  [CelestialBody.Saturn]: "Saturn",
-  [CelestialBody.Jupiter]: "Jupiter",
-  [CelestialBody.Mars]: "Mars",
-  [CelestialBody.Sun]: "Sun",
-  [CelestialBody.Venus]: "Venus",
-  [CelestialBody.Mercury]: "Mercury",
-  [CelestialBody.Moon]: "Moon",
-};
-
-export const ASPECT_COLORS: Partial<Record<AspectType, string>> = {
+const ASPECT_COLORS: Partial<Record<AspectType, string>> = {
   [AspectType.Conjunction]: "var(--aspect-conjunction)",
   [AspectType.Sextile]: "var(--aspect-sextile)",
   [AspectType.Square]: "var(--aspect-square)",
@@ -117,14 +99,11 @@ const MINOR_ASPECTS: Set<AspectType> = new Set([
   AspectType.BiQuintile,
 ]);
 
-export type AspectsTimelineVariant = "major" | "minor";
+type AspectsTimelineVariant = "major" | "minor";
 
 const ACTIVE_THRESHOLD = 0.05;
 
-/** Max bars rendered — beyond this, the visual gets noisy. */
-const MAX_BARS = 8;
-
-export function buildMaxOrbMap(
+function buildMaxOrbMap(
   settingsOrbs: Record<string, number>,
 ): Partial<Record<AspectType, number>> {
   const map = { ...DEFAULT_MAX_ORB };
@@ -137,7 +116,7 @@ export function buildMaxOrbMap(
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export interface AspectBar {
+interface AspectBar {
   groupPlanet: CelestialBody;
   otherPlanet: CelestialBody;
   aspectType: AspectType;
@@ -149,7 +128,7 @@ export interface AspectBar {
 
 const yieldToMain = () => new Promise<void>((r) => setTimeout(r, 0));
 
-export async function computeAspectBarsAsync(
+async function computeAspectBarsAsync(
   today: Date,
   orbOverrides: Record<string, number>,
   includeMinor: boolean,
@@ -352,30 +331,11 @@ export const AspectsTimeline = memo(function AspectsTimeline({
       const r = computeRange(bar);
       if (r) list.push(r);
     }
-    // Rank by peak intensity, breaking ties in favour of aspects whose peak
-    // lands closest to today. Without the tiebreaker, fast-body aspects
-    // (Moon transits, Sun aspects) all interpolate to peak=1.0 and the 8
-    // slots go to whichever the sort happens to hit first — which can push
-    // out the "topical" event (e.g. today's Moon-Sun conjunction) in favour
-    // of, say, a Moon-Neptune conjunction peaking 4 days from now.
-    const todayCenterSample = -DAY_OFFSET * SAMPLES_PER_DAY + SAMPLES_PER_DAY / 2;
-    const distanceFromToday = (r: BarRange) =>
-      Math.abs(r.peakSample - todayCenterSample);
-    const top = list
-      .sort((a, b) => {
-        // Round peaks to 2 decimals so near-ties (0.997 vs 1.000) treat
-        // today-proximity as the real discriminator.
-        const ap = Math.round(a.peakValue * 100);
-        const bp = Math.round(b.peakValue * 100);
-        if (ap !== bp) return bp - ap;
-        return distanceFromToday(a) - distanceFromToday(b);
-      })
-      .slice(0, MAX_BARS);
-    top.sort((a, b) => {
+    list.sort((a, b) => {
       if (a.peakSample !== b.peakSample) return a.peakSample - b.peakSample;
       return b.peakValue - a.peakValue;
     });
-    return top;
+    return list;
   }, [bars, isMinor]);
 
   const todayIdx = -DAY_OFFSET;
@@ -401,8 +361,8 @@ export const AspectsTimeline = memo(function AspectsTimeline({
   const isLoading = bars.length === 0;
 
   return (
-    <div className="bg-card border border-border rounded-lg p-phi-4 card-hover">
-      <div className="flex items-baseline justify-between mb-phi-3">
+    <div className="bg-card border border-border rounded-lg p-pad card-hover">
+      <div className="flex items-baseline justify-between mb-3.5">
         <div className="card-title">{title}</div>
       </div>
 
@@ -439,7 +399,7 @@ export const AspectsTimeline = memo(function AspectsTimeline({
             y={16}
             fontSize="10"
             fill="var(--muted-foreground)"
-            fontFamily="ui-monospace, monospace"
+            style={{ fontFamily: "var(--font-mono)" }}
             letterSpacing="0.15em"
             fontWeight="500"
             textAnchor="middle"
@@ -514,10 +474,10 @@ export const AspectsTimeline = memo(function AspectsTimeline({
                 key={`label-${i}`}
                 x={x}
                 y={height - 6}
-                fontSize={10}
+                fontSize={9.5}
                 textAnchor="middle"
-                fill={isToday ? "var(--primary)" : "var(--dim-foreground)"}
-                fontFamily="ui-monospace, monospace"
+                fill={isToday ? "var(--primary)" : "var(--faint-foreground)"}
+                style={{ fontFamily: "var(--font-mono)" }}
                 fontWeight={isToday ? 500 : 400}
               >
                 {label}

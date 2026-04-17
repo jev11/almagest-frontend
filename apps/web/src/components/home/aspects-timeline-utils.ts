@@ -7,7 +7,7 @@ export function orbIntensity(orb: number, maxOrb: number): number {
   return Math.max(0, Math.min(1, 1 - orb / maxOrb));
 }
 
-export interface TimelinePoint {
+interface TimelinePoint {
   x: number;
   value: number;
 }

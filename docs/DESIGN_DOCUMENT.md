@@ -1017,9 +1017,9 @@ Defined in `apps/web/src/index.css` under `@layer base`:
 ```
 
 - **Hero split:** chart-wheel column takes `flex: 1.3`, rail column `flex: 1`. Both columns align to top; the rail is allowed to be shorter than the square chart.
-- **Stat row:** `grid-cols-2 lg:grid-cols-4`, `gap-phi-4`.
-- **Detail row:** `grid-cols-1 lg:grid-cols-[1.1fr_1.4fr_1fr]`, `gap-phi-4`, `items-start`.
-- **Spacing:** vertical rhythm is `gap-phi-5` between major rows; `gap-phi-4` inside rails/grids.
+- **Stat row:** `grid-cols-2 lg:grid-cols-4`, `gap-gap`.
+- **Detail row:** `grid-cols-1 lg:grid-cols-[1.1fr_1.4fr_1fr]`, `gap-gap`, `items-start`.
+- **Spacing:** vertical rhythm is `gap-8` (32px) between major rows; `gap-gap` (16px, density-aware) inside rails/grids.
 
 ### 4.4 Page head composition
 
@@ -1074,7 +1074,7 @@ They carry real data flow, dignity logic, collapsibles, skeletons, and tests. Vi
 
 - ≥1024px: full four-column stats, hero split, three-column detail as drawn.
 - <1024px: stats collapse to `grid-cols-2`, detail row collapses to `grid-cols-1`, hero split falls back to the natural flex stack (chart first, rail second).
-- The page is wrapped in `px-phi-6 py-phi-5` to match existing page padding.
+- The page is wrapped in `px-8 py-8` (32px all around) to match the design canvas.
 
 ### 4.8 Aspects Timeline — editorial bar style
 
@@ -1128,7 +1128,7 @@ Every home card carries the same header strip at the top of its body:
   - **Chip** (pill): `inline-flex items-center px-2 py-0.5 rounded-full bg-muted/60 border border-border text-[11px] text-muted-foreground` — used when the meta feels categorical (day name, count-with-unit, state). Applied on Moon ("{X}% lit"), Planetary Hours ("{day}"), Retrogrades ("{N} active" / "none").
   - **Inline text** (no pill): plain `text-[11px] text-muted-foreground tabular-nums` — used when the meta is a pure count. Applied on Positions ("{n} bodies"), Aspects ("{n} hits").
 
-Header sits on its own row `mb-phi-3` above the card body; the body keeps its pre-existing layout. Header is always present, even in empty states, so the card reads as "named" at a glance.
+Header sits on its own row `mb-3.5` (14px) above the card body; the body keeps its pre-existing layout. Header is always present, even in empty states, so the card reads as "named" at a glance.
 
 ### 4.11 Sidebar — brand mark & widths
 
@@ -1156,7 +1156,7 @@ Six columns in order: `glyph | name | sign-glyph | deg°min + ℞? | house | dig
 Four-column CSS grid (`auto 1fr 1fr 1fr`) rendering a pill-per-cell matrix.
 
 - **Column headers:** `Cardinal / Fixed / Mutable` — sentence case, 13px, `text-muted-foreground`, left-indented to line up with cell interior. No uppercase tracking — the `.card-title` already carries that weight at the card header.
-- **Row labels:** `Fire / Earth / Air / Water` — 14px medium weight, coloured with the respective `--color-{element}` token, right-padded `pr-phi-3`.
+- **Row labels:** `Fire / Earth / Air / Water` — 14px medium weight, coloured with the respective `--color-{element}` token, right-padded `pr-3`.
 - **Cells:** `rounded-md min-h-[38px]` with a `1px var(--border)` outline in every state. Populated cells add a subtle fill via `background: color-mix(in oklch, var(--muted) 70%, transparent)`; empty cells are transparent at 55% opacity so they recede but the matrix shape still reads.
 - **Glyphs:** coloured with the row's element colour, `letter-spacing: 0.08em` so a cell with multiple bodies (e.g. Fire × Cardinal with 4 planets on a New-Moon-in-Aries day) still breathes.
 
@@ -1268,4 +1268,32 @@ Home now stacks at `md:` (768px) rather than the previous `lg:` (1024px). Specif
 ### 4.20 Card radius & border
 
 `Card` component uses `rounded-[10px]` and `border border-border` — matches the design's 10px radius + 1px solid border exactly. The earlier `ring-1 ring-foreground/10` was softer but conflicted with the chart-card's outer `box-shadow` glow. Swap applies globally, so every card on every screen inherits the tighter look.
+
+### 4.21 Spacing system — flat 16/18 grid with density axis
+
+Retired the Fibonacci/φ scale (`--space-phi-1..7` → 5/8/13/21/34/55/89) in favour of the design bundle's three-token semantic system:
+
+| Token | Default | Compact | Spacious | Purpose |
+|---|---|---|---|---|
+| `--gap` | `16px` | `10px` | `22px` | gaps between cards / inside grids |
+| `--pad` | `18px` | `12px` | `24px` | card interior padding |
+| `--pad-sm` | `12px` | `8px` | `16px` | tight card padding (Positions table) |
+| `--radius` | `10px` | `8px` | `10px` | card corner radius |
+
+Tokens are registered as Tailwind utilities via `--spacing-gap / --spacing-pad / --spacing-pad-sm`, producing the classes `gap-gap`, `p-pad`, `px-pad`, `p-pad-sm`, etc. Standard Tailwind numeric scale (`gap-2`, `gap-8`, `mt-3.5`, etc.) remains available for non-semantic spacing.
+
+**Density axis:**
+
+Setting `document.documentElement.dataset.density = "compact" | "balanced" | "spacious"` switches all three tokens site-wide — cards shrink/grow, grids retighten/breathe, nothing else needs to change. Default is balanced (no attribute set). This mirrors the design bundle's runtime tweak-panel; can be wired to a user setting later.
+
+**Layout proportions (unchanged from design):**
+
+| Location | Split |
+|---|---|
+| Stat row | `repeat(4, 1fr)` — four equal cards |
+| Hero row (chart + rail) | `1.3fr` : `1fr` |
+| Detail row (Positions/Aspects/Element×Modality) | `1.1fr` : `1.4fr` : `1fr` |
+| Page outer padding | `32px` (`py-8 px-8`) |
+
+The one vestige of the golden ratio is the `1.618:1` split still used on the Chart Viewer page (`/chart/:id`) — documented in that route's code comment, not a design token.
 

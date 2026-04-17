@@ -201,11 +201,11 @@ export function ChartViewPage() {
 
   if (loading) {
     return (
-      <div className="flex gap-phi-5 p-phi-5 h-full items-start">
+      <div className="flex gap-gap p-8 h-full items-start">
         <div className="min-w-0" style={{ flex: "1.618" }}>
           <ChartSkeleton />
         </div>
-        <div className="flex flex-col gap-phi-3" style={{ flex: "1" }}>
+        <div className="flex flex-col gap-3" style={{ flex: "1" }}>
           <TableSkeleton rows={13} />
         </div>
       </div>
@@ -306,10 +306,10 @@ export function ChartViewPage() {
           </div>
         </div>
 
-        {/* Content: golden ratio layout matching home screen */}
-        <div className="flex gap-phi-5 flex-1 min-h-0 overflow-y-auto p-phi-5 items-start">
+        {/* Content: 1.618:1 split layout matching home screen */}
+        <div className="flex gap-gap flex-1 min-h-0 overflow-y-auto p-8 items-start">
           {/* Left column — chart + aspect grid */}
-          <div className="flex flex-col gap-phi-4 min-w-0" style={{ flex: "1.618" }}>
+          <div className="flex flex-col gap-gap min-w-0" style={{ flex: "1.618" }}>
             <div
               className="relative w-full aspect-square rounded-lg overflow-hidden bg-card border border-border"
               style={{ containerType: "inline-size" }}
@@ -325,7 +325,7 @@ export function ChartViewPage() {
           </div>
 
           {/* Right column — planet card */}
-          <div className="flex flex-col gap-phi-4" style={{ flex: "1" }}>
+          <div className="flex flex-col gap-gap" style={{ flex: "1" }}>
             <PlanetCard chartData={chart} nodeType={chartNodeType} />
             <ElementModalityCard chartData={chart} />
           </div>

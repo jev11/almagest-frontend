@@ -1,10 +1,7 @@
 import { useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import { Plus } from "lucide-react";
-import { calculateApproximate, moonPhaseAngle } from "@astro-app/approx-engine";
+import { moonPhaseAngle } from "@astro-app/approx-engine";
 import { CelestialBody, SIGN_ELEMENT, SIGN_ORDER } from "@astro-app/shared-types";
 import type { ChartData, ZodiacPosition } from "@astro-app/shared-types";
-import { Button } from "@/components/ui/button";
 import { ChartWheel } from "@/components/home/chart-wheel";
 import { PlanetCard } from "@/components/home/planet-card";
 import { AspectGrid } from "@/components/home/aspect-grid";
@@ -17,7 +14,7 @@ import { HeroStat } from "@/components/home/hero-stat";
 import { useCurrentSky } from "@/hooks/use-current-sky";
 import { useSettings } from "@/hooks/use-settings";
 import { useReverseGeocode } from "@/hooks/use-reverse-geocode";
-import { PLANET_GLYPHS, SIGN_GLYPHS, formatDegree, getMoonPhaseName } from "@/lib/format";
+import { PLANET_GLYPHS, SIGN_GLYPHS, formatDegree, getMoonPhaseName, longitudeToZp } from "@/lib/format";
 
 const PHASE_ICONS: Record<string, string> = {
   "New Moon": "🌑",
@@ -39,16 +36,6 @@ const INGRESS_BODIES = [
   CelestialBody.Mercury, CelestialBody.Venus, CelestialBody.Mars,
   CelestialBody.Jupiter, CelestialBody.Saturn,
 ];
-
-function longitudeToZp(chart: ChartData, lon: number): { sign: ZodiacPosition["sign"]; degree: number; minute: number } {
-  const normalized = ((lon % 360) + 360) % 360;
-  const signIdx = Math.floor(normalized / 30);
-  const within = normalized - signIdx * 30;
-  const degree = Math.floor(within);
-  const minute = Math.floor((within - degree) * 60);
-  void chart;
-  return { sign: SIGN_ORDER[signIdx]!, degree, minute };
-}
 
 /** Find the soonest sign-change event among the inner+social planets. */
 function computeNextIngress(chart: ChartData): { body: CelestialBody; targetSign: ZodiacPosition["sign"]; daysUntil: number } | null {
@@ -84,7 +71,6 @@ const DAY_RULERS = [
 ];
 
 export function HomePage() {
-  const navigate = useNavigate();
   const sky = useCurrentSky();
   const timeFormat = useSettings((s) => s.appearance.timeFormat);
   const locationName = useReverseGeocode(sky.location.lat, sky.location.lon);
@@ -95,56 +81,36 @@ export function HomePage() {
   const sunZp = chart?.zodiac_positions[CelestialBody.Sun];
   const moonZp = chart?.zodiac_positions[CelestialBody.Moon];
   const ascZp = useMemo(
-    () => (chart ? longitudeToZp(chart, chart.houses.ascendant) : null),
+    () => (chart ? longitudeToZp(chart.houses.ascendant) : null),
     [chart],
   );
   const moonPhase = useMemo(() => getMoonPhaseName(moonPhaseAngle(now)), [now]);
   const moonIcon = PHASE_ICONS[moonPhase] ?? "🌙";
 
-  const retroCount = useMemo(() => {
-    const approx = calculateApproximate(now, 0, 0);
-    return [
-      CelestialBody.Mercury, CelestialBody.Venus, CelestialBody.Mars,
-      CelestialBody.Jupiter, CelestialBody.Saturn, CelestialBody.Uranus,
-      CelestialBody.Neptune, CelestialBody.Pluto,
-    ].filter((b) => (approx.positions[b]?.speed_longitude ?? 0) < 0).length;
-  }, [now]);
-
   const nextIngress = useMemo(() => (chart ? computeNextIngress(chart) : null), [chart]);
 
   return (
-    <div className="flex flex-col gap-phi-5 py-phi-5 px-phi-6">
+    <div className="flex flex-col gap-8 py-8 px-8">
       {/* Editorial page head */}
-      <header className="flex flex-wrap items-end justify-between gap-phi-4 animate-fade-in">
+      <header className="flex flex-wrap items-end justify-between gap-gap animate-fade-in">
         <div className="min-w-0">
           <div className="eyebrow">
             {formatDateEyebrow(now)} · {formatTime(now, timeFormat)}
             {locationName ? ` · ${locationName}` : ""}
           </div>
-          <h1 className="font-display text-foreground mt-phi-2 text-[44px] leading-[1.05]">
+          <h1 className="font-display text-foreground mt-2 text-[44px] leading-[1.05]">
             The sky <em className="italic text-muted-foreground">today</em>
           </h1>
           {moonZp && (
-            <div className="text-[13px] text-muted-foreground mt-phi-2">
-              <span className="mr-1 text-primary">{moonIcon}</span>
-              {moonPhase} at {moonZp.degree}° {moonZp.sign}
-              <span className="mx-[10px] text-faint-foreground">·</span>
+            <div className="text-[13px] text-muted-foreground mt-2">
               Day of {DAY_RULERS[now.getDay()]}
-              <span className="mx-[10px] text-faint-foreground">·</span>
-              {retroCount} retrograde
             </div>
           )}
-        </div>
-        <div className="flex items-center gap-phi-2 shrink-0">
-          <Button onClick={() => navigate("/chart/new")} className="gap-1.5">
-            <Plus className="w-4 h-4" />
-            New Chart
-          </Button>
         </div>
       </header>
 
       {/* Stat row — 4 hero stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-phi-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-gap">
         <HeroStat
           eyebrow="Sun"
           value={
@@ -204,8 +170,8 @@ export function HomePage() {
           value={
             moonZp ? (
               <>
-                <span className="mr-phi-1">{moonIcon}</span>
-                {formatDegree(moonZp.degree, moonZp.minute).replace(/'$/, "′")}
+                <span className="mr-1">{moonIcon}</span>
+                {formatDegree(moonZp.degree, moonZp.minute)}
               </>
             ) : (
               "—"
@@ -216,15 +182,15 @@ export function HomePage() {
       </div>
 
       {/* Hero row: chart wheel (1.3fr) + right rail (1fr) — stacks below 820px */}
-      <div className="flex flex-col md:flex-row gap-phi-5 items-start">
+      <div className="flex flex-col md:flex-row gap-gap items-start">
         <div
-          className="flex flex-col gap-phi-4 min-w-0 w-full animate-fade-in"
+          className="flex flex-col gap-gap min-w-0 w-full animate-fade-in"
           style={{ flex: "1.3", animationDelay: "0.05s" }}
         >
           <ChartWheel sky={sky} locationName={locationName} />
         </div>
         <div
-          className="flex flex-col gap-phi-4 min-w-0 w-full animate-fade-in"
+          className="flex flex-col gap-gap min-w-0 w-full animate-fade-in"
           style={{ flex: "1", animationDelay: "0.1s" }}
         >
           <MoonCard />
@@ -234,7 +200,7 @@ export function HomePage() {
       </div>
 
       {/* Three-column detail row: Positions | Aspects | Element × Modality */}
-      <div className="grid grid-cols-1 md:grid-cols-[1.1fr_1.4fr_1fr] gap-phi-4 items-start animate-fade-in" style={{ animationDelay: "0.15s" }}>
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_1.6fr_1fr] gap-gap items-start animate-fade-in" style={{ animationDelay: "0.15s" }}>
         <PlanetCard chartData={chart} apiError={sky.apiError} retry={sky.retry} />
         <AspectGrid chartData={chart} />
         <ElementModalityCard chartData={chart} />

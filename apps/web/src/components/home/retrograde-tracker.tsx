@@ -50,15 +50,15 @@ export function RetrogradeTracker() {
 
   return (
     <Card className="card-hover py-0">
-      <CardContent className="p-phi-4">
-      <div className="flex items-baseline justify-between mb-phi-3">
+      <CardContent className="p-pad">
+      <div className="flex items-baseline justify-between mb-3.5">
         <div className="card-title">Retrogrades</div>
         <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-muted/60 border border-border text-[11px] text-muted-foreground tabular-nums">
           {retroBodies.length === 0 ? "none" : `${retroBodies.length} active`}
         </span>
       </div>
       {retroBodies.length === 0 ? (
-        <p className="text-success text-sm">All planets direct</p>
+        <p className="text-success text-[13px]">All planets direct</p>
       ) : (
         <div className="flex flex-col gap-0">
           {retroBodies.map((body) => (
@@ -66,14 +66,14 @@ export function RetrogradeTracker() {
               key={body}
               className="flex items-center gap-2 py-2 border-b border-border last:border-0"
             >
-              <span className="text-primary text-base w-5 shrink-0">
+              <span className="text-primary text-[18px] w-5 shrink-0 leading-none">
                 {PLANET_GLYPHS[body]}
               </span>
-              <span className="text-foreground text-sm">{PLANET_NAMES[body] ?? body}</span>
-              <span className="text-destructive text-sm font-semibold">℞</span>
+              <span className="text-foreground text-[13.5px] font-medium">{PLANET_NAMES[body] ?? body}</span>
+              <span className="text-destructive text-[12px]">℞</span>
               <div className="flex-1" />
               {STATION_DIRECT_APPROX[body] && (
-                <span className="text-muted-foreground text-xs">
+                <span className="mono text-muted-foreground text-[11.5px]">
                   direct {STATION_DIRECT_APPROX[body]}
                 </span>
               )}

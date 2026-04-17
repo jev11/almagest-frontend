@@ -19,7 +19,7 @@
   --card-hover: oklch(98% 0.002 260);
   --popover: oklch(100% 0 0);
   --popover-foreground: oklch(18% 0.005 260);
-  --primary: oklch(52% 0.17 275);           /* darker + more saturated for light mode */
+  --primary: oklch(52% 0.17 var(--accent-h)); /* darker + more saturated for light mode */
   --primary-foreground: oklch(100% 0 0);
   --secondary: oklch(97% 0.003 260);
   --secondary-foreground: oklch(18% 0.005 260);
@@ -33,34 +33,24 @@
   --border-strong: oklch(86% 0.006 260);
   --input: oklch(97% 0.003 260);
   --ring: oklch(52% 0.17 275);
-  --radius: 0.5rem;
+  --radius: 10px;
+  --radius-sm: 6px;
 
-  /* Golden ratio design system */
-  --phi: 1.618;
-  --phi-major: 61.8%;
-  --phi-minor: 38.2%;
+  /* Accent hue — referenced by primary + brand mark gradient so a future
+     accent-picker can retune the whole palette from a single variable. */
+  --accent-h: 275;
+  --accent-soft: oklch(52% 0.17 var(--accent-h) / 0.10);
 
-  /* Fibonacci spacing scale */
-  --space-phi-1: 5px;
-  --space-phi-2: 8px;
-  --space-phi-3: 13px;
-  --space-phi-4: 21px;
-  --space-phi-5: 34px;
-  --space-phi-6: 55px;
-  --space-phi-7: 89px;
+  /* Spacing — design bundle's flat 16px grid with a density axis.
+     Override per-theme via `[data-density="compact"|"spacious"]` on <html>. */
+  --space: 16px;
+  --gap: 16px;           /* grid + stack gaps (between cards, inside grids) */
+  --pad: 18px;           /* card interior padding */
+  --pad-sm: 12px;        /* tight card padding (used in Positions) */
 
-  /* Golden ratio typography */
-  --text-phi-caption: 9px;
-  --text-phi-small: 12px;
-  --text-phi-body: 15px;
-  --text-phi-h3: 19px;
-  --text-phi-h2: 24px;
-  --text-phi-h1: 39px;
-  --text-phi-display: 63px;
-
-  /* Sidebar */
-  --sidebar-collapsed: 89px;
-  --sidebar-expanded: 144px;
+  /* Sidebar widths */
+  --sidebar-collapsed: 64px;
+  --sidebar-expanded: 220px;
 
   /* Interactive state */
   --primary-hover: oklch(62% 0.17 275);
@@ -108,7 +98,7 @@
   --card-hover: oklch(20% 0.005 265);
   --popover: oklch(18% 0.004 265);
   --popover-foreground: oklch(96% 0.002 260);
-  --primary: oklch(65% 0.16 275);
+  --primary: oklch(65% 0.16 var(--accent-h));
   --primary-foreground: oklch(98% 0.005 275);
   --secondary: oklch(17% 0.004 265);
   --secondary-foreground: oklch(96% 0.002 260);
@@ -129,6 +119,9 @@
   --faint-foreground: oklch(36% 0.006 260);
   --success: #4ADE80;
   --border-hover: oklch(32% 0.008 265);
+
+  /* Accent hue — dark mode uses a brighter accent-soft */
+  --accent-soft: oklch(65% 0.16 var(--accent-h) / 0.14);
 
   /* Element colors — dark-mode tuning */
   --color-fire:  oklch(68% 0.12 30);
@@ -203,20 +196,31 @@
   --color-aspect-harm: var(--aspect-harm);
   --color-aspect-hard: var(--aspect-hard);
   --color-aspect-conj: var(--aspect-conj);
+  --color-accent-soft: var(--accent-soft);
 
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
+  --radius-sm: 6px;
+  --radius-md: 8px;
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-xl: 12px;
 
-  /* Golden ratio spacing utilities */
-  --spacing-phi-1: var(--space-phi-1);
-  --spacing-phi-2: var(--space-phi-2);
-  --spacing-phi-3: var(--space-phi-3);
-  --spacing-phi-4: var(--space-phi-4);
-  --spacing-phi-5: var(--space-phi-5);
-  --spacing-phi-6: var(--space-phi-6);
-  --spacing-phi-7: var(--space-phi-7);
+  /* Semantic spacing — registered so Tailwind generates `gap-gap`, `p-pad`, `p-pad-sm` */
+  --spacing-gap: var(--gap);
+  --spacing-pad: var(--pad);
+  --spacing-pad-sm: var(--pad-sm);
+}
+
+/* Density axis — switches both --gap and --pad site-wide. Toggle via
+   `document.documentElement.dataset.density = "compact" | "balanced" | "spacious"` */
+[data-density="compact"] {
+  --gap: 10px;
+  --pad: 12px;
+  --pad-sm: 8px;
+  --radius: 8px;
+}
+[data-density="spacious"] {
+  --gap: 22px;
+  --pad: 24px;
+  --pad-sm: 16px;
 }
 
 @layer base {
@@ -259,6 +263,11 @@
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--muted-foreground);
+  }
+  .chip-accent {
+    background: var(--accent-soft);
+    color: var(--primary);
+    border-color: transparent;
   }
 }
 
@@ -340,6 +349,25 @@
   }
 }
 
+/* Chart wheel — ambient glow layered under the card-hover lift shadow */
+.chart-wheel-glow {
+  box-shadow: 0 0 80px -20px oklch(62% 0.15 265 / 0.15);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .chart-wheel-glow.card-hover:hover {
+    box-shadow:
+      0 4px 20px -4px oklch(0% 0 0 / 0.15),
+      0 0 80px -20px oklch(62% 0.15 265 / 0.15);
+  }
+
+  .dark .chart-wheel-glow.card-hover:hover {
+    box-shadow:
+      0 4px 20px -4px oklch(62% 0.15 265 / 0.1),
+      0 0 80px -20px oklch(62% 0.15 265 / 0.15);
+  }
+}
+
 /* Aspect grid cell hover */
 .aspect-cell {
   transition: background 150ms ease-out;
@@ -349,6 +377,28 @@
   .aspect-cell:hover {
     background: oklch(62% 0.15 265 / 0.08);
   }
+}
+
+/* Scrollbar styling (Webkit + Blink) — matches design bundle */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 10px;
+  border: 2px solid var(--background);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-hover);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
 }
 
 /* Custom range slider styling */

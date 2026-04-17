@@ -76,12 +76,12 @@ export function ElementModalityCard({ chartData }: Props) {
 
   return (
     <Card className="card-hover py-0">
-      <CardContent className="p-phi-4">
-        <div className="flex items-baseline justify-between mb-phi-3">
+      <CardContent className="p-pad">
+        <div className="flex items-baseline justify-between mb-3.5">
           <div className="card-title">Element × Modality</div>
         </div>
         <div
-          className="grid items-center gap-x-phi-2 gap-y-phi-2"
+          className="grid items-center gap-x-2 gap-y-2"
           style={{ gridTemplateColumns: "auto 1fr 1fr 1fr" }}
         >
           {/* Column headers */}
@@ -89,7 +89,8 @@ export function ElementModalityCard({ chartData }: Props) {
           {MODALITIES.map((m) => (
             <div
               key={m.key}
-              className="text-muted-foreground text-[13px] pl-phi-1 pb-phi-1"
+              className="text-muted-foreground text-[11px] pl-1 pb-1"
+              style={{ letterSpacing: "0.04em" }}
             >
               {m.label}
             </div>
@@ -99,7 +100,7 @@ export function ElementModalityCard({ chartData }: Props) {
           {ELEMENTS.map((el) => (
             <Fragment key={el.key}>
               <div
-                className="text-[14px] font-medium pr-phi-3"
+                className="text-[12px] font-medium pr-3"
                 style={{ color: ELEMENT_COLORS[el.key] }}
               >
                 {el.label}
@@ -110,19 +111,17 @@ export function ElementModalityCard({ chartData }: Props) {
                 return (
                   <div
                     key={m.key}
-                    className="rounded-md min-h-[38px] flex items-center justify-center px-phi-2 py-phi-1 gap-1.5"
+                    className="rounded-md min-h-[38px] flex items-center justify-center px-2 py-1 gap-1.5"
                     style={{
-                      background: hasGlyphs
-                        ? "color-mix(in oklch, var(--muted) 70%, transparent)"
-                        : "transparent",
+                      background: hasGlyphs ? "var(--bg-elev)" : "transparent",
                       border: "1px solid var(--border)",
                       opacity: hasGlyphs ? 1 : 0.55,
                     }}
                   >
                     {hasGlyphs && (
                       <span
-                        className="text-[13px] leading-none"
-                        style={{ color: ELEMENT_COLORS[el.key], letterSpacing: "0.08em" }}
+                        className="text-[14px] leading-none"
+                        style={{ color: ELEMENT_COLORS[el.key], letterSpacing: "0.12em" }}
                       >
                         {glyphs.join(" ")}
                       </span>
