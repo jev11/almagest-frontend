@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-export function Skeleton({ className }: { className?: string }) {
+function Skeleton({ className }: { className?: string }) {
   return (
     <div className={cn("animate-pulse rounded-md bg-secondary", className)} />
   );
@@ -52,13 +52,3 @@ export function CardSkeleton() {
   );
 }
 
-/** Placeholder for a home section card body */
-export function SectionSkeleton({ lines = 4 }: { lines?: number }) {
-  return (
-    <div className="flex flex-col gap-2 p-1">
-      {Array.from({ length: lines }).map((_, i) => (
-        <Skeleton key={i} className={cn("h-3 rounded", i === 0 ? "w-3/4" : "w-full")} />
-      ))}
-    </div>
-  );
-}

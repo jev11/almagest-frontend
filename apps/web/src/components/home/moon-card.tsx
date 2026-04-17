@@ -5,6 +5,7 @@ import type { ZodiacSign } from "@astro-app/shared-types";
 import { getMoonPhaseName, SIGN_GLYPHS, formatDegree, formatTime } from "@/lib/format";
 import { useSettings } from "@/hooks/use-settings";
 import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 
 const PHASE_ICONS: Record<string, string> = {
   "New Moon": "🌑",
@@ -66,7 +67,7 @@ function formatTableDate(date: Date): string {
   return date.toLocaleString("en-US", { month: "short", day: "numeric" });
 }
 
-function PhaseTable({
+function UpcomingPhasesList({
   phases,
   timeFormat,
   now,
@@ -76,32 +77,37 @@ function PhaseTable({
   now: Date;
 }) {
   return (
-    <table className="text-xs border-separate border-spacing-x-1 border-spacing-y-0.5">
-      <tbody>
-        {phases.map((row, i) => {
-          const color = ELEMENT_COLORS[SIGN_ELEMENT[row.sign]];
-          const hoursUntil = (row.date.getTime() - now.getTime()) / (1000 * 60 * 60);
-          const isNear = hoursUntil >= 0 && hoursUntil < 12;
-          return (
-            <tr key={i}>
-              <td className="whitespace-nowrap pr-1">
-                {isNear && (
-                  <span className="inline-block w-1 h-1 rounded-full bg-primary mr-1 align-middle mb-px" />
-                )}
-                <span className="text-muted-foreground">{row.label}</span>
-              </td>
-              <td className="text-foreground whitespace-nowrap">{formatTableDate(row.date)}</td>
-              <td className="text-foreground whitespace-nowrap">{formatTime(row.date, timeFormat)}</td>
-              <td className="whitespace-nowrap tabular-nums">
-                <span className="text-foreground">{row.degree.toString().padStart(2, "0")}</span>
-                <span style={{ color }}>{SIGN_GLYPHS[row.sign]}</span>
-                <span className="text-foreground">{row.minute.toString().padStart(2, "0")}</span>
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
+    <div className="flex flex-col gap-1.5 text-[12px]">
+      {phases.slice(0, 4).map((row, i) => {
+        const color = ELEMENT_COLORS[SIGN_ELEMENT[row.sign]];
+        const hoursUntil =
+          (row.date.getTime() - now.getTime()) / (1000 * 60 * 60);
+        const isNear = hoursUntil >= 0 && hoursUntil < 12;
+        return (
+          <div
+            key={i}
+            className="grid items-center gap-2 whitespace-nowrap"
+            style={{ gridTemplateColumns: "42px 1fr auto" }}
+          >
+            <div className="text-muted-foreground flex items-center">
+              {isNear && (
+                <span className="inline-block w-1 h-1 rounded-full bg-primary mr-1" />
+              )}
+              {row.label}
+            </div>
+            <div className="mono text-dim-foreground overflow-hidden text-ellipsis">
+              {formatTableDate(row.date)} · {formatTime(row.date, timeFormat)}
+            </div>
+            <div className="text-right">
+              <span style={{ color }}>{SIGN_GLYPHS[row.sign]}</span>
+              <span className="text-muted-foreground tabular-nums ml-1">
+                {row.degree}°{row.minute.toString().padStart(2, "0")}′
+              </span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -195,49 +201,68 @@ export function MoonCard() {
         : `~${Math.round(hoursToIngress)}h`
       : null;
 
-  const nextSignGlyph = moonZp
-    ? SIGN_GLYPHS[SIGN_ORDER[(SIGN_ORDER.indexOf(moonZp.sign) + 1) % 12]!]
-    : null;
+  const illumination = Math.round(
+    ((1 - Math.cos((elongation * Math.PI) / 180)) / 2) * 100,
+  );
+
+  const moonSignColor = moonZp
+    ? ELEMENT_COLORS[SIGN_ELEMENT[moonZp.sign]]
+    : undefined;
+  const moonSignName = moonZp
+    ? moonZp.sign.charAt(0).toUpperCase() + moonZp.sign.slice(1).toLowerCase()
+    : "";
+  const nextSignIdx = moonZp
+    ? (SIGN_ORDER.indexOf(moonZp.sign) + 1) % 12
+    : -1;
+  const nextSign = nextSignIdx >= 0 ? SIGN_ORDER[nextSignIdx]! : null;
+  const nextSignGlyph = nextSign ? SIGN_GLYPHS[nextSign] : null;
 
   return (
     <Card className="card-moon card-hover animate-fade-in py-0">
-      <CardContent className="p-phi-4">
-        <div className="flex flex-wrap items-center justify-between gap-phi-3">
-        {/* Phase info */}
-        <div
-          className="flex items-center gap-phi-2 shrink-0 min-w-0 animate-fade-in"
-          style={{ animationDelay: "0ms" }}
-        >
-          <span className="leading-none shrink-0" style={{ fontSize: "var(--text-phi-h1)" }}>
-            {phaseIcon}
+      <CardContent className="p-pad">
+        {/* Header */}
+        <div className="flex items-baseline justify-between mb-3.5">
+          <div className="card-title">Moon</div>
+          <span className="mono inline-flex items-center px-2 py-0.5 rounded-full bg-muted/60 border border-border text-[11px] text-muted-foreground tabular-nums">
+            {illumination}% lit
           </span>
-          <div>
-            <p className="text-foreground font-semibold text-base font-display tracking-tight">
+        </div>
+
+        {/* Main row: ring + phase info */}
+        <div className="flex items-center gap-[18px] animate-fade-in">
+          <MoonCycleRing progress={progress} size={76} />
+          <div className="flex-1 min-w-0">
+            <div className="font-display text-foreground text-[22px] leading-tight">
               {phaseName}
-            </p>
+            </div>
             {moonZp && (
-              <p className="text-muted-foreground text-sm mt-0.5">
-                {SIGN_GLYPHS[moonZp.sign]} {formatDegree(moonZp.degree, moonZp.minute)}
-              </p>
+              <div className="text-[13px] text-muted-foreground mt-1">
+                <span style={{ color: moonSignColor }}>
+                  {SIGN_GLYPHS[moonZp.sign]}
+                </span>{" "}
+                {formatDegree(moonZp.degree, moonZp.minute)}
+                <span className="ml-1">in {moonSignName}</span>
+              </div>
             )}
             {ingressStr && nextSignGlyph && (
-              <p className="text-muted-foreground text-xs mt-0.5">
-                {ingressStr} → {nextSignGlyph}
-              </p>
+              <div className="text-[12px] text-dim-foreground mt-1">
+                ingress {ingressStr} → <span>{nextSignGlyph}</span>
+              </div>
             )}
           </div>
+          <span
+            className="leading-none shrink-0 text-2xl"
+            aria-hidden
+            title={phaseName}
+          >
+            {phaseIcon}
+          </span>
         </div>
 
-        {/* Upcoming phases table */}
-        <div className="animate-fade-in" style={{ animationDelay: "60ms" }}>
-          <PhaseTable phases={phases} timeFormat={timeFormat} now={now} />
-        </div>
+        <Separator className="my-3.5" />
 
-        {/* Circular phase tracker */}
-        <div className="shrink-0 animate-fade-in" style={{ animationDelay: "120ms" }}>
-          <MoonCycleRing progress={progress} size={89} />
-        </div>
-      </div>
+        {/* Upcoming phases */}
+        <UpcomingPhasesList phases={phases} timeFormat={timeFormat} now={now} />
       </CardContent>
     </Card>
   );

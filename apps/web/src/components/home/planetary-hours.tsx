@@ -4,7 +4,6 @@ import { PLANET_GLYPHS, formatTime } from "@/lib/format";
 import { useSettings } from "@/hooks/use-settings";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Progress } from "@/components/ui/progress";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 
 const PLANET_NAMES: Record<string, string> = {
@@ -44,11 +43,9 @@ export function PlanetaryHours({ lat, lon }: PlanetaryHoursProps) {
   if (!result) {
     return (
       <Card className="py-0">
-        <CardContent className="p-phi-4">
-        <h3 className="text-foreground font-semibold text-sm mb-phi-3 font-display">
-          Planetary Hours
-        </h3>
-        <p className="text-muted-foreground text-sm">
+        <CardContent className="p-pad">
+        <div className="card-title mb-3.5">Planetary Hours</div>
+        <p className="text-muted-foreground text-[13px]">
           Planetary hours unavailable at this latitude.
         </p>
         </CardContent>
@@ -70,51 +67,62 @@ export function PlanetaryHours({ lat, lon }: PlanetaryHoursProps) {
       className="card-hover cursor-pointer py-0"
       onClick={() => setExpanded((v) => !v)}
     >
-      <CardContent className="p-phi-4">
-        {/* Always-visible compact summary */}
-        <div className="flex items-center gap-1 text-sm flex-wrap">
-          <span className="text-primary">{PLANET_GLYPHS[dayRuler]}</span>
-          <span className="text-foreground">Day of {PLANET_NAMES[dayRuler] ?? dayRuler}</span>
-          <span className="text-muted-foreground">·</span>
-          <span className="text-primary">{PLANET_GLYPHS[currentHour.planet]}</span>
-          <span className="text-foreground">
-            Hour of {PLANET_NAMES[currentHour.planet] ?? currentHour.planet}
-          </span>
-          <span className="text-muted-foreground">·</span>
-          <span className="text-muted-foreground text-xs">
-            until {formatTime(currentHour.end, timeFormat)}
+      <CardContent className="p-pad">
+        <div className="flex items-baseline justify-between mb-3.5">
+          <div className="card-title">Planetary Hours</div>
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-muted/60 border border-border text-[11px] text-muted-foreground">
+            {DAY_NAMES[dayRuler] ?? ""}
           </span>
         </div>
+        {/* Main row: big accent glyph · "Hour of {Planet}" · mono meta */}
+        <div className="flex items-center gap-2">
+          <span
+            className="text-primary leading-none shrink-0"
+            style={{ fontSize: "24px" }}
+          >
+            {PLANET_GLYPHS[currentHour.planet]}
+          </span>
+          <div className="flex-1 min-w-0">
+            <div className="text-foreground text-[14px] font-medium">
+              Hour of {PLANET_NAMES[currentHour.planet] ?? currentHour.planet}
+            </div>
+            <div className="mono text-dim-foreground text-[11.5px] mt-0.5">
+              until {formatTime(currentHour.end, timeFormat)} · next{" "}
+              <span className="text-muted-foreground">
+                {PLANET_GLYPHS[nextHour.planet]}
+              </span>
+            </div>
+          </div>
+        </div>
 
-        {/* Progress bar */}
-        <Progress
-          value={Math.min(100, Math.max(0, progress * 100))}
-          className="mt-phi-3"
-        />
+        {/* Thin progress bar (4px) */}
+        <div className="h-1 bg-muted rounded-full mt-3.5 overflow-hidden">
+          <div
+            className="h-full bg-primary rounded-full"
+            style={{ width: `${Math.min(100, Math.max(0, progress * 100))}%` }}
+          />
+        </div>
 
-        {/* Next hour */}
-        <div className="mt-phi-2 text-muted-foreground text-xs">
-          next hour:{" "}
-          <span className="text-primary">{PLANET_GLYPHS[nextHour.planet]}</span>{" "}
-          {PLANET_NAMES[nextHour.planet] ?? nextHour.planet}
+        {/* Sunrise / sunset split */}
+        <div className="mono text-dim-foreground text-[11px] mt-2 flex justify-between">
+          <span>sunrise {formatTime(sunrise, timeFormat)}</span>
+          <span>sunset {formatTime(sunset, timeFormat)}</span>
         </div>
 
         {/* Collapsible: full day/night hour list */}
         <Collapsible open={expanded}>
           <CollapsibleContent>
-            <div className="flex items-start justify-between mt-phi-3 mb-phi-3">
-              <h3 className="text-foreground font-semibold text-sm font-display">
-                Today's Planetary Hours
-              </h3>
-              <div className="text-muted-foreground text-xs shrink-0 ml-2">
+            <div className="flex items-start justify-between mt-3.5 mb-3.5">
+              <div className="card-title">Today's Planetary Hours</div>
+              <div className="text-muted-foreground text-[11px] shrink-0 ml-2">
                 <span className="text-primary">{PLANET_GLYPHS[dayRuler]}</span>{" "}
                 {DAY_NAMES[dayRuler] ?? ""}
               </div>
             </div>
 
             {/* Day hours section */}
-            <div className="mb-phi-3">
-              <p className="text-muted-foreground text-xs mb-phi-2">
+            <div className="mb-3.5">
+              <p className="text-muted-foreground text-[11px] mb-2">
                 Day Hours (sunrise {formatTime(sunrise, timeFormat)} — sunset{" "}
                 {formatTime(sunset, timeFormat)})
               </p>
@@ -126,11 +134,11 @@ export function PlanetaryHours({ lat, lon }: PlanetaryHoursProps) {
                   return (
                     <div
                       key={`day-${hour.hourNumber}`}
-                      className={`flex items-center gap-2 py-1 px-1 rounded text-sm ${
+                      className={`flex items-center gap-2 py-1 px-1 rounded text-[13px] ${
                         isCurrent ? "bg-muted" : ""
                       }`}
                     >
-                      <span className="text-muted-foreground text-xs w-4 text-right shrink-0">
+                      <span className="text-muted-foreground text-[11px] w-4 text-right shrink-0">
                         {hour.hourNumber}.
                       </span>
                       <span className="text-primary w-5 shrink-0">
@@ -139,12 +147,12 @@ export function PlanetaryHours({ lat, lon }: PlanetaryHoursProps) {
                       <span className="text-foreground flex-1">
                         {PLANET_NAMES[hour.planet] ?? hour.planet}
                       </span>
-                      <span className="text-muted-foreground text-xs">
+                      <span className="mono text-muted-foreground text-[11px]">
                         {formatTime(hour.start, timeFormat)} –{" "}
                         {formatTime(hour.end, timeFormat)}
                       </span>
                       {isCurrent && (
-                        <span className="text-primary text-xs ml-1">current</span>
+                        <span className="text-primary text-[11px] ml-1">current</span>
                       )}
                     </div>
                   );
@@ -153,11 +161,11 @@ export function PlanetaryHours({ lat, lon }: PlanetaryHoursProps) {
             </div>
 
             {/* Divider */}
-            <Separator className="my-phi-3" />
+            <Separator className="my-3.5" />
 
             {/* Night hours section */}
             <div>
-              <p className="text-muted-foreground text-xs mb-phi-2">
+              <p className="text-muted-foreground text-[11px] mb-2">
                 Night Hours (sunset {formatTime(sunset, timeFormat)} — sunrise{" "}
                 {formatTime(result.nextSunrise, timeFormat)})
               </p>
@@ -169,11 +177,11 @@ export function PlanetaryHours({ lat, lon }: PlanetaryHoursProps) {
                   return (
                     <div
                       key={`night-${hour.hourNumber}`}
-                      className={`flex items-center gap-2 py-1 px-1 rounded text-sm ${
+                      className={`flex items-center gap-2 py-1 px-1 rounded text-[13px] ${
                         isCurrent ? "bg-muted" : ""
                       }`}
                     >
-                      <span className="text-muted-foreground text-xs w-4 text-right shrink-0">
+                      <span className="text-muted-foreground text-[11px] w-4 text-right shrink-0">
                         {hour.hourNumber}.
                       </span>
                       <span className="text-primary w-5 shrink-0">
@@ -182,12 +190,12 @@ export function PlanetaryHours({ lat, lon }: PlanetaryHoursProps) {
                       <span className="text-foreground flex-1">
                         {PLANET_NAMES[hour.planet] ?? hour.planet}
                       </span>
-                      <span className="text-muted-foreground text-xs">
+                      <span className="mono text-muted-foreground text-[11px]">
                         {formatTime(hour.start, timeFormat)} –{" "}
                         {formatTime(hour.end, timeFormat)}
                       </span>
                       {isCurrent && (
-                        <span className="text-primary text-xs ml-1">current</span>
+                        <span className="text-primary text-[11px] ml-1">current</span>
                       )}
                     </div>
                   );

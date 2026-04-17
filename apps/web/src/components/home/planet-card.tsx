@@ -1,13 +1,11 @@
 import { useMemo, useState } from "react";
 import { CelestialBody, Element, SIGN_ELEMENT } from "@astro-app/shared-types";
-import type { ChartData } from "@astro-app/shared-types";
-import { PLANET_GLYPHS, SIGN_GLYPHS, formatDegree } from "@/lib/format";
+import type { ChartData, HouseData } from "@astro-app/shared-types";
+import { PLANET_GLYPHS, SIGN_GLYPHS, formatDegree, longitudeToZp } from "@/lib/format";
 import { useSettings } from "@/hooks/use-settings";
 import {
   getHouseForLongitude,
-  getStrongestDignity,
   getDignityDetail,
-  type DignityType,
 } from "@/lib/dignities";
 
 const ELEMENT_COLORS: Record<Element, string> = {
@@ -19,7 +17,6 @@ const ELEMENT_COLORS: Record<Element, string> = {
 import { ErrorCard } from "@/components/ui/error-card";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
 import {
   Collapsible,
   CollapsibleContent,
@@ -39,6 +36,20 @@ const BASE_BODIES = [
   CelestialBody.Chiron,
 ];
 
+type AngleKey = "asc" | "mc" | "desc" | "ic";
+
+const ANGLES: {
+  key: AngleKey;
+  glyph: string;
+  name: string;
+  getLon: (h: HouseData) => number;
+}[] = [
+  { key: "asc", glyph: "Ac", name: "Ascendant", getLon: (h) => h.ascendant },
+  { key: "mc", glyph: "Mc", name: "Midheaven", getLon: (h) => h.midheaven },
+  { key: "desc", glyph: "Dc", name: "Descendant", getLon: (h) => h.descendant },
+  { key: "ic", glyph: "Ic", name: "Imum Coeli", getLon: (h) => h.imum_coeli },
+];
+
 const DIGNITY_BODIES = [
   CelestialBody.Sun,
   CelestialBody.Moon,
@@ -56,29 +67,6 @@ function getNodeBodies(nodeType: "mean" | "true"): CelestialBody[] {
   return nodeType === "mean"
     ? [CelestialBody.MeanNorthNode, CelestialBody.MeanSouthNode]
     : [CelestialBody.TrueNorthNode, CelestialBody.TrueSouthNode];
-}
-
-const DIGNITY_LABELS: Record<DignityType, string> = {
-  domicile: "Domicile",
-  exaltation: "Exaltation",
-  detriment: "Detriment",
-  fall: "Fall",
-};
-
-function DignityBadge({ dignity }: { dignity: DignityType }) {
-  const isPositive = dignity === "domicile" || dignity === "exaltation";
-  return (
-    <Badge
-      variant="outline"
-      className={`px-1.5 py-0.5 text-[10px] leading-none font-medium border-0 h-auto ${
-        isPositive
-          ? "bg-green-900/30 text-success"
-          : "bg-red-900/30 text-destructive"
-      }`}
-    >
-      {DIGNITY_LABELS[dignity]}
-    </Badge>
-  );
 }
 
 interface Props {
@@ -104,15 +92,40 @@ export function PlanetCard({
 
   if (!chartData) return null;
 
-  const isDignityBody = (body: CelestialBody) =>
-    (DIGNITY_BODIES as CelestialBody[]).includes(body);
+  const visibleBodyCount = displayBodies.filter(
+    (b) => chartData.zodiac_positions[b],
+  ).length;
+
+  const bodyNames: Partial<Record<CelestialBody, string>> = {
+    [CelestialBody.Sun]: "Sun",
+    [CelestialBody.Moon]: "Moon",
+    [CelestialBody.Mercury]: "Mercury",
+    [CelestialBody.Venus]: "Venus",
+    [CelestialBody.Mars]: "Mars",
+    [CelestialBody.Jupiter]: "Jupiter",
+    [CelestialBody.Saturn]: "Saturn",
+    [CelestialBody.Uranus]: "Uranus",
+    [CelestialBody.Neptune]: "Neptune",
+    [CelestialBody.Pluto]: "Pluto",
+    [CelestialBody.Chiron]: "Chiron",
+    [CelestialBody.MeanNorthNode]: "N. Node",
+    [CelestialBody.MeanSouthNode]: "S. Node",
+    [CelestialBody.TrueNorthNode]: "N. Node",
+    [CelestialBody.TrueSouthNode]: "S. Node",
+  };
 
   return (
     <Card
       className="card-hover cursor-pointer py-0"
       onClick={() => setExpanded((v) => !v)}
     >
-      <CardContent className="p-phi-3">
+      <CardContent className="p-pad-sm">
+      <div className="flex items-baseline justify-between mb-3.5">
+        <div className="card-title">Positions</div>
+        <span className="text-[12px] text-muted-foreground tabular-nums">
+          {visibleBodyCount} bodies · {ANGLES.length} angles
+        </span>
+      </div>
       {apiError && retry && (
         <ErrorCard
           message="Showing approximation."
@@ -121,8 +134,8 @@ export function PlanetCard({
         />
       )}
 
-      {/* Always-visible 5-column position table */}
-      <table className="w-full text-sm">
+      {/* Always-visible position table */}
+      <table className="w-full text-[13px]">
         <tbody>
           {displayBodies.map((body) => {
             const zp = chartData.zodiac_positions[body];
@@ -133,19 +146,19 @@ export function PlanetCard({
               : null;
             const glyph = PLANET_GLYPHS[body] ?? body;
             const signGlyph = SIGN_GLYPHS[zp.sign];
-            const dignity = isDignityBody(body)
-              ? getStrongestDignity(body, zp.sign)
-              : null;
             return (
               <tr
                 key={body}
                 className="border-b border-border last:border-0 hover:bg-secondary transition-[background-color] duration-120 ease-out"
               >
-                <td className="py-1 w-[40px]">
-                  <span className="text-primary text-base">{glyph}</span>
+                <td className="py-1 w-[28px]">
+                  <span className="text-primary text-[15px]">{glyph}</span>
+                </td>
+                <td className="py-1 text-muted-foreground text-[12px]">
+                  {bodyNames[body] ?? body}
                 </td>
                 <td
-                  className="py-1"
+                  className="py-1 pl-1 text-[13px]"
                   style={{ color: ELEMENT_COLORS[SIGN_ELEMENT[zp.sign]] }}
                 >
                   {signGlyph}
@@ -153,23 +166,47 @@ export function PlanetCard({
                 <td className="py-1 text-foreground tabular-nums">
                   {formatDegree(zp.degree, zp.minute)}
                   {zp.is_retrograde && (
-                    <span className="text-destructive text-xs font-semibold ml-1">
+                    <span className="text-destructive text-[10px] font-semibold ml-1">
                       ℞
                     </span>
                   )}
                 </td>
-                <td className="py-1 text-muted-foreground text-xs text-right w-[24px]">
-                  {house}
+                <td className="py-1 text-muted-foreground text-[11px] text-right w-[32px] mono tabular-nums">
+                  {house ? `H${house}` : ""}
                 </td>
-                <td className="py-1 text-right">
-                  {isDignityBody(body) ? (
-                    dignity ? (
-                      <DignityBadge dignity={dignity} />
-                    ) : (
-                      <span className="text-muted-foreground text-xs">—</span>
-                    )
-                  ) : null}
+              </tr>
+            );
+          })}
+          <tr aria-hidden>
+            <td colSpan={5} className="h-3" />
+          </tr>
+          {ANGLES.map((angle) => {
+            const lon = angle.getLon(chartData.houses);
+            const zp = longitudeToZp(lon);
+            const signGlyph = SIGN_GLYPHS[zp.sign];
+            return (
+              <tr
+                key={angle.key}
+                className="border-b border-border last:border-0 hover:bg-secondary transition-[background-color] duration-120 ease-out"
+              >
+                <td className="py-1 w-[28px]">
+                  <span className="text-primary text-[13px] font-semibold">
+                    {angle.glyph}
+                  </span>
                 </td>
+                <td className="py-1 text-muted-foreground text-[12px]">
+                  {angle.name}
+                </td>
+                <td
+                  className="py-1 pl-1 text-[13px]"
+                  style={{ color: ELEMENT_COLORS[SIGN_ELEMENT[zp.sign]] }}
+                >
+                  {signGlyph}
+                </td>
+                <td className="py-1 text-foreground tabular-nums">
+                  {formatDegree(zp.degree, zp.minute)}
+                </td>
+                <td className="py-1" />
               </tr>
             );
           })}
@@ -179,8 +216,8 @@ export function PlanetCard({
       {/* Collapsible dignity-detail addendum */}
       <Collapsible open={expanded}>
         <CollapsibleContent>
-          <Separator className="my-phi-3" />
-          <div className="text-muted-foreground text-[11px] uppercase tracking-wider mb-phi-2">
+          <Separator className="my-3.5" />
+          <div className="text-muted-foreground text-[11px] uppercase tracking-wider mb-2">
             Dignity Detail
           </div>
           <table className="w-full text-sm">

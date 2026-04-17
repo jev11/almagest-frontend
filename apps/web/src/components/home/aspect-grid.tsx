@@ -1,8 +1,22 @@
 import { useMemo, memo } from "react";
-import { CelestialBody, AspectType } from "@astro-app/shared-types";
+import { CelestialBody, AspectType, Element, SIGN_ELEMENT, SIGN_ORDER } from "@astro-app/shared-types";
 import type { CurrentSkyState } from "@/hooks/use-current-sky";
 import { ASPECT_GLYPHS } from "@/lib/format";
 import { useSettings } from "@/hooks/use-settings";
+import { Card, CardContent } from "@/components/ui/card";
+
+const ELEMENT_VAR: Record<Element, string> = {
+  [Element.Fire]: "var(--color-fire)",
+  [Element.Earth]: "var(--color-earth)",
+  [Element.Air]: "var(--color-air)",
+  [Element.Water]: "var(--color-water)",
+};
+
+function longitudeToElement(lon: number): Element {
+  const normalized = ((lon % 360) + 360) % 360;
+  const sign = SIGN_ORDER[Math.floor(normalized / 30)]!;
+  return SIGN_ELEMENT[sign];
+}
 
 
 type AspectEntry = { type: AspectType; orb: number; isApplying: boolean };
@@ -127,6 +141,8 @@ const ANGLE_ENTRIES: BodyEntry[] = [
 
 const ANGLE_KEYS = ["asc", "mc", "desc", "ic"] as const;
 
+const CELL_SIZE = 36;
+
 interface Props {
   chartData: CurrentSkyState["chartData"];
   nodeType?: "mean" | "true";
@@ -201,19 +217,24 @@ export const AspectGrid = memo(function AspectGrid({ chartData, nodeType: nodeTy
   if (!chartData) return null;
 
   const N = gridBodies.length;
+  const aspectHits = Math.floor(aspectMap.size / 2);
 
   return (
-    <div
-      className="w-full bg-card border border-border rounded-lg overflow-hidden"
-      style={{ containerType: "inline-size" }}
-    >
-      <div
-        className="grid w-full"
-        style={{
-          gridTemplateColumns: `repeat(${N}, 1fr)`,
-          fontSize: `${100 / N}cqi`,
-        }}
-      >
+    <Card className="card-hover py-0">
+      <CardContent className="p-pad">
+        <div className="flex items-baseline justify-between mb-3.5">
+          <div className="card-title">Aspects</div>
+          <span className="text-[12px] text-muted-foreground tabular-nums">
+            {aspectHits} hits
+          </span>
+        </div>
+        <div
+          className="grid"
+          style={{
+            gridTemplateColumns: `repeat(${N}, ${CELL_SIZE}px)`,
+            fontSize: `${CELL_SIZE}px`,
+          }}
+        >
         {gridBodies.flatMap((rowBody, i) => {
           const isAngle = rowBody.kind === "angle";
 
@@ -231,19 +252,33 @@ export const AspectGrid = memo(function AspectGrid({ chartData, nodeType: nodeTy
                 ? `border-t border-r border-b border-border`
                 : "border-r border-b border-border";
 
-            // Diagonal – body label glyph
+            // Diagonal – body label glyph, coloured by the body's element,
+            // elevated with --bg-elev (matches design bundle)
             if (j === i) {
+              let elementColor: string | undefined;
+              if (rowBody.kind === "planet") {
+                const zp = chartData.zodiac_positions[rowBody.key];
+                if (zp) elementColor = ELEMENT_VAR[SIGN_ELEMENT[zp.sign]];
+              } else {
+                const lon =
+                  rowBody.key === "asc" ? chartData.houses.ascendant
+                  : rowBody.key === "mc" ? chartData.houses.midheaven
+                  : rowBody.key === "desc" ? chartData.houses.descendant
+                  : chartData.houses.imum_coeli;
+                elementColor = ELEMENT_VAR[longitudeToElement(lon)];
+              }
               return (
                 <div
                   key={key}
-                  className={`${borderClass} flex items-center justify-center aspect-square`}
+                  className={`${borderClass} bg-bg-elev flex items-center justify-center aspect-square`}
                 >
                   <span
-                    className={`leading-none select-none ${
-                      isAngle
-                        ? "text-[0.5em] font-semibold text-muted-foreground"
-                        : "text-[0.65em] text-primary"
-                    }`}
+                    className="leading-none select-none"
+                    style={{
+                      fontSize: isAngle ? "0.65em" : "0.85em",
+                      fontWeight: isAngle ? 600 : undefined,
+                      color: isAngle ? "var(--muted-foreground)" : elementColor,
+                    }}
                   >
                     {rowBody.glyph}
                   </span>
@@ -271,17 +306,18 @@ export const AspectGrid = memo(function AspectGrid({ chartData, nodeType: nodeTy
                 title={`${rowBody.glyph} ${glyph} ${colBody.glyph}  ${orbDeg}°${orbMin.toString().padStart(2, "0")}'`}
                 style={{ color }}
               >
-                <span className="text-[0.7em]">
+                <span className="text-[0.52em]">
                   {glyph}
                 </span>
-                <span className="text-[0.4em] tracking-tight tabular-nums opacity-70">
+                <span className="mono text-[0.4em] tracking-tight tabular-nums opacity-70">
                   {orbDeg}{apSep}{orbMin.toString().padStart(2, "0")}
                 </span>
               </div>
             );
           });
         })}
-      </div>
-    </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 });

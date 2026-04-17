@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo } from "react";
+import { useEffect, useRef, useMemo, useState } from "react";
 import type { ChartData } from "@astro-app/shared-types";
 import {
   renderRadix,
@@ -12,6 +12,12 @@ import {
 import { cn } from "@/lib/utils";
 import { filterNodeType } from "@/lib/format";
 import { useSettings } from "@/hooks/use-settings";
+
+function readCardBg(): string {
+  return getComputedStyle(document.documentElement)
+    .getPropertyValue("--card")
+    .trim();
+}
 
 interface ChartCanvasProps {
   data: ChartData;
@@ -43,11 +49,27 @@ export function ChartCanvas({
     () => outerData ? filterNodeType(outerData, nodeType) : undefined,
     [outerData, nodeType],
   );
-  const resolvedTheme = theme ?? (() => {
+  const baseTheme = theme ?? (() => {
     if (appTheme === "light") return lightTheme;
     if (appTheme === "dark") return darkTheme;
     return window.matchMedia("(prefers-color-scheme: dark)").matches ? darkTheme : lightTheme;
   })();
+  const [cardBg, setCardBg] = useState<string>(() =>
+    typeof window === "undefined" ? "" : readCardBg(),
+  );
+  useEffect(() => {
+    setCardBg(readCardBg());
+    const observer = new MutationObserver(() => setCardBg(readCardBg()));
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+    return () => observer.disconnect();
+  }, []);
+  const resolvedTheme = useMemo<ChartTheme>(
+    () => (cardBg ? { ...baseTheme, background: cardBg } : baseTheme),
+    [baseTheme, cardBg],
+  );
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 

@@ -7,129 +7,154 @@
 @custom-variant data-horizontal (&[data-orientation="horizontal"]);
 @custom-variant data-vertical (&[data-orientation="vertical"]);
 
-/* Design system: Almagest dark-mode-first */
+/* Design system: Almagest dark-mode-first. Neutral ladder centered on hue 260
+   with very low chroma — the design bundle's lilac-leaning neutral palette. */
 :root {
-  /* Light mode */
-  --background: oklch(100% 0 0);            /* #FFFFFF */
-  --foreground: oklch(15% 0.02 255);        /* #1A1D24 */
-  --card: oklch(97% 0.005 255);             /* #F5F6F8 */
-  --card-foreground: oklch(15% 0.02 255);
-  --popover: oklch(97% 0.005 255);
-  --popover-foreground: oklch(15% 0.02 255);
-  --primary: oklch(62% 0.15 265);           /* #6C8EEF */
+  /* Light mode — bg is a whisper off-white; cards step UP to pure white */
+  --background: oklch(99% 0.002 260);
+  --foreground: oklch(18% 0.005 260);
+  --bg-elev: oklch(97% 0.003 260);
+  --card: oklch(100% 0 0);
+  --card-foreground: oklch(18% 0.005 260);
+  --card-hover: oklch(98% 0.002 260);
+  --popover: oklch(100% 0 0);
+  --popover-foreground: oklch(18% 0.005 260);
+  --primary: oklch(52% 0.17 var(--accent-h)); /* darker + more saturated for light mode */
   --primary-foreground: oklch(100% 0 0);
-  --secondary: oklch(92% 0.005 255);
-  --secondary-foreground: oklch(15% 0.02 255);
-  --muted: oklch(92% 0.005 255);
-  --muted-foreground: oklch(42% 0.01 255);  /* #5A6275 */
-  --accent: oklch(92% 0.005 255);
-  --accent-foreground: oklch(15% 0.02 255);
-  --destructive: oklch(71% 0.18 25);        /* #F87171 */
+  --secondary: oklch(97% 0.003 260);
+  --secondary-foreground: oklch(18% 0.005 260);
+  --muted: oklch(97% 0.003 260);
+  --muted-foreground: oklch(42% 0.006 260);
+  --accent: oklch(97% 0.003 260);
+  --accent-foreground: oklch(18% 0.005 260);
+  --destructive: oklch(71% 0.18 25);
   --destructive-foreground: oklch(100% 0 0);
-  --border: oklch(82% 0.008 255);           /* #D0D5DD */
-  --input: oklch(82% 0.008 255);
-  --ring: oklch(62% 0.15 265);
-  --radius: 0.5rem;
+  --border: oklch(92% 0.004 260);
+  --border-strong: oklch(86% 0.006 260);
+  --input: oklch(97% 0.003 260);
+  --ring: oklch(52% 0.17 275);
+  --radius: 10px;
+  --radius-sm: 6px;
 
-  /* Golden ratio design system */
-  --phi: 1.618;
-  --phi-major: 61.8%;
-  --phi-minor: 38.2%;
+  /* Accent hue — referenced by primary + brand mark gradient so a future
+     accent-picker can retune the whole palette from a single variable. */
+  --accent-h: 275;
+  --accent-soft: oklch(52% 0.17 var(--accent-h) / 0.10);
 
-  /* Fibonacci spacing scale */
-  --space-phi-1: 5px;
-  --space-phi-2: 8px;
-  --space-phi-3: 13px;
-  --space-phi-4: 21px;
-  --space-phi-5: 34px;
-  --space-phi-6: 55px;
-  --space-phi-7: 89px;
+  /* Spacing — design bundle's flat 16px grid with a density axis.
+     Override per-theme via `[data-density="compact"|"spacious"]` on <html>. */
+  --space: 16px;
+  --gap: 16px;           /* grid + stack gaps (between cards, inside grids) */
+  --pad: 18px;           /* card interior padding */
+  --pad-sm: 12px;        /* tight card padding (used in Positions) */
 
-  /* Golden ratio typography */
-  --text-phi-caption: 9px;
-  --text-phi-small: 12px;
-  --text-phi-body: 15px;
-  --text-phi-h3: 19px;
-  --text-phi-h2: 24px;
-  --text-phi-h1: 39px;
-  --text-phi-display: 63px;
-
-  /* Sidebar */
-  --sidebar-collapsed: 89px;
-  --sidebar-expanded: 144px;
+  /* Sidebar widths */
+  --sidebar-collapsed: 64px;
+  --sidebar-expanded: 220px;
 
   /* Interactive state */
-  --primary-hover: #8BA8FF;
-  --dim-foreground: #9CA3AF;  /* Very subdued text */
+  --primary-hover: oklch(62% 0.17 275);
+  --dim-foreground: oklch(58% 0.006 260);
+  --faint-foreground: oklch(72% 0.005 260);
   --success: #22C55E;
-  --border-hover: #B0B8C8;
+  --border-hover: oklch(86% 0.006 260);
 
-  /* Element colors (used in chart rendering and badges) */
-  --color-fire: #EF6B4A;
-  --color-earth: #6BBF6A;
-  --color-air: #F2D44F;
-  --color-water: #5BA4E6;
+  /* Element colors — chroma dialed down to harmonize (light-mode tuning). */
+  --color-fire:  oklch(55% 0.15 30);
+  --color-earth: oklch(52% 0.11 140);
+  --color-air:   oklch(62% 0.12 85);
+  --color-water: oklch(55% 0.13 235);
 
-  /* Aspect type colors */
-  --aspect-conjunction: #8892A4;
-  --aspect-sextile: #5B9FD4;
-  --aspect-square: #E85D4A;
-  --aspect-trine: #4A70E0;
-  --aspect-opposition: #E85D4A;
-  --aspect-quincunx: #7B6DB5;
+  /* Aspect colors — three groups per design (harm / hard / conj). */
+  --aspect-harm:  oklch(55% 0.12 220);
+  --aspect-hard:  oklch(55% 0.15 25);
+  --aspect-conj:  oklch(50% 0.006 260);
+  /* Per-aspect aliases that map into the 3-group system. */
+  --aspect-conjunction: var(--aspect-conj);
+  --aspect-sextile:     var(--aspect-harm);
+  --aspect-trine:       var(--aspect-harm);
+  --aspect-square:      var(--aspect-hard);
+  --aspect-opposition:  var(--aspect-hard);
+  --aspect-quincunx:    oklch(55% 0.11 300);
 
-  /* Sidebar */
-  --sidebar: oklch(97% 0.005 255);
-  --sidebar-foreground: oklch(15% 0.02 255);
-  --sidebar-primary: oklch(62% 0.15 265);
+  /* Sidebar — matches card/bg for a single-surface feel */
+  --sidebar: oklch(99% 0.002 260);
+  --sidebar-foreground: oklch(18% 0.005 260);
+  --sidebar-primary: oklch(52% 0.17 275);
   --sidebar-primary-foreground: oklch(100% 0 0);
-  --sidebar-accent: oklch(92% 0.005 255);
-  --sidebar-accent-foreground: oklch(15% 0.02 255);
-  --sidebar-border: oklch(82% 0.008 255);
-  --sidebar-ring: oklch(62% 0.15 265);
+  --sidebar-accent: oklch(97% 0.003 260);
+  --sidebar-accent-foreground: oklch(18% 0.005 260);
+  --sidebar-border: oklch(92% 0.004 260);
+  --sidebar-ring: oklch(52% 0.17 275);
 }
 
 .dark {
-  --background: oklch(9% 0.03 255);         /* #0A0E17 */
-  --foreground: oklch(93% 0.01 220);        /* #E8ECF1 */
-  --card: oklch(13% 0.025 255);             /* #131926 */
-  --card-foreground: oklch(93% 0.01 220);
-  --popover: oklch(13% 0.025 255);
-  --popover-foreground: oklch(93% 0.01 220);
-  --primary: oklch(62% 0.15 265);           /* #6C8EEF */
-  --primary-foreground: oklch(100% 0 0);
-  --secondary: oklch(17% 0.02 255);         /* #1C2333 */
-  --secondary-foreground: oklch(93% 0.01 220);
-  --muted: oklch(17% 0.02 255);
-  --muted-foreground: oklch(59% 0.01 225);  /* #8892A4 */
-  --accent: oklch(17% 0.02 255);
-  --accent-foreground: oklch(93% 0.01 220);
-  --destructive: oklch(71% 0.18 25);        /* #F87171 */
+  /* Dark mode — neutral ladder centered on hue 265 with faint cool tint */
+  --background: oklch(14% 0.003 265);
+  --foreground: oklch(96% 0.002 260);
+  --bg-elev: oklch(17% 0.004 265);
+  --card: oklch(18% 0.004 265);
+  --card-foreground: oklch(96% 0.002 260);
+  --card-hover: oklch(20% 0.005 265);
+  --popover: oklch(18% 0.004 265);
+  --popover-foreground: oklch(96% 0.002 260);
+  --primary: oklch(65% 0.16 var(--accent-h));
+  --primary-foreground: oklch(98% 0.005 275);
+  --secondary: oklch(17% 0.004 265);
+  --secondary-foreground: oklch(96% 0.002 260);
+  --muted: oklch(17% 0.004 265);
+  --muted-foreground: oklch(70% 0.005 260);
+  --accent: oklch(17% 0.004 265);
+  --accent-foreground: oklch(96% 0.002 260);
+  --destructive: oklch(71% 0.18 25);
   --destructive-foreground: oklch(100% 0 0);
-  --border: oklch(21% 0.02 255);            /* #2A3040 */
-  --input: oklch(10% 0.025 255);            /* #0F1420 */
-  --ring: oklch(62% 0.15 265);
+  --border: oklch(25% 0.006 265);
+  --border-strong: oklch(32% 0.008 265);
+  --input: oklch(17% 0.004 265);
+  --ring: oklch(65% 0.16 275);
 
   /* Interactive state */
-  --primary-hover: #8BA8FF;
-  --dim-foreground: #565E6C;  /* Very subdued text */
+  --primary-hover: oklch(72% 0.16 275);
+  --dim-foreground: oklch(50% 0.006 260);
+  --faint-foreground: oklch(36% 0.006 260);
   --success: #4ADE80;
-  --border-hover: #3A4255;
+  --border-hover: oklch(32% 0.008 265);
+
+  /* Accent hue — dark mode uses a brighter accent-soft */
+  --accent-soft: oklch(65% 0.16 var(--accent-h) / 0.14);
+
+  /* Element colors — dark-mode tuning */
+  --color-fire:  oklch(68% 0.12 30);
+  --color-earth: oklch(68% 0.09 140);
+  --color-air:   oklch(78% 0.10 85);
+  --color-water: oklch(68% 0.10 235);
+
+  /* Aspect colors — three groups per design */
+  --aspect-harm:  oklch(68% 0.10 220);
+  --aspect-hard:  oklch(65% 0.13 25);
+  --aspect-conj:  oklch(65% 0.005 260);
+  --aspect-conjunction: var(--aspect-conj);
+  --aspect-sextile:     var(--aspect-harm);
+  --aspect-trine:       var(--aspect-harm);
+  --aspect-square:      var(--aspect-hard);
+  --aspect-opposition:  var(--aspect-hard);
+  --aspect-quincunx:    oklch(65% 0.11 300);
 
   /* Sidebar */
-  --sidebar: oklch(13% 0.025 255);
-  --sidebar-foreground: oklch(93% 0.01 220);
-  --sidebar-primary: oklch(62% 0.15 265);
-  --sidebar-primary-foreground: oklch(100% 0 0);
-  --sidebar-accent: oklch(17% 0.02 255);
-  --sidebar-accent-foreground: oklch(93% 0.01 220);
-  --sidebar-border: oklch(21% 0.02 255);
-  --sidebar-ring: oklch(62% 0.15 265);
+  --sidebar: oklch(14% 0.003 265);
+  --sidebar-foreground: oklch(96% 0.002 260);
+  --sidebar-primary: oklch(65% 0.16 275);
+  --sidebar-primary-foreground: oklch(98% 0.005 275);
+  --sidebar-accent: oklch(17% 0.004 265);
+  --sidebar-accent-foreground: oklch(96% 0.002 260);
+  --sidebar-border: oklch(25% 0.006 265);
+  --sidebar-ring: oklch(65% 0.16 275);
 }
 
 @theme inline {
-  --font-sans: 'DM Sans', 'Noto Sans Symbols 2', 'Noto Sans Symbols', system-ui, -apple-system, sans-serif;
-  --font-display: 'Cormorant Garamond', 'Georgia', serif;
+  --font-sans: 'Inter', 'DM Sans', 'Noto Sans Symbols 2', 'Noto Sans Symbols', system-ui, -apple-system, sans-serif;
+  --font-display: 'Instrument Serif', 'Cormorant Garamond', 'Georgia', serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -162,22 +187,40 @@
 
   --color-primary-hover: var(--primary-hover);
   --color-dim-foreground: var(--dim-foreground);
+  --color-faint-foreground: var(--faint-foreground);
   --color-success: var(--success);
   --color-border-hover: var(--border-hover);
+  --color-bg-elev: var(--bg-elev);
+  --color-card-hover: var(--card-hover);
+  --color-border-strong: var(--border-strong);
+  --color-aspect-harm: var(--aspect-harm);
+  --color-aspect-hard: var(--aspect-hard);
+  --color-aspect-conj: var(--aspect-conj);
+  --color-accent-soft: var(--accent-soft);
 
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
+  --radius-sm: 6px;
+  --radius-md: 8px;
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-xl: 12px;
 
-  /* Golden ratio spacing utilities */
-  --spacing-phi-1: var(--space-phi-1);
-  --spacing-phi-2: var(--space-phi-2);
-  --spacing-phi-3: var(--space-phi-3);
-  --spacing-phi-4: var(--space-phi-4);
-  --spacing-phi-5: var(--space-phi-5);
-  --spacing-phi-6: var(--space-phi-6);
-  --spacing-phi-7: var(--space-phi-7);
+  /* Semantic spacing — registered so Tailwind generates `gap-gap`, `p-pad`, `p-pad-sm` */
+  --spacing-gap: var(--gap);
+  --spacing-pad: var(--pad);
+  --spacing-pad-sm: var(--pad-sm);
+}
+
+/* Density axis — switches both --gap and --pad site-wide. Toggle via
+   `document.documentElement.dataset.density = "compact" | "balanced" | "spacious"` */
+[data-density="compact"] {
+  --gap: 10px;
+  --pad: 12px;
+  --pad-sm: 8px;
+  --radius: 8px;
+}
+[data-density="spacious"] {
+  --gap: 22px;
+  --pad: 24px;
+  --pad-sm: 16px;
 }
 
 @layer base {
@@ -197,6 +240,34 @@
   }
   .font-display {
     font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+  .font-mono {
+    font-family: var(--font-mono);
+    font-feature-settings: "tnum", "zero";
+  }
+  .mono {
+    font-family: var(--font-mono);
+    font-feature-settings: "tnum", "zero";
+  }
+  .eyebrow {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+  }
+  .card-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+  }
+  .chip-accent {
+    background: var(--accent-soft);
+    color: var(--primary);
+    border-color: transparent;
   }
 }
 
@@ -278,6 +349,25 @@
   }
 }
 
+/* Chart wheel — ambient glow layered under the card-hover lift shadow */
+.chart-wheel-glow {
+  box-shadow: 0 0 80px -20px oklch(62% 0.15 265 / 0.15);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .chart-wheel-glow.card-hover:hover {
+    box-shadow:
+      0 4px 20px -4px oklch(0% 0 0 / 0.15),
+      0 0 80px -20px oklch(62% 0.15 265 / 0.15);
+  }
+
+  .dark .chart-wheel-glow.card-hover:hover {
+    box-shadow:
+      0 4px 20px -4px oklch(62% 0.15 265 / 0.1),
+      0 0 80px -20px oklch(62% 0.15 265 / 0.15);
+  }
+}
+
 /* Aspect grid cell hover */
 .aspect-cell {
   transition: background 150ms ease-out;
@@ -287,6 +377,28 @@
   .aspect-cell:hover {
     background: oklch(62% 0.15 265 / 0.08);
   }
+}
+
+/* Scrollbar styling (Webkit + Blink) — matches design bundle */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 10px;
+  border: 2px solid var(--background);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-hover);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
 }
 
 /* Custom range slider styling */
