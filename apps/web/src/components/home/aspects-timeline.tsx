@@ -2,49 +2,78 @@ import { useMemo, useState, useEffect, useRef, memo } from "react";
 import { calculateApproximate } from "@astro-app/approx-engine";
 import { CelestialBody, AspectType } from "@astro-app/shared-types";
 import { PLANET_GLYPHS, ASPECT_GLYPHS } from "@/lib/format";
-import { orbIntensity, catmullRomPath } from "./aspects-timeline-utils";
+import { orbIntensity, interpolatePeaks } from "./aspects-timeline-utils";
 import { useSettings } from "@/hooks/use-settings";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const DAY_COUNT = 10;
-const DAY_OFFSET = -2;
-const SAMPLES_PER_DAY = 4; // every 6 hours
-const TOTAL_SAMPLES = DAY_COUNT * SAMPLES_PER_DAY;
+export const DAY_COUNT = 10;
+export const DAY_OFFSET = -2;
+export const SAMPLES_PER_DAY = 4;
+export const TOTAL_SAMPLES = DAY_COUNT * SAMPLES_PER_DAY;
 
 const VIEWBOX_W = 1000;
-const VIEWBOX_H = 100;
+const TOP_PAD = 32;
+const BOTTOM_PAD = 26;
+const ROW_HEIGHT = 20;
+const LEFT_PAD = 56;
 
-const GROUP_PLANETS: CelestialBody[] = [
+/**
+ * Ordered slowest-to-fastest by apparent motion. Used to:
+ *   1. Decide which body is "group" and which is "other" in an aspect pair —
+ *      slower body wins (smaller index), keeping the glyph trio consistent
+ *      across renders (e.g. always `☉☌☽`, never `☽☌☉`).
+ *   2. Let the untracked shadcn-timeline variant iterate bars by group planet.
+ *
+ * Every body that `calculateApproximate` produces aspects for is included, so
+ * the timeline surfaces Moon/Sun/Mercury/Venus aspects too — not just slow-
+ * planet transits.
+ */
+export const GROUP_PLANETS: CelestialBody[] = [
   CelestialBody.Pluto,
   CelestialBody.Neptune,
   CelestialBody.Uranus,
-  CelestialBody.Saturn,
   CelestialBody.Chiron,
+  CelestialBody.Saturn,
   CelestialBody.Jupiter,
   CelestialBody.Mars,
+  CelestialBody.Sun,
+  CelestialBody.Venus,
+  CelestialBody.Mercury,
+  CelestialBody.Moon,
 ];
 
-const GROUP_PLANET_NAMES: Partial<Record<CelestialBody, string>> = {
+/** Retained for the shadcn timeline variant (aspects-timeline-shadcn.tsx). */
+export const GROUP_PLANET_NAMES: Partial<Record<CelestialBody, string>> = {
   [CelestialBody.Pluto]: "Pluto",
   [CelestialBody.Neptune]: "Neptune",
   [CelestialBody.Uranus]: "Uranus",
-  [CelestialBody.Saturn]: "Saturn",
   [CelestialBody.Chiron]: "Chiron",
+  [CelestialBody.Saturn]: "Saturn",
   [CelestialBody.Jupiter]: "Jupiter",
   [CelestialBody.Mars]: "Mars",
+  [CelestialBody.Sun]: "Sun",
+  [CelestialBody.Venus]: "Venus",
+  [CelestialBody.Mercury]: "Mercury",
+  [CelestialBody.Moon]: "Moon",
 };
 
-const ASPECT_COLORS: Partial<Record<AspectType, string>> = {
+export const ASPECT_COLORS: Partial<Record<AspectType, string>> = {
   [AspectType.Conjunction]: "var(--aspect-conjunction)",
   [AspectType.Sextile]: "var(--aspect-sextile)",
   [AspectType.Square]: "var(--aspect-square)",
   [AspectType.Trine]: "var(--aspect-trine)",
   [AspectType.Opposition]: "var(--aspect-opposition)",
   [AspectType.Quincunx]: "var(--aspect-quincunx)",
+  // Minor-aspect palette — subtler than the majors; all in the muted violet
+  // family so they read as a cohesive group distinct from the major card.
+  [AspectType.SemiSextile]: "var(--aspect-quincunx)",
+  [AspectType.SemiSquare]: "var(--aspect-square)",
+  [AspectType.Sesquisquare]: "var(--aspect-square)",
+  [AspectType.Quintile]: "var(--aspect-trine)",
+  [AspectType.BiQuintile]: "var(--aspect-trine)",
 };
 
-/** Default max orb per aspect type — overridden by settings */
 const DEFAULT_MAX_ORB: Partial<Record<AspectType, number>> = {
   [AspectType.Conjunction]: 8,
   [AspectType.Opposition]: 8,
@@ -52,9 +81,13 @@ const DEFAULT_MAX_ORB: Partial<Record<AspectType, number>> = {
   [AspectType.Square]: 8,
   [AspectType.Sextile]: 4,
   [AspectType.Quincunx]: 2,
+  [AspectType.SemiSextile]: 2,
+  [AspectType.SemiSquare]: 2,
+  [AspectType.Sesquisquare]: 2,
+  [AspectType.Quintile]: 2,
+  [AspectType.BiQuintile]: 2,
 };
 
-/** Map settings keys to AspectType */
 const SETTINGS_KEY_TO_ASPECT: Record<string, AspectType> = {
   conjunction: AspectType.Conjunction,
   opposition: AspectType.Opposition,
@@ -67,7 +100,33 @@ const SETTINGS_KEY_TO_ASPECT: Record<string, AspectType> = {
   sesquiquadrate: AspectType.Sesquisquare,
 };
 
-function buildMaxOrbMap(settingsOrbs: Record<string, number>): Partial<Record<AspectType, number>> {
+const MAJOR_ASPECTS: Set<AspectType> = new Set([
+  AspectType.Conjunction,
+  AspectType.Opposition,
+  AspectType.Trine,
+  AspectType.Square,
+  AspectType.Sextile,
+]);
+
+const MINOR_ASPECTS: Set<AspectType> = new Set([
+  AspectType.SemiSextile,
+  AspectType.SemiSquare,
+  AspectType.Quincunx,
+  AspectType.Sesquisquare,
+  AspectType.Quintile,
+  AspectType.BiQuintile,
+]);
+
+export type AspectsTimelineVariant = "major" | "minor";
+
+const ACTIVE_THRESHOLD = 0.05;
+
+/** Max bars rendered — beyond this, the visual gets noisy. */
+const MAX_BARS = 8;
+
+export function buildMaxOrbMap(
+  settingsOrbs: Record<string, number>,
+): Partial<Record<AspectType, number>> {
   const map = { ...DEFAULT_MAX_ORB };
   for (const [key, value] of Object.entries(settingsOrbs)) {
     const aspectType = SETTINGS_KEY_TO_ASPECT[key];
@@ -78,7 +137,7 @@ function buildMaxOrbMap(settingsOrbs: Record<string, number>): Partial<Record<As
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface AspectBar {
+export interface AspectBar {
   groupPlanet: CelestialBody;
   otherPlanet: CelestialBody;
   aspectType: AspectType;
@@ -88,10 +147,9 @@ interface AspectBar {
 
 // ─── Data computation ─────────────────────────────────────────────────────────
 
-/** Yield to the main thread so clicks / paints are not blocked. */
 const yieldToMain = () => new Promise<void>((r) => setTimeout(r, 0));
 
-async function computeAspectBarsAsync(
+export async function computeAspectBarsAsync(
   today: Date,
   orbOverrides: Record<string, number>,
   includeMinor: boolean,
@@ -145,14 +203,11 @@ async function computeAspectBarsAsync(
     }
 
     sampleMaps.push(intensityMap);
-
-    // Yield after every sample to keep UI responsive
     await yieldToMain();
   }
 
   if (signal.aborted) return [];
 
-  // Collect all aspect keys seen across any sample
   const allKeys = new Set<string>();
   sampleMaps.forEach((m) => m.forEach((_, k) => allKeys.add(k)));
 
@@ -172,161 +227,76 @@ async function computeAspectBarsAsync(
     });
   }
 
-  const groupOrder = (p: CelestialBody) => GROUP_PLANETS.indexOf(p);
-  bars.sort((a, b) => {
-    const gDiff = groupOrder(a.groupPlanet) - groupOrder(b.groupPlanet);
-    if (gDiff !== 0) return gDiff;
-    return a.otherPlanet.localeCompare(b.otherPlanet);
-  });
-
   return bars;
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// ─── Per-bar range extraction ─────────────────────────────────────────────────
 
-function DayLabel({ date, isToday }: { date: Date; isToday: boolean }) {
-  const label = date.toLocaleDateString("en-US", { weekday: "short", day: "numeric" });
-  return (
-    <div
-      className={`flex-1 text-center text-xs tabular-nums py-1 rounded-sm ${isToday
-        ? "text-primary font-semibold bg-primary/[0.06]"
-        : "text-muted-foreground"
-        }`}
-    >
-      {label}
-    </div>
-  );
+interface BarRange {
+  bar: AspectBar;
+  fromSample: number;
+  toSample: number;
+  peakSample: number;
+  peakValue: number;
 }
 
-function SkeletonRow() {
-  return (
-    <div className="flex items-center" style={{ height: "34px" }}>
-      <div className="w-[70px] shrink-0 flex items-center gap-0.5">
-        <div className="w-5 h-3 rounded bg-muted animate-pulse" />
-        <div className="w-5 h-3 rounded bg-muted animate-pulse" />
-        <div className="w-5 h-3 rounded bg-muted animate-pulse" />
-      </div>
-      <div className="flex-1 min-w-0 h-[34px] rounded bg-muted/50 animate-pulse" />
-    </div>
-  );
-}
+function computeRange(bar: AspectBar): BarRange | null {
+  let fromSample = -1;
+  let toSample = -1;
+  let peakSample = 0;
+  let peakValue = -1;
+  for (let i = 0; i < bar.samples.length; i++) {
+    const v = bar.samples[i]!;
+    if (v > ACTIVE_THRESHOLD) {
+      if (fromSample === -1) fromSample = i;
+      toSample = i;
+    }
+    if (v > peakValue) {
+      peakValue = v;
+      peakSample = i;
+    }
+  }
+  if (fromSample === -1 || toSample === -1) return null;
 
-interface BellCurveProps {
-  samples: number[];
-  color: string;
-  todayIdx: number;
-  uid: string;
-}
-
-function BellCurve({ samples, color, todayIdx, uid }: BellCurveProps) {
-  const n = samples.length;
-  const gradId = `bell-grad-${uid}`;
-  const ACTIVE_THRESHOLD = 0.02;
-
-  // Map sample intensities to SVG coordinates
-  // y is inverted: intensity 1 (peak) → y near 0 (top), intensity 0 → y = VIEWBOX_H (bottom)
-  const pts: [number, number][] = samples.map((v, i) => [
-    ((i + 0.5) / n) * VIEWBOX_W,
-    (1 - v) * VIEWBOX_H,
-  ]);
-
-  const linePath = catmullRomPath(pts);
-  const first = pts[0]!;
-  const last = pts[n - 1]!;
-  const areaPath = `${linePath} L ${last[0]},${VIEWBOX_H} L ${first[0]},${VIEWBOX_H} Z`;
-
-  // Build smooth paths only over active (non-zero) runs, expanded by 1 pt each side
-  // so the bright stroke fades naturally into the dim baseline.
-  const activeSegPaths: string[] = [];
-  let segStart = -1;
-  for (let i = 0; i <= n; i++) {
-    const active = i < n && (samples[i] ?? 0) > ACTIVE_THRESHOLD;
-    if (active && segStart === -1) {
-      segStart = Math.max(0, i - 1);
-    } else if (!active && segStart !== -1) {
-      const segPts = pts.slice(segStart, Math.min(n - 1, i) + 1);
-      if (segPts.length >= 2) activeSegPaths.push(catmullRomPath(segPts));
-      segStart = -1;
+  // Fast-body aspects often peak between 6h samples, so the raw sample-max
+  // understates them (Moon-Sun can read 0.91 when the true conjunction is
+  // ~1.0). `interpolatePeaks` fits a V-shape through each local maximum and
+  // returns the analytically-derived apex. Use it for the peak time + value.
+  const interp = interpolatePeaks(bar.samples);
+  let bestX = peakSample;
+  let bestVal = peakValue;
+  for (const p of interp) {
+    if (p.value > bestVal) {
+      bestVal = p.value;
+      bestX = p.x;
     }
   }
 
-  // Peak: sample with highest intensity
-  const peakIdx = samples.reduce(
-    (best, v, i) => (v > (samples[best] ?? 0) ? i : best),
-    0,
-  );
-  const peakPt = pts[peakIdx]!;
-  const hasPeak = (samples[peakIdx] ?? 0) > 0.05;
-
-  // Grid: one column per day, dividers at boundaries, highlight on today
-  const dayWidth = VIEWBOX_W / DAY_COUNT;
-  const todayX = todayIdx * dayWidth;
-
-  return (
-    <svg
-      width="100%"
-      height="34"
-      preserveAspectRatio="none"
-      viewBox={`0 0 ${VIEWBOX_W} ${VIEWBOX_H}`}
-      className="cursor-crosshair"
-    >
-      <defs>
-        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.85" />
-          <stop offset="100%" stopColor={color} stopOpacity="0.08" />
-        </linearGradient>
-      </defs>
-
-      {/* Today column highlight */}
-      <rect x={todayX} y="0" width={dayWidth} height={VIEWBOX_H} fill="var(--primary)" opacity="0.07" />
-
-      {/* Day divider lines (skip the first — left edge of container serves as boundary) */}
-      {Array.from({ length: DAY_COUNT - 1 }, (_, i) => (
-        <line
-          key={i}
-          x1={(i + 1) * dayWidth}
-          y1="0"
-          x2={(i + 1) * dayWidth}
-          y2={VIEWBOX_H}
-          stroke="var(--border)"
-          strokeWidth="1"
-          opacity="0.25"
-        />
-      ))}
-
-      <path d={areaPath} fill={`url(#${gradId})`} />
-      {/* Dim hairline across the full path — almost invisible baseline */}
-      <path d={linePath} fill="none" stroke={color} strokeWidth="5" opacity="0.15" />
-      {/* Bright stroke only on active (non-zero intensity) portions */}
-      {activeSegPaths.map((p, i) => (
-        <path key={i} d={p} fill="none" stroke={color} strokeWidth="2" opacity="0.9" />
-      ))}
-      {hasPeak && (
-        <>
-          <circle cx={peakPt[0]} cy={peakPt[1]} r="4" fill={color} opacity="0.9" />
-          <circle cx={peakPt[0]} cy={peakPt[1]} r="1.5" fill="white" opacity="0.9" />
-        </>
-      )}
-
-      {/* Today center marker — subtle dashed line at column center */}
-      <line
-        x1={todayX + dayWidth / 2}
-        y1="0"
-        x2={todayX + dayWidth / 2}
-        y2={VIEWBOX_H}
-        stroke="var(--primary)"
-        strokeWidth="1"
-        strokeDasharray="3,4"
-        opacity="0.35"
-      />
-    </svg>
-  );
+  return {
+    bar,
+    fromSample,
+    toSample,
+    peakSample: bestX,
+    peakValue: Math.min(1, bestVal),
+  };
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export const AspectsTimeline = memo(function AspectsTimeline() {
+interface AspectsTimelineProps {
+  variant?: AspectsTimelineVariant;
+}
+
+export const AspectsTimeline = memo(function AspectsTimeline({
+  variant = "major",
+}: AspectsTimelineProps = {}) {
   const aspectSettings = useSettings((s) => s.aspects);
+  const isMinor = variant === "minor";
+  const title = isMinor ? "10-Day Minor Aspects" : "10-Day Major Aspects";
+  const includeMinor = isMinor ? true : aspectSettings.showMinor;
+  const emptyLabel = isMinor
+    ? "No active minor aspects in this 10-day window."
+    : null;
 
   const today = useMemo(() => {
     const d = new Date();
@@ -357,129 +327,230 @@ export const AspectsTimeline = memo(function AspectsTimeline() {
     const controller = new AbortController();
     abortRef.current = controller;
 
-    // Defer heavy computation so above-the-fold widgets paint first
     const id = requestAnimationFrame(() => {
-      void computeAspectBarsAsync(today, aspectSettings.orbs, aspectSettings.showMinor, maxOrbMap, controller.signal)
-        .then((result) => {
-          if (!controller.signal.aborted) setBars(result);
-        });
+      void computeAspectBarsAsync(
+        today,
+        aspectSettings.orbs,
+        includeMinor,
+        maxOrbMap,
+        controller.signal,
+      ).then((result) => {
+        if (!controller.signal.aborted) setBars(result);
+      });
     });
-    return () => { cancelAnimationFrame(id); controller.abort(); };
-  }, [today, aspectSettings, maxOrbMap]);
+    return () => {
+      cancelAnimationFrame(id);
+      controller.abort();
+    };
+  }, [today, aspectSettings, maxOrbMap, includeMinor]);
 
-  const groups = useMemo(() => {
-    const map = new Map<CelestialBody, AspectBar[]>();
+  const ranges = useMemo(() => {
+    const filter = isMinor ? MINOR_ASPECTS : MAJOR_ASPECTS;
+    const list: BarRange[] = [];
     for (const bar of bars) {
-      const existing = map.get(bar.groupPlanet) ?? [];
-      existing.push(bar);
-      map.set(bar.groupPlanet, existing);
+      if (!filter.has(bar.aspectType)) continue;
+      const r = computeRange(bar);
+      if (r) list.push(r);
     }
-    return GROUP_PLANETS.filter((p) => map.has(p)).map((p) => ({
-      planet: p,
-      bars: map.get(p)!,
-    }));
-  }, [bars]);
+    // Rank by peak intensity, breaking ties in favour of aspects whose peak
+    // lands closest to today. Without the tiebreaker, fast-body aspects
+    // (Moon transits, Sun aspects) all interpolate to peak=1.0 and the 8
+    // slots go to whichever the sort happens to hit first — which can push
+    // out the "topical" event (e.g. today's Moon-Sun conjunction) in favour
+    // of, say, a Moon-Neptune conjunction peaking 4 days from now.
+    const todayCenterSample = -DAY_OFFSET * SAMPLES_PER_DAY + SAMPLES_PER_DAY / 2;
+    const distanceFromToday = (r: BarRange) =>
+      Math.abs(r.peakSample - todayCenterSample);
+    const top = list
+      .sort((a, b) => {
+        // Round peaks to 2 decimals so near-ties (0.997 vs 1.000) treat
+        // today-proximity as the real discriminator.
+        const ap = Math.round(a.peakValue * 100);
+        const bp = Math.round(b.peakValue * 100);
+        if (ap !== bp) return bp - ap;
+        return distanceFromToday(a) - distanceFromToday(b);
+      })
+      .slice(0, MAX_BARS);
+    top.sort((a, b) => {
+      if (a.peakSample !== b.peakSample) return a.peakSample - b.peakSample;
+      return b.peakValue - a.peakValue;
+    });
+    return top;
+  }, [bars, isMinor]);
 
   const todayIdx = -DAY_OFFSET;
+  const dayW = VIEWBOX_W / DAY_COUNT;
+  const todayX = todayIdx * dayW;           // left boundary of today's slot
+  const todayCenterX = todayX + dayW / 2;
+  const height = TOP_PAD + Math.max(ranges.length, 6) * ROW_HEIGHT + BOTTOM_PAD;
 
-  if (bars.length === 0) {
-    return (
-      <div className="bg-card border border-border rounded-lg p-phi-4 card-hover">
-        <h3 className="text-foreground font-semibold text-sm mb-phi-3 font-display">Aspects Timeline</h3>
+  const sampleToX = (sampleIdx: number) =>
+    ((sampleIdx + 0.5) / TOTAL_SAMPLES) * VIEWBOX_W;
 
-        {/* Day header row */}
-        <div className="flex mb-2">
-          <div className="w-[70px] shrink-0" />
-          {days.map((day, i) => (
-            <DayLabel key={i} date={day} isToday={i === todayIdx} />
-          ))}
-        </div>
+  // Current moment within the 10-day window, expressed in viewBox x.
+  // Used to draw a thin accent line at "now" so the user can distinguish
+  // "happened earlier today" (peak left of NOW) from "coming up" (peak right).
+  const windowStartMs = today.getTime() + DAY_OFFSET * 24 * 3600 * 1000;
+  const windowDurationMs = DAY_COUNT * 24 * 3600 * 1000;
+  const nowProgress = (Date.now() - windowStartMs) / windowDurationMs;
+  const nowX =
+    nowProgress >= 0 && nowProgress <= 1
+      ? nowProgress * VIEWBOX_W
+      : null;
 
-        {/* Skeleton rows */}
-        <div className="flex flex-col gap-phi-4">
-          {[0, 1, 2].map((g) => (
-            <div key={g}>
-              <div className="w-16 h-4 rounded bg-muted animate-pulse mb-1.5" />
-              <div className="flex flex-col gap-1">
-                <SkeletonRow />
-                <SkeletonRow />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
+  const isLoading = bars.length === 0;
 
   return (
     <div className="bg-card border border-border rounded-lg p-phi-4 card-hover">
-      <h3 className="text-foreground font-semibold text-sm mb-phi-3 font-display">Aspects Timeline</h3>
-
-      {/* Day header row */}
-      <div className="flex mb-2">
-        <div className="w-[70px] shrink-0" />
-        {days.map((day, i) => (
-          <DayLabel key={i} date={day} isToday={i === todayIdx} />
-        ))}
+      <div className="flex items-baseline justify-between mb-phi-3">
+        <div className="card-title">{title}</div>
       </div>
 
-      {/* Planet groups — staggered entry */}
-      <div className="flex flex-col gap-phi-4">
-        {groups.map(({ planet, bars: groupBars }, groupIdx) => (
-          <div
-            key={planet}
-            className="animate-fade-in"
-            style={{ animationDelay: `${groupIdx * 40}ms` }}
+      <div className="relative w-full">
+        <svg
+          viewBox={`${-LEFT_PAD} 0 ${VIEWBOX_W + LEFT_PAD} ${height}`}
+          width="100%"
+          height={height}
+          preserveAspectRatio="none"
+          style={{ display: "block" }}
+        >
+          {/* Day gridlines: solid at both edges of today's slot, dashed elsewhere */}
+          {Array.from({ length: DAY_COUNT + 1 }).map((_, i) => {
+            const x = i * dayW;
+            const isTodayEdge = i === todayIdx || i === todayIdx + 1;
+            return (
+              <line
+                key={`grid-${i}`}
+                x1={x}
+                y1={TOP_PAD - 10}
+                x2={x}
+                y2={height - BOTTOM_PAD + 4}
+                stroke="var(--border)"
+                strokeWidth={isTodayEdge ? 1.2 : 0.6}
+                strokeDasharray={isTodayEdge ? "" : "2,4"}
+                opacity={isTodayEdge ? 0.9 : 0.55}
+              />
+            );
+          })}
+
+          {/* TODAY eyebrow — centered inside today's slot */}
+          <text
+            x={todayCenterX}
+            y={16}
+            fontSize="10"
+            fill="var(--muted-foreground)"
+            fontFamily="ui-monospace, monospace"
+            letterSpacing="0.15em"
+            fontWeight="500"
+            textAnchor="middle"
           >
-            <div className="flex items-center gap-1.5 mb-1.5">
-              <span className="text-primary text-sm">{PLANET_GLYPHS[planet]}</span>
-              <span className="text-foreground text-sm font-medium">
-                {GROUP_PLANET_NAMES[planet]}
-              </span>
-            </div>
+            TODAY
+          </text>
 
-            <div className="flex flex-col gap-phi-1">
-              {groupBars.map((bar) => {
-                const color = ASPECT_COLORS[bar.aspectType] ?? "var(--muted-foreground)";
-                const uid = `${bar.groupPlanet}-${bar.aspectType}-${bar.otherPlanet}`;
-                const groupName = GROUP_PLANET_NAMES[bar.groupPlanet] ?? bar.groupPlanet;
-                const otherGlyph = PLANET_GLYPHS[bar.otherPlanet] ?? bar.otherPlanet;
-                const aspectGlyph = ASPECT_GLYPHS[bar.aspectType] ?? bar.aspectType;
-                return (
-                  <div
-                    key={uid}
-                    className="flex items-center"
-                    style={{ height: "34px" }}
-                    title={`${groupName} ${aspectGlyph} ${otherGlyph}`}
-                  >
-                    {/* Label: group glyph + aspect glyph + other glyph */}
-                    <div className="w-[70px] shrink-0 flex items-center gap-0.5">
-                      <span className="text-primary text-sm w-5 text-center">
-                        {PLANET_GLYPHS[bar.groupPlanet]}
-                      </span>
-                      <span className="text-sm w-5 text-center" style={{ color }}>
-                        {ASPECT_GLYPHS[bar.aspectType] ?? bar.aspectType}
-                      </span>
-                      <span className="text-muted-foreground text-sm w-5 text-center">
-                        {PLANET_GLYPHS[bar.otherPlanet] ?? bar.otherPlanet}
-                      </span>
-                    </div>
+          {/* NOW marker — thin dotted accent line at the current moment */}
+          {nowX !== null && (
+            <line
+              x1={nowX}
+              y1={TOP_PAD - 10}
+              x2={nowX}
+              y2={height - BOTTOM_PAD + 4}
+              stroke="var(--primary)"
+              strokeWidth={1}
+              strokeDasharray="1,3"
+              opacity={0.5}
+            />
+          )}
 
-                    {/* Bell curve SVG */}
-                    <div className="flex-1 min-w-0">
-                      <BellCurve
-                        samples={bar.samples}
-                        color={color}
-                        todayIdx={todayIdx}
-                        uid={uid}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ))}
+          {/* Aspect bars */}
+          {ranges.map((r, idx) => {
+            const y = TOP_PAD + idx * ROW_HEIGHT;
+            const x1 = sampleToX(r.fromSample);
+            const x2 = sampleToX(r.toSample);
+            const peakX = sampleToX(r.peakSample);
+            const color =
+              ASPECT_COLORS[r.bar.aspectType] ?? "var(--muted-foreground)";
+            const pG = PLANET_GLYPHS[r.bar.groupPlanet] ?? "·";
+            const aG = ASPECT_GLYPHS[r.bar.aspectType] ?? "·";
+            const oG = PLANET_GLYPHS[r.bar.otherPlanet] ?? "·";
+            return (
+              <g key={`bar-${idx}`}>
+                <line
+                  x1={x1}
+                  y1={y}
+                  x2={x2}
+                  y2={y}
+                  stroke={color}
+                  strokeWidth={1.5}
+                  opacity={0.38}
+                  strokeLinecap="round"
+                />
+                <circle cx={peakX} cy={y} r={3} fill={color} />
+                <text
+                  x={x1 - 6}
+                  y={y + 3}
+                  fontSize={10}
+                  textAnchor="end"
+                  fill="var(--muted-foreground)"
+                >
+                  <tspan>{pG}</tspan>
+                  <tspan style={{ fill: color }}>{aG}</tspan>
+                  <tspan>{oG}</tspan>
+                </text>
+              </g>
+            );
+          })}
+
+          {/* Day labels at bottom */}
+          {Array.from({ length: DAY_COUNT }).map((_, i) => {
+            const x = i * dayW + dayW / 2;
+            const date = days[i]!;
+            const label = date.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            });
+            const isToday = i === todayIdx;
+            return (
+              <text
+                key={`label-${i}`}
+                x={x}
+                y={height - 6}
+                fontSize={10}
+                textAnchor="middle"
+                fill={isToday ? "var(--primary)" : "var(--dim-foreground)"}
+                fontFamily="ui-monospace, monospace"
+                fontWeight={isToday ? 500 : 400}
+              >
+                {label}
+              </text>
+            );
+          })}
+
+          {isLoading && (
+            <text
+              x={VIEWBOX_W / 2}
+              y={height / 2}
+              fontSize={11}
+              textAnchor="middle"
+              fill="var(--muted-foreground)"
+              opacity={0.6}
+            >
+              Computing aspects…
+            </text>
+          )}
+
+          {!isLoading && ranges.length === 0 && emptyLabel && (
+            <text
+              x={VIEWBOX_W / 2}
+              y={height / 2}
+              fontSize={11}
+              textAnchor="middle"
+              fill="var(--muted-foreground)"
+              opacity={0.7}
+            >
+              {emptyLabel}
+            </text>
+          )}
+        </svg>
       </div>
     </div>
   );

@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { CelestialBody, ZodiacSign, Element, SIGN_ELEMENT } from "@astro-app/shared-types";
 import type { ChartData } from "@astro-app/shared-types";
 import { PLANET_GLYPHS } from "@/lib/format";
@@ -35,10 +36,10 @@ const DISPLAY_BODIES: CelestialBody[] = [
 ];
 
 const ELEMENTS: { key: Element; label: string }[] = [
-  { key: Element.Fire, label: "F" },
-  { key: Element.Earth, label: "E" },
-  { key: Element.Air, label: "A" },
-  { key: Element.Water, label: "W" },
+  { key: Element.Fire, label: "Fire" },
+  { key: Element.Earth, label: "Earth" },
+  { key: Element.Air, label: "Air" },
+  { key: Element.Water, label: "Water" },
 ];
 
 const MODALITIES: { key: Modality; label: string }[] = [
@@ -61,7 +62,6 @@ interface Props {
 export function ElementModalityCard({ chartData }: Props) {
   if (!chartData) return null;
 
-  // Build grid: element × modality → planet glyphs
   const grid = new Map<string, string[]>();
   for (const body of DISPLAY_BODIES) {
     const zp = chartData.zodiac_positions[body];
@@ -75,43 +75,64 @@ export function ElementModalityCard({ chartData }: Props) {
   }
 
   return (
-    <Card className="card-hover py-0" style={{ containerType: "inline-size" }}>
+    <Card className="card-hover py-0">
       <CardContent className="p-phi-4">
-      <table className="w-full border-collapse text-center table-fixed" style={{ fontSize: "3.5cqi" }}>
-        <thead>
-          <tr>
-            <th className="w-8" />
-            {MODALITIES.map((m) => (
-              <th key={m.key} className="text-muted-foreground font-medium pb-phi-1">
-                {m.label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
+        <div className="flex items-baseline justify-between mb-phi-3">
+          <div className="card-title">Element × Modality</div>
+        </div>
+        <div
+          className="grid items-center gap-x-phi-2 gap-y-phi-2"
+          style={{ gridTemplateColumns: "auto 1fr 1fr 1fr" }}
+        >
+          {/* Column headers */}
+          <div />
+          {MODALITIES.map((m) => (
+            <div
+              key={m.key}
+              className="text-muted-foreground text-[13px] pl-phi-1 pb-phi-1"
+            >
+              {m.label}
+            </div>
+          ))}
+
+          {/* Rows */}
           {ELEMENTS.map((el) => (
-            <tr key={el.key}>
-              <td
-                className="font-medium py-phi-1 pr-phi-1"
+            <Fragment key={el.key}>
+              <div
+                className="text-[14px] font-medium pr-phi-3"
                 style={{ color: ELEMENT_COLORS[el.key] }}
               >
                 {el.label}
-              </td>
+              </div>
               {MODALITIES.map((m) => {
                 const glyphs = grid.get(`${el.key}|${m.key}`) ?? [];
+                const hasGlyphs = glyphs.length > 0;
                 return (
-                  <td
+                  <div
                     key={m.key}
-                    className="border border-border py-phi-1 px-phi-1 text-primary"
+                    className="rounded-md min-h-[38px] flex items-center justify-center px-phi-2 py-phi-1 gap-1.5"
+                    style={{
+                      background: hasGlyphs
+                        ? "color-mix(in oklch, var(--muted) 70%, transparent)"
+                        : "transparent",
+                      border: "1px solid var(--border)",
+                      opacity: hasGlyphs ? 1 : 0.55,
+                    }}
                   >
-                    {glyphs.join(" ")}
-                  </td>
+                    {hasGlyphs && (
+                      <span
+                        className="text-[13px] leading-none"
+                        style={{ color: ELEMENT_COLORS[el.key], letterSpacing: "0.08em" }}
+                      >
+                        {glyphs.join(" ")}
+                      </span>
+                    )}
+                  </div>
                 );
               })}
-            </tr>
+            </Fragment>
           ))}
-        </tbody>
-      </table>
+        </div>
       </CardContent>
     </Card>
   );

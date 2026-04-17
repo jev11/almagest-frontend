@@ -201,12 +201,19 @@ export const AspectGrid = memo(function AspectGrid({ chartData, nodeType: nodeTy
   if (!chartData) return null;
 
   const N = gridBodies.length;
+  const aspectHits = Math.floor(aspectMap.size / 2);
 
   return (
     <div
-      className="w-full bg-card border border-border rounded-lg overflow-hidden"
+      className="w-full bg-card border border-border rounded-lg overflow-hidden flex flex-col"
       style={{ containerType: "inline-size" }}
     >
+      <div className="flex items-baseline justify-between px-phi-3 py-phi-3">
+        <div className="card-title">Aspects</div>
+        <span className="text-[11px] text-muted-foreground tabular-nums">
+          {aspectHits} hits
+        </span>
+      </div>
       <div
         className="grid w-full"
         style={{

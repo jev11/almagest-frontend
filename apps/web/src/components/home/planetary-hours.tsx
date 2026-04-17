@@ -4,7 +4,6 @@ import { PLANET_GLYPHS, formatTime } from "@/lib/format";
 import { useSettings } from "@/hooks/use-settings";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Progress } from "@/components/ui/progress";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 
 const PLANET_NAMES: Record<string, string> = {
@@ -71,32 +70,45 @@ export function PlanetaryHours({ lat, lon }: PlanetaryHoursProps) {
       onClick={() => setExpanded((v) => !v)}
     >
       <CardContent className="p-phi-4">
-        {/* Always-visible compact summary */}
-        <div className="flex items-center gap-1 text-sm flex-wrap">
-          <span className="text-primary">{PLANET_GLYPHS[dayRuler]}</span>
-          <span className="text-foreground">Day of {PLANET_NAMES[dayRuler] ?? dayRuler}</span>
-          <span className="text-muted-foreground">·</span>
-          <span className="text-primary">{PLANET_GLYPHS[currentHour.planet]}</span>
-          <span className="text-foreground">
-            Hour of {PLANET_NAMES[currentHour.planet] ?? currentHour.planet}
-          </span>
-          <span className="text-muted-foreground">·</span>
-          <span className="text-muted-foreground text-xs">
-            until {formatTime(currentHour.end, timeFormat)}
+        <div className="flex items-baseline justify-between mb-phi-3">
+          <div className="card-title">Planetary Hours</div>
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-muted/60 border border-border text-[11px] text-muted-foreground">
+            {DAY_NAMES[dayRuler] ?? ""}
           </span>
         </div>
+        {/* Main row: big accent glyph · "Hour of {Planet}" · mono meta */}
+        <div className="flex items-center gap-phi-2">
+          <span
+            className="text-primary leading-none shrink-0"
+            style={{ fontSize: "24px" }}
+          >
+            {PLANET_GLYPHS[currentHour.planet]}
+          </span>
+          <div className="flex-1 min-w-0">
+            <div className="text-foreground text-[14px] font-medium">
+              Hour of {PLANET_NAMES[currentHour.planet] ?? currentHour.planet}
+            </div>
+            <div className="mono text-dim-foreground text-[11.5px] mt-0.5">
+              until {formatTime(currentHour.end, timeFormat)} · next{" "}
+              <span className="text-muted-foreground">
+                {PLANET_GLYPHS[nextHour.planet]}
+              </span>
+            </div>
+          </div>
+        </div>
 
-        {/* Progress bar */}
-        <Progress
-          value={Math.min(100, Math.max(0, progress * 100))}
-          className="mt-phi-3"
-        />
+        {/* Thin progress bar (4px) */}
+        <div className="h-1 bg-muted rounded-full mt-phi-3 overflow-hidden">
+          <div
+            className="h-full bg-primary rounded-full"
+            style={{ width: `${Math.min(100, Math.max(0, progress * 100))}%` }}
+          />
+        </div>
 
-        {/* Next hour */}
-        <div className="mt-phi-2 text-muted-foreground text-xs">
-          next hour:{" "}
-          <span className="text-primary">{PLANET_GLYPHS[nextHour.planet]}</span>{" "}
-          {PLANET_NAMES[nextHour.planet] ?? nextHour.planet}
+        {/* Sunrise / sunset split */}
+        <div className="mono text-dim-foreground text-[11px] mt-phi-2 flex justify-between">
+          <span>sunrise {formatTime(sunrise, timeFormat)}</span>
+          <span>sunset {formatTime(sunset, timeFormat)}</span>
         </div>
 
         {/* Collapsible: full day/night hour list */}

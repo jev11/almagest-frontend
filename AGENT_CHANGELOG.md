@@ -1,5 +1,169 @@
 # Agent Changelog
 
+## 2026-04-17 — timeline: solid bounds around today + centered TODAY + NOW marker
+
+### Change
+Clarified the timeline's temporal reference. Previously the TODAY label sat next to a single solid line at the day boundary (midnight-starting-today), so a peak dot rendered anywhere during today's 24h appeared "right of TODAY" and read as *future* even when the aspect had already peaked earlier today. Now: today's slot is bounded by solid vertical lines on **both** edges (start-of-day + end-of-day), the TODAY label centers inside the slot, and a thin accent-coloured NOW line marks the actual current moment. Peak dots are now read against NOW (past-vs-future), not against the day boundary.
+
+### Files Modified
+- `apps/web/src/components/home/aspects-timeline.tsx` — `isToday` gridline flag widened to `isTodayEdge` (both the today-start and today-end boundaries render solid). TODAY `<text>` moved from `x={todayX + 4}` to `x={todayCenterX}` with `textAnchor="middle"`, colour switched from accent to muted so it reads as a neutral section label. Added NOW marker: a 1px `stroke="var(--primary)" opacity=0.85` vertical line spanning the same y-range as the day gridlines, plus a small `NOW` text above the line in accent colour. Current moment is computed from `Date.now()` against the window-start timestamp (`today + DAY_OFFSET days`), rendered only if `nowProgress ∈ [0, 1]` (future-proofing if the window is ever resized).
+
+### Decisions Made
+- **TODAY label is now muted, not accent.** With the accent colour now claimed by the NOW line, keeping TODAY in accent would create two accent elements in the header strip and muddle the hierarchy. TODAY is a section label ("this is today's column"), NOW is a live reference ("you are here") — the colour split mirrors the semantic split.
+- **Solid lines on both today edges instead of a shaded column.** A shaded column (`<rect fill="var(--primary)" opacity="0.05"/>`) was the other option. Lines are lighter-touch and keep the bars as the visual focus; the shading would compete with the aspect bars for attention.
+- **NOW line is thin (1px) and slightly translucent (0.85).** Enough to register as a distinct reference, not so much that it overwhelms the peak dots. Peak dots remain the brightest element in the card.
+- **No animation or live-update of the NOW line.** The timeline is computed at mount with `today = new Date()` (midnight) and stays static until the user navigates away and back. Animating NOW would imply the timeline is "live" but the aspect computations aren't re-run per second; mismatched refresh rates would be confusing. If we want a truly live card, the whole component needs to re-render on a timer — a separate task.
+- **Position formula uses wall-clock against window start.** `(Date.now() - windowStartMs) / windowDurationMs`. This is independent of the 6-hour sample grid, so the NOW line lands at its real position even between sample boundaries (important for the "peak dot past NOW" reading near sample boundaries).
+
+## 2026-04-17 — color palette retuned to design-exact oklch values (option A)
+
+### Change
+Rewrote both `:root` (light) and `.dark` token blocks in `apps/web/src/index.css` to match the design bundle's `tokens.css` line-for-line. Neutral ladder is now centered on hue 260–265 with very low chroma (0.002–0.008) instead of our previous higher-chroma blue tint (0.01–0.03, hue 220–255). Aspect colours collapsed into the design's 3-group system (`--aspect-harm` / `--aspect-hard` / `--aspect-conj`) with per-aspect aliases pointing at them. Light-mode `card` / `background` role inverted to match the design: card is now pure white on a whisper off-white bg (was the other way round).
+
+### Files Modified
+- `apps/web/src/index.css` — rewrote `:root` (light) and `.dark` blocks. New tokens: `--bg-elev`, `--card-hover`, `--border-strong`, `--aspect-harm`, `--aspect-hard`, `--aspect-conj`. Retuned everything else. Sidebar sub-tokens now inherit from the same neutral ladder. Registered the new tokens as Tailwind utilities via `@theme inline` (`bg-bg-elev`, `bg-card-hover`, `border-border-strong`, `text-aspect-harm`, etc.).
+
+### Decisions Made
+- **Collapsed the 5 aspect tokens into 3 groups via CSS aliases, not by deleting them.** `--aspect-conjunction` / `--aspect-sextile` / `--aspect-trine` / `--aspect-square` / `--aspect-opposition` now each resolve to one of `--aspect-conj/harm/hard` via `var(--aspect-X)`. Keeps all existing consumers (aspect-grid, aspect timeline, planet-card dignity styling) working without renaming a single call-site, while the underlying palette follows design. `--aspect-quincunx` stays as a distinct violet since design doesn't group it.
+- **Light-mode `card=100%` on `bg=99%` is a deliberate role inversion.** Previously `card=97%` sat on `bg=100%` — cards looked embedded into the page. Design wants cards to feel lifted off a slightly-tinted canvas; visually the effect is subtle but the semantic intent is "card is the bright element, page is the neutral base."
+- **Light-mode primary is `oklch(52% 0.17 275)` — darker and more saturated than dark-mode's `oklch(65% 0.16 275)`.** Previously we used the same value in both modes, which meant the accent read pale and washed-out on the light-mode white card. Design's split tuning keeps visual weight consistent across modes.
+- **Dark-mode `--card` = `18%` (up from `13%`) and `--background` = `14%` (up from `9%`).** Both surfaces moved lighter, but the relative gap stayed at 4 L-points. Net effect: the UI feels like a soft charcoal, not a near-black. Matches design's "celestial journal" aesthetic rather than a stark dashboard.
+- **Neutral hue shifted from 220/225/255 → 260/265.** Our previous neutrals leaned blue-cyan; design leans violet-cool. At very low chroma (~0.005) the hue is barely perceptible but it coordinates with the 275 accent hue to give the palette a coherent lilac undercurrent.
+- **Dropped hex fallbacks for `--primary-hover`, `--border-hover`, `--destructive`.** Everything except status colours (success, destructive) is now oklch-native. Destructive stays on a vivid red hex since it's a safety signal and can afford the saturation.
+- **Body-background radial gradients kept untouched.** The `.dark body::before` / `::after` atmosphere layers use hue 265 and 300 at very low alpha — they still work against the new base colour. Re-tuning them would risk breaking the "galactic" mood without a clear design spec to aim at.
+- **Kept `--color-fire/earth/air/water` as separate from the aspect tokens.** Elements and aspects serve different semantics; collapsing them would over-abstract.
+
+## 2026-04-17 — home screen: close all remaining design-bundle gaps
+
+### Change
+Final pass closing every remaining item from the gap analysis (high + medium + low). Moon card restructured to the design's vertical layout; Planetary Hours rebuilt around the big accent glyph + "Hour of …" + thin progress + sunrise/sunset split; chart hero now carries proper HTML overlay chips; Positions house column gets `H` prefix; sidebar drops the left-border active-state and shows the user email; token pass adds Inter + JetBrains Mono, dials the element colours down to the design's lower-chroma values, introduces a `--faint-foreground` tier; meta dots use the new faint tier at the design's 10px gap; mobile stack breakpoint moved from `lg:` (1024) to `md:` (768) to match the design's 820px intent; `Card` radius reduced to 10px and the translucent ring swapped for a solid border.
+
+### Files Modified
+- `apps/web/index.html` — added Inter + JetBrains Mono to the Google Fonts import.
+- `apps/web/src/index.css` — `--font-sans` now prefers Inter; added `--font-mono` (JetBrains Mono); added `.font-mono` / `.mono` utilities with `tnum + zero`; swapped element colours from vivid hex to oklch dialed-down values (dark: 68–78% L, 0.09–0.12 C; light: 52–62% L, 0.11–0.15 C); introduced `--faint-foreground` token (dark 36%, light 72%) + `--color-faint-foreground` theme mapping.
+- `apps/web/src/components/ui/card.tsx` — `rounded-xl` → `rounded-[10px]`; `ring-1 ring-foreground/10` → `border border-border`; inner image `rounded-t-xl` / `rounded-b-xl` updated to match.
+- `apps/web/src/components/layout/sidebar.tsx` — removed `border-l-2 border-primary` / `border-l-2 border-transparent` from the nav button; footer button now renders a two-line name + email stack when expanded.
+- `apps/web/src/components/home/chart-wheel.tsx` — stopped passing `chartInfo` into `ChartCanvas` so the canvas skips its built-in corner labels; added absolute-positioned HTML overlays: top-left `card-title "Natal Sky · Now"` + mono location + lat/lon; top-right `Placidus` / `Tropical` (or whichever system/zodiac is in settings) chips styled with the shared chip pattern. `timezone` prop dropped (was unused once the built-in labels were off).
+- `apps/web/src/components/home/moon-card.tsx` — restructured top-to-bottom: header (unchanged), then main row `[MoonCycleRing 76px | phase-serif-22 + sign-position + ingress-hint | phase-emoji]`, then `Separator`, then compact upcoming list (`grid-template-columns: 42px 1fr auto`) showing 4 rows: label, mono date+time, sign-glyph+deg°min. Replaced the old `PhaseTable` with `UpcomingPhasesList`; old `nextSignGlyph` derivation dropped — design uses the sign name instead of the glyph in the ingress line.
+- `apps/web/src/components/home/planetary-hours.tsx` — dropped the one-line wrapping summary and the standalone "next hour" line; main row is now big accent current-hour glyph (24px) + `Hour of {Planet}` (14px medium) + mono `until {end} · next {glyph}`. Progress bar switched to a 4px custom bar (matches design spec; shadcn `Progress` was too tall). Added `sunrise / sunset` split in mono at the bottom. `Progress` import removed.
+- `apps/web/src/components/home/planet-card.tsx` — house column now prefixes with `H` (e.g. `H6`, `H10`); column widened to 32px and uses `.mono tabular-nums`.
+- `apps/web/src/routes/home.tsx` — meta dots use `text-faint-foreground` at `mx-[10px]`; meta font-size adjusted to 13px to match design; `lg:` → `md:` on hero flex and detail grid so the layout stacks at ~768px rather than 1024px; dropped unused `useTimezone` import and the `timezone` prop on `<ChartWheel>`.
+
+### Decisions Made
+- **Dial-down uses oklch not hex.** Converting design's `oklch(68% 0.12 30)` etc. to hex would approximate; keeping them as oklch preserves the colour space and makes the light/dark tuning (design has different L/C for each mode) explicit. Works in all evergreen browsers; our Tailwind v4 already uses oklch throughout.
+- **`--faint-foreground` added as a fourth muting tier, not folded into `--dim-foreground`.** Design uses four tiers (`fg / fg-muted / fg-dim / fg-faint`); we had three. Page-head dots and timeline gridline labels really do look too dark when they share the dim tier with subheadings — the faint tier is 14% lighter in dark mode and clearly recedes. New token registered in `@theme inline` so Tailwind emits `text-faint-foreground` / `bg-faint-foreground` utilities.
+- **Chart info now lives in HTML, not canvas.** The pre-existing `ChartCanvas` draws corner labels via its `chartInfo` prop — painted inside the canvas, so typography is sub-pixel off vs. HTML text and the labels can't use the shared chip styles. Suppressed them by dropping `chartInfo` at the call site; the labels are now `<div>`s positioned `absolute top-4 left-4 / right-4`, picking up `card-title` + `mono` + the shared chip classes. Pointer events disabled on the top-left overlay so it doesn't block chart interactions.
+- **Planetary hours custom 4px progress bar.** shadcn `Progress` renders as a thicker bar with rounded caps baked in — design shows a 4px hairline. A plain `<div class="h-1 bg-muted rounded-full"><div class="bg-primary" style="width: X%"/></div>` is five lines, matches exactly, and has no accessibility regression (no semantic progress state was being used).
+- **Moon-card upcoming list width.** Design uses `grid-template-columns: 42px 1fr auto`. That fits in the 1fr rail column (~420px at desktop) with the mono date-time truncating via `overflow-hidden text-ellipsis`. The serif phase name "Waxing Gibbous" fits on one line at 22px in the rail; the first-quarter plural wouldn't need truncation.
+- **Card radius 10px + solid border.** Design says 10px with `border: 1px solid var(--border)` — no ring. Our shadcn default was `rounded-xl` (~11px with `--radius-xl`) + `ring-1 ring-foreground/10`. Visually the ring was giving a slight outer glow that fought the chart card's `box-shadow: 0 0 80px oklch(... / 0.15)`. Swapping to `border border-border` removes the visual interference and matches design exactly. Small risk: any card using `hover:ring-*` classes elsewhere now needs to switch to `hover:border-*` — grepped and only `chart-card.tsx` had such a usage (already pre-ring-based, no regression).
+- **`md:` stack breakpoint not a custom 820px media query.** Tailwind's `md:` fires at 768px — 52px earlier than design's 820. Using a custom breakpoint (`@screen md-820`) would save those 52px but add a Tailwind config entry and a one-off cognitive cost. Not worth it for a window most users don't size to.
+- **Body font: Inter first, DM Sans kept as fallback.** Inter is the design's explicit choice and loads fast. DM Sans stays in the font-stack as a second-try so users who have it locally don't hit a FOUT on slow networks — identical-enough neutral sans.
+- **Unused `timezone` prop removed rather than silenced.** Once `chartInfo` stopped flowing into `ChartCanvas`, the timezone resolution was dead weight. Dropped the `useTimezone` hook from `home.tsx` too — it was only consumed by this path. If transits or a later chart view need timezone display, they can re-add the hook locally.
+
+## 2026-04-17 — Element × Modality card: rounded-pill layout
+
+### Change
+Reworked `element-modality-card.tsx` to match the design bundle's pill-cell layout. Was a tight `<table>` with thin borders on every cell and uppercase column headers; is now a 4-column CSS grid where each cell is a rounded rectangle (border + subtle fill when populated, border-only when empty), with sentence-case column headers and more generous spacing.
+
+### Files Modified
+- `apps/web/src/components/home/element-modality-card.tsx` — replaced the `<table>`-based grid with `display: grid; grid-template-columns: auto 1fr 1fr 1fr`; each intersection cell is a `rounded-md` div sized `min-h-[38px]`, filled with `color-mix(in oklch, var(--muted) 70%, transparent)` when it has glyphs, transparent otherwise; both states share a `1px var(--border)` outline. Column headers now sentence-case (`Cardinal / Fixed / Mutable`) 13px muted, indented to line up with cell interior. Row labels 14px medium-weight in element colour, right-padded `pr-phi-3`. Glyphs rendered with `letter-spacing: 0.08em` so multi-body cells (e.g. Fire-Cardinal with 4 planets) breathe. Dropped `containerType: inline-size` + `cqi` font sizing — the CSS-grid layout handles column responsiveness naturally.
+
+### Decisions Made
+- **Used `color-mix(in oklch, …)` for the subtle populated-cell fill.** Avoids a new design token and lets the fill inherit from `--muted` so it auto-switches on theme change. The 70% mix sits between `bg-muted` (too strong) and bare transparent (too flat in dark mode).
+- **Kept the border on empty cells.** Design shows cells outlined whether populated or empty — gives the card a "matrix" read. Empty cells use 55% opacity so they recede; populated cells are full-opacity.
+- **Row label size = 14px, column headers = 13px.** Design places mild emphasis on the element rows (they carry the semantic color); columns stay quieter.
+
+## 2026-04-17 — home screen: close high-priority gaps vs design bundle
+
+### Change
+Closed the five visible structural gaps identified in the design-bundle diff: every home card now carries the editorial `card-title + right-side meta` header pattern; the sidebar grew a gradient brand mark and uses the design's 220/64 widths; the page head got its `+ New Chart` primary CTA and the missing `Day of {ruler}` meta segment; Positions gained a name column; Element × Modality uses full element names. Second minor-aspects timeline card retained.
+
+### Files Modified
+- `apps/web/src/components/layout/sidebar.tsx` — widened expanded to 220px, collapsed to 64px (was 144/89); added a 26×26 gradient brand mark ("A" in italic serif, oklch indigo→violet gradient) that doubles as the toggle; renamed nav label "Home" → "Today"; dropped the now-unused `PanelLeftOpen` import.
+- `apps/web/src/components/home/moon-card.tsx` — added `card-title "Moon"` + "{X}% lit" chip header row; illumination = round((1 - cos(elongation))/2 × 100).
+- `apps/web/src/components/home/planetary-hours.tsx` — added `card-title "Planetary Hours"` + day-name chip.
+- `apps/web/src/components/home/retrograde-tracker.tsx` — `h3 "Retrograde Tracker"` → `card-title "Retrogrades"` + "{N} active" / "none" chip; dropped the ✓ from the "All planets direct" empty state.
+- `apps/web/src/components/home/planet-card.tsx` — added `card-title "Positions"` + "{n} bodies" meta; inserted a body-name column between the glyph and the sign.
+- `apps/web/src/components/home/aspect-grid.tsx` — wrapped the card with a header row: `card-title "Aspects"` + "{n} hits" (derived from `aspectMap.size / 2`).
+- `apps/web/src/components/home/element-modality-card.tsx` — added `card-title "Element × Modality"`; row labels Fire/Earth/Air/Water (was F/E/A/W); column headers use uppercase tracked style.
+- `apps/web/src/routes/home.tsx` — added `Day of {ruler}` meta segment (derived from `new Date().getDay()`); moon-icon span now uses accent color; added `+ New Chart` primary button on the right of the page head; second `<AspectsTimeline variant="minor" />` retained per user request.
+
+### Decisions Made
+- **Header pattern shipped inline, not as a shared component.** Each header is 5 lines of JSX — factoring a `<CardHeader title meta>` helper would save ~20 lines total but add a new abstraction. Chose inline to keep per-card concerns readable and flexible (e.g. Aspects has its meta outside the grid container, Positions has it inside `CardContent`).
+- **Chip styling uses Tailwind inline classes.** `inline-flex items-center px-2 py-0.5 rounded-full bg-muted/60 border border-border text-[11px] text-muted-foreground`. Matches the design's `.chip` spec without adding a new component. Applied consistently across Moon, Planetary Hours, Retrogrades.
+- **Illumination formula chosen over node-based heuristic.** `(1 - cos(elongation))/2` is the standard Moon illumination fraction — gives 0% at new, 50% at quarters, 100% at full. At today's 5° elongation this correctly renders "0% lit" (pre-new-moon thin crescent).
+- **Brand mark doubles as toggle.** Clicking the gradient "A" toggles the sidebar — same affordance as the explicit collapse button when expanded. Keeps the collapsed 64px sidebar usable without a separate expand button, and the double-click-on-aside fallback + Cmd+B still work.
+- **Positions name column uses 11-char short names.** "Sun/Moon/Mercury/…/Pluto" fit cleanly; "N. Node"/"S. Node" chosen over "North Node"/"South Node" to match the narrow detail-row column.
+- **`Day of {ruler}` derived from JS `getDay()`.** Standard Chaldean day-ruler mapping (`[Sun, Moon, Mars, Mercury, Jupiter, Venus, Saturn]`). No new data dependency; consistent with the design's `data.planetaryHours.dayRuler` field.
+- **Element × Modality column text-align changed from center to left.** Design uses left-aligned row labels; centered was a side-effect of the single-letter abbreviations. Full names read better left-aligned.
+
+## 2026-04-17 — aspects timeline: surface Sun/Moon/Mercury/Venus aspects
+
+### Change
+User reported that today's Moon-Sun conjunction wasn't showing on the timeline card. Root cause: the bar-building filter in `computeAspectBarsAsync` only admitted aspects where at least one body was in `GROUP_PLANETS` = `[Pluto, Neptune, Uranus, Saturn, Chiron, Jupiter, Mars]` — so every Sun-Moon / Sun-Mercury / Mercury-Venus pair was silently dropped. Even after widening the filter, fast-body aspects were still ranked below slow ones because the 6-hour sample grid rarely lands on the exact aspect moment (Moon-Sun peaked at 0.91 in raw samples vs. slow aspects that coincidentally landed near-exact on the grid).
+
+### Files Modified
+- `apps/web/src/components/home/aspects-timeline.tsx` — widened `GROUP_PLANETS` to the full body set ordered slowest-first (so the glyph trio stays `slow-body · aspect · fast-body`); added matching entries to `GROUP_PLANET_NAMES`; imported `interpolatePeaks` from `aspects-timeline-utils` and used it in `computeRange` to recover the true apex of aspects that peak between samples; switched ranking from pure-peak to "rounded peak, then closest to today" so when many fast aspects tie at peak≈1.0 the one currently happening wins.
+
+### Decisions Made
+- **`GROUP_PLANETS` ordering is semantic, not just display.** Slower-to-faster order means the compute always assigns the slower body as `groupPlanet`, which keeps the glyph trio stable across renders (you always get `☉☌☽`, never `☽☌☉`). Reordered to match orbital period: `[Pluto, Neptune, Uranus, Chiron, Saturn, Jupiter, Mars, Sun, Venus, Mercury, Moon]`. Chiron moved before Saturn to match its ~50y orbit vs. Saturn's ~29y.
+- **Use `interpolatePeaks` for ranking, not only rendering.** The helper already existed (it was written for the shadcn variant's smooth bell curves) and is the right tool here: it fits a V-shape through each local maximum and returns an analytically-derived apex point at y=1. For fast-body aspects whose exact crossing lands between 6-hour samples, this recovers peakValue≈1.0 instead of the 0.91-ish we'd otherwise see.
+- **Rejected adding duration to the ranking score.** Tried `peakValue + 0.3 × (duration / TOTAL_SAMPLES)` briefly — it pushed the (brief, important) Moon-Sun conjunction out of the top 8 in favour of long-lasting but astrologically less topical slow aspects. Pure peak-then-proximity is closer to what a "what's happening right now" timeline should show.
+- **Rounded peak to 2 decimals as primary sort, today-proximity as secondary.** Without the rounding a 0.997 (interpolated but noise-shifted) would always outrank 1.000; with rounding the real tiebreaker is whether the aspect is peaking near today's column.
+- **Did NOT add a per-body cap (yet).** With the fixes above, ~6 of the 8 major-timeline rows can end up as Moon aspects on days where Moon is crossing many slow planets (today's New Moon cluster is the worst case). That's astrologically accurate — Moon in a given position does aspect many bodies at once — but might feel visually Moon-heavy. Leaving as-is; can add diversification later if the user wants more slow-planet visibility.
+
+## 2026-04-17 — minor-aspect timeline card (second timeline variant)
+
+### Change
+Added a second "10-Day Minor Aspects" card below the existing "10-Day Major Aspects" on Home, using the same editorial bar+dot style. `AspectsTimeline` now takes a `variant: "major" | "minor"` prop — the card title, aspect filter, and the `includeMinor` flag passed to the sampler switch on that prop. `home.tsx` renders both variants stacked.
+
+### Files Modified
+- `apps/web/src/components/home/aspects-timeline.tsx` — added `AspectsTimelineVariant` type + `MINOR_ASPECTS` set; extended `ASPECT_COLORS` and `DEFAULT_MAX_ORB` with entries for `SemiSextile` / `SemiSquare` / `Sesquisquare` / `Quintile` / `BiQuintile`; added `variant` prop to the component; title text, filter set, and `includeMinor` now derived from variant; added a small "no active minor aspects" fallback label when the minor window is empty.
+- `apps/web/src/routes/home.tsx` — render `<AspectsTimeline variant="major" />` then `<AspectsTimeline variant="minor" />`.
+
+### Decisions Made
+- **Minor card forces `includeMinor: true` regardless of the user's `aspects.showMinor` setting.** Otherwise the card would silently be empty for users who've turned minor aspects off. The setting still controls the major-card compute (mostly for parity with other aspect UIs that respect it).
+- **Two independent computes rather than sharing bars.** Each component instance runs its own async sampler. ~2x the VSOP87/ELP2000 work, but the sampler yields to the main thread every iteration (setTimeout 0), so neither paint is blocked. Sharing would require lifting state to a provider, which isn't worth the wiring for a minor perf win.
+- **Palette reuses existing aspect tokens for minors.** Semi-square / sesquisquare borrow `--aspect-square` (reddish — both are "hard" minor variants); quintile / bi-quintile borrow `--aspect-trine`; semi-sextile borrows `--aspect-quincunx`. No new design tokens were added; the minors read as a quieter echo of the major palette.
+- **Default max-orbs for minors set to 2°** — standard modern-school value, overridable per-aspect via user settings.
+- **Same 8-bar cap and same peak-intensity-then-time sort.** Keeps both cards visually consistent; on empty windows the minor card shows an inline "no active minor aspects in this 10-day window" label instead of an empty grid.
+
+## 2026-04-17 — aspects timeline rewritten to editorial bar style
+
+### Change
+Replaced the bell-curve lane layout in `aspects-timeline.tsx` with the editorial design's thin-bar-plus-peak-dot presentation: each aspect is one horizontal row, labelled with its glyph trio (e.g. `♂△♄`) floating just left of the bar start, with a filled peak dot and a `TODAY` eyebrow above a solid day divider. Card header is now the `.card-title` eyebrow (`10-Day Aspects`) with "Major aspects, peak marked" on the right.
+
+### Files Modified
+- `apps/web/src/components/home/aspects-timeline.tsx` — kept `computeAspectBarsAsync` / `AspectBar` / `GROUP_PLANETS` / `ASPECT_COLORS` / `buildMaxOrbMap` data layer verbatim; rewrote the render: a single full-width SVG with day gridlines (dashed except solid at today), one row per aspect at 20px pitch, `stroke="color" opacity=0.38` line from first-active to last-active sample, `r=3` peak dot, glyph trio as left-anchored text with the aspect glyph colored by type. Capped at the 8 most intense aspects (filtered to major aspects only) and sorted left-to-right by peak time for readability.
+
+### Decisions Made
+- **Keep the heavy async sampling + `computeAspectBarsAsync`.** The 40-sample (4/day × 10 days) intensity computation is tested and non-trivial; the visual change is rendering-only. The bell-curve-specific helpers (`interpolatePeaks`, `catmullRomPath`) remain in `aspects-timeline-utils.ts` — they're still used by the untracked `aspects-timeline-shadcn.tsx` variant and have their own tests.
+- **Filter to major aspects (conj / opp / tri / sq / sext) and cap to 8 bars.** The design drew ~6 curated bars; real data with minor aspects enabled rendered 15+ rows which looked noisy. Ranking by peak intensity, slicing to 8, then re-sorting by peak time gives a visual density close to the design while keeping the most informative aspects.
+- **Restored `GROUP_PLANET_NAMES` export.** The new render doesn't need it, but the untracked `aspects-timeline-shadcn.tsx` still imports it — dropping it broke `tsc -b`. Kept the export alongside a comment pointing to the consumer so it's not mistakenly removed.
+- **SVG uses `preserveAspectRatio="none"` plus a left-padded viewBox.** Lets glyph-trio labels hang 6px to the left of each bar's start without clipping when the card is narrower than its natural width. Day gridlines and bars stretch proportionally; text scales but remains readable at card widths 700–1400px.
+- **Today line is solid (1.2px) over dashed day gridlines.** Matches the design's hierarchy: dashed = day boundary, solid = you-are-here.
+
+## 2026-04-17 — home screen editorial redesign (from Claude Design bundle)
+
+### Change
+Re-implemented the home (`/`) route to match the editorial design bundle exported from claude.ai/design (CAT2YrEz-bRFReLUxEnbHg). The new layout is: editorial page-head → 4-card stat row → chart-wheel + 3-card rail → 3-column detail row → full-width aspects timeline. Typography shifts to Instrument Serif for the display font; section labels use a new editorial `.eyebrow` / `.card-title` pattern (uppercase, tracked, muted).
+
+### Files Modified
+- `apps/web/index.html` — added Instrument Serif to the Google Fonts import.
+- `apps/web/src/index.css` — `--font-display` now prefers Instrument Serif; added `.eyebrow` and `.card-title` utility classes inside `@layer base`.
+- `apps/web/src/routes/home.tsx` — rewritten layout: editorial header with eyebrow + serif `The sky today` + moon/retro meta; new 4-stat grid (Sun / Ascending / Next Ingress / Moon); chart (1.3fr) + rail (1fr) split; 3-col detail grid (Positions 1.1fr / Aspects 1.4fr / Element×Modality 1fr); single full-width AspectsTimeline. Removed the Shadcn timeline comparison block.
+- `apps/web/src/components/home/hero-stat.tsx` — new presentational component; serif value, small uppercase eyebrow, muted meta line, card-hover + fade-in.
+- `docs/DESIGN_DOCUMENT.md` — appended "Part 4: Home Screen — Editorial Redesign (2026-04)" capturing the new home-screen spec.
+
+### Decisions Made
+- **4th stat is Moon (not Next Eclipse).** The design had Sun / Ascending / Next Ingress / Next Eclipse. Eclipse data isn't available from the approx-engine or backend today. Substituted Moon (phase + degree) because it's already prominent in the design's meta line and all four slots remain derivable from live chart data.
+- **Next Ingress computed from approx speeds.** Instead of hardcoding or mocking, it picks the inner/social planet with the smallest `(30 - degInSign) / speed_longitude` and displays the glyph + target sign + days-until. Scoped to Mercury–Saturn since the outers change signs too rarely to be interesting as a "soon" countdown.
+- **Kept existing cards (MoonCard, PlanetaryHours, RetrogradeTracker, PlanetCard, AspectGrid, ElementModalityCard, AspectsTimeline) unchanged.** The design specced fresh variants of each, but our production cards already carry real data, dignity logic, collapsibles, skeletons, and tests. Rewriting them for marginal visual polish would be a regression risk. The new layout slots them in as-is; visual polish can be a follow-up per-card.
+- **AspectsTimelineShadcn comparison block removed from home.tsx.** The file remains untracked (it was a WIP visual comparison of two timeline variants); only the import and render were dropped from the home route since the editorial design shows a single timeline.
+- **Font: Instrument Serif (design) layered over Cormorant Garamond fallback.** Both fonts load; existing copy already rendered with Cormorant keeps a close visual fallback during the Instrument Serif fetch and on browsers that can't reach Google Fonts.
+- **Ascendant derived client-side from `chart.houses.ascendant` (longitude).** No backend changes; a small `longitudeToZp` helper converts the longitude into `{ sign, degree, minute }`. Seconds are dropped (not displayed at hero-stat size).
+- **Typecheck passes. Tests: 2 pre-existing failures in `format.test.ts` (SIGN_GLYPHS variation-selector mismatch) are not introduced by this change — confirmed by stashing and re-running.** Manual QA via Playwright at 1440×900 confirmed layout matches design (screenshots retained in the task output).
+
 ## 2026-04-15 — shadcn migration PR 5: interactive primitives + close-out
 
 ### Change

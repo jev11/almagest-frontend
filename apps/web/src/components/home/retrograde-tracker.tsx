@@ -51,9 +51,14 @@ export function RetrogradeTracker() {
   return (
     <Card className="card-hover py-0">
       <CardContent className="p-phi-4">
-      <h3 className="text-foreground font-semibold text-sm mb-phi-3 font-display">Retrograde Tracker</h3>
+      <div className="flex items-baseline justify-between mb-phi-3">
+        <div className="card-title">Retrogrades</div>
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-muted/60 border border-border text-[11px] text-muted-foreground tabular-nums">
+          {retroBodies.length === 0 ? "none" : `${retroBodies.length} active`}
+        </span>
+      </div>
       {retroBodies.length === 0 ? (
-        <p className="text-success text-sm">All planets direct ✓</p>
+        <p className="text-success text-sm">All planets direct</p>
       ) : (
         <div className="flex flex-col gap-0">
           {retroBodies.map((body) => (

@@ -8,7 +8,6 @@ import {
   Settings,
   LogOut,
   PanelLeftClose,
-  PanelLeftOpen,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -27,7 +26,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 
 const TOP_NAV = [
-  { label: "Home", icon: Home, path: "/" },
+  { label: "Today", icon: Home, path: "/" },
   { label: "New Chart", icon: Plus, path: "/chart/new" },
   { label: "My Charts", icon: Sun, path: "/charts" },
   { label: "Transits", icon: RefreshCw, path: "/transits" },
@@ -57,8 +56,8 @@ function NavButton({
           ? "w-[34px] h-[34px] justify-center"
           : "w-full h-[34px] px-phi-2 justify-start",
         isActive
-          ? "bg-primary/10 text-primary border-l-2 border-primary"
-          : "text-muted-foreground hover:text-foreground hover:bg-secondary border-l-2 border-transparent",
+          ? "bg-primary/10 text-primary"
+          : "text-muted-foreground hover:text-foreground hover:bg-secondary",
       )}
     >
       <Icon size={20} className="shrink-0" />
@@ -108,7 +107,7 @@ export function Sidebar() {
       onDoubleClick={toggle}
       className={cn(
         "hidden md:flex flex-col bg-background border-r border-border transition-all duration-200 ease-in-out shrink-0",
-        collapsed ? "w-[89px]" : "w-[144px]",
+        collapsed ? "w-[64px]" : "w-[220px]",
       )}
     >
       {/* Header */}
@@ -118,16 +117,32 @@ export function Sidebar() {
           collapsed ? "justify-center py-phi-2 px-0" : "",
         )}
       >
-        {!collapsed && (
-          <span className="flex-1 font-semibold text-foreground text-[14px] leading-tight truncate font-display">Almagest</span>
-        )}
         <button
           onClick={toggle}
-          className="p-phi-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-label={collapsed ? "Expand sidebar" : "Toggle sidebar"}
+          className="w-[26px] h-[26px] rounded-[7px] grid place-items-center shrink-0 font-display italic text-[15px] text-white cursor-pointer"
+          style={{
+            background:
+              "linear-gradient(135deg, oklch(62% 0.15 265), oklch(55% 0.18 305))",
+            boxShadow: "inset 0 0 0 1px oklch(100% 0 0 / 0.15)",
+          }}
         >
-          {collapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
+          A
         </button>
+        {!collapsed && (
+          <>
+            <span className="flex-1 font-display text-foreground text-[20px] leading-none tracking-tight truncate">
+              Almagest
+            </span>
+            <button
+              onClick={toggle}
+              className="p-phi-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              aria-label="Collapse sidebar"
+            >
+              <PanelLeftClose size={18} />
+            </button>
+          </>
+        )}
       </div>
 
       {/* Top nav */}
@@ -157,7 +172,7 @@ export function Sidebar() {
               <button
                 className={cn(
                   "flex items-center gap-phi-2 rounded-lg transition-colors cursor-pointer",
-                  collapsed ? "p-0" : "w-full py-1 hover:bg-secondary px-phi-2",
+                  collapsed ? "p-0" : "w-full py-1 hover:bg-secondary px-phi-2 min-w-0",
                 )}
               >
                 <Avatar className="w-8 h-8 shrink-0">
@@ -166,7 +181,16 @@ export function Sidebar() {
                   </AvatarFallback>
                 </Avatar>
                 {!collapsed && (
-                  <span className="text-foreground text-sm font-medium leading-none truncate">{displayName}</span>
+                  <div className="flex flex-col items-start min-w-0 leading-tight">
+                    <span className="text-foreground text-[13px] font-medium truncate max-w-full">
+                      {displayName}
+                    </span>
+                    {user?.email && (
+                      <span className="text-muted-foreground text-[11px] truncate max-w-full">
+                        {user.email}
+                      </span>
+                    )}
+                  </div>
                 )}
               </button>
             }

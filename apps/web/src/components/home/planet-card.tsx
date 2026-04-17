@@ -107,12 +107,40 @@ export function PlanetCard({
   const isDignityBody = (body: CelestialBody) =>
     (DIGNITY_BODIES as CelestialBody[]).includes(body);
 
+  const visibleBodyCount = displayBodies.filter(
+    (b) => chartData.zodiac_positions[b],
+  ).length;
+
+  const bodyNames: Partial<Record<CelestialBody, string>> = {
+    [CelestialBody.Sun]: "Sun",
+    [CelestialBody.Moon]: "Moon",
+    [CelestialBody.Mercury]: "Mercury",
+    [CelestialBody.Venus]: "Venus",
+    [CelestialBody.Mars]: "Mars",
+    [CelestialBody.Jupiter]: "Jupiter",
+    [CelestialBody.Saturn]: "Saturn",
+    [CelestialBody.Uranus]: "Uranus",
+    [CelestialBody.Neptune]: "Neptune",
+    [CelestialBody.Pluto]: "Pluto",
+    [CelestialBody.Chiron]: "Chiron",
+    [CelestialBody.MeanNorthNode]: "N. Node",
+    [CelestialBody.MeanSouthNode]: "S. Node",
+    [CelestialBody.TrueNorthNode]: "N. Node",
+    [CelestialBody.TrueSouthNode]: "S. Node",
+  };
+
   return (
     <Card
       className="card-hover cursor-pointer py-0"
       onClick={() => setExpanded((v) => !v)}
     >
       <CardContent className="p-phi-3">
+      <div className="flex items-baseline justify-between mb-phi-3">
+        <div className="card-title">Positions</div>
+        <span className="text-[11px] text-muted-foreground tabular-nums">
+          {visibleBodyCount} bodies
+        </span>
+      </div>
       {apiError && retry && (
         <ErrorCard
           message="Showing approximation."
@@ -121,7 +149,7 @@ export function PlanetCard({
         />
       )}
 
-      {/* Always-visible 5-column position table */}
+      {/* Always-visible position table */}
       <table className="w-full text-sm">
         <tbody>
           {displayBodies.map((body) => {
@@ -141,11 +169,14 @@ export function PlanetCard({
                 key={body}
                 className="border-b border-border last:border-0 hover:bg-secondary transition-[background-color] duration-120 ease-out"
               >
-                <td className="py-1 w-[40px]">
+                <td className="py-1 w-[28px]">
                   <span className="text-primary text-base">{glyph}</span>
                 </td>
+                <td className="py-1 text-muted-foreground text-xs">
+                  {bodyNames[body] ?? body}
+                </td>
                 <td
-                  className="py-1"
+                  className="py-1 pl-1"
                   style={{ color: ELEMENT_COLORS[SIGN_ELEMENT[zp.sign]] }}
                 >
                   {signGlyph}
@@ -158,8 +189,8 @@ export function PlanetCard({
                     </span>
                   )}
                 </td>
-                <td className="py-1 text-muted-foreground text-xs text-right w-[24px]">
-                  {house}
+                <td className="py-1 text-muted-foreground text-xs text-right w-[32px] mono tabular-nums">
+                  {house ? `H${house}` : ""}
                 </td>
                 <td className="py-1 text-right">
                   {isDignityBody(body) ? (

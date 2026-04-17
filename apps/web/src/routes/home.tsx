@@ -1,3 +1,10 @@
+import { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { Plus } from "lucide-react";
+import { calculateApproximate, moonPhaseAngle } from "@astro-app/approx-engine";
+import { CelestialBody, SIGN_ELEMENT, SIGN_ORDER } from "@astro-app/shared-types";
+import type { ChartData, ZodiacPosition } from "@astro-app/shared-types";
+import { Button } from "@/components/ui/button";
 import { ChartWheel } from "@/components/home/chart-wheel";
 import { PlanetCard } from "@/components/home/planet-card";
 import { AspectGrid } from "@/components/home/aspect-grid";
@@ -6,47 +13,239 @@ import { RetrogradeTracker } from "@/components/home/retrograde-tracker";
 import { PlanetaryHours } from "@/components/home/planetary-hours";
 import { ElementModalityCard } from "@/components/home/element-modality-card";
 import { AspectsTimeline } from "@/components/home/aspects-timeline";
+import { HeroStat } from "@/components/home/hero-stat";
 import { useCurrentSky } from "@/hooks/use-current-sky";
 import { useSettings } from "@/hooks/use-settings";
 import { useReverseGeocode } from "@/hooks/use-reverse-geocode";
-import { useTimezone } from "@/hooks/use-timezone";
-import { formatDateTime } from "@/lib/format";
+import { PLANET_GLYPHS, SIGN_GLYPHS, formatDegree, getMoonPhaseName } from "@/lib/format";
+
+const PHASE_ICONS: Record<string, string> = {
+  "New Moon": "🌑",
+  "Waxing Crescent": "🌒",
+  "First Quarter": "🌓",
+  "Waxing Gibbous": "🌔",
+  "Full Moon": "🌕",
+  "Waning Gibbous": "🌖",
+  "Last Quarter": "🌗",
+  "Waning Crescent": "🌘",
+};
+
+const PLANET_NAME: Record<string, string> = {
+  mercury: "Mercury", venus: "Venus", mars: "Mars", jupiter: "Jupiter",
+  saturn: "Saturn", uranus: "Uranus", neptune: "Neptune", pluto: "Pluto",
+};
+
+const INGRESS_BODIES = [
+  CelestialBody.Mercury, CelestialBody.Venus, CelestialBody.Mars,
+  CelestialBody.Jupiter, CelestialBody.Saturn,
+];
+
+function longitudeToZp(chart: ChartData, lon: number): { sign: ZodiacPosition["sign"]; degree: number; minute: number } {
+  const normalized = ((lon % 360) + 360) % 360;
+  const signIdx = Math.floor(normalized / 30);
+  const within = normalized - signIdx * 30;
+  const degree = Math.floor(within);
+  const minute = Math.floor((within - degree) * 60);
+  void chart;
+  return { sign: SIGN_ORDER[signIdx]!, degree, minute };
+}
+
+/** Find the soonest sign-change event among the inner+social planets. */
+function computeNextIngress(chart: ChartData): { body: CelestialBody; targetSign: ZodiacPosition["sign"]; daysUntil: number } | null {
+  let best: { body: CelestialBody; targetSign: ZodiacPosition["sign"]; daysUntil: number } | null = null;
+  for (const body of INGRESS_BODIES) {
+    const pos = chart.positions[body];
+    const zp = chart.zodiac_positions[body];
+    if (!pos || !zp || pos.speed_longitude <= 0) continue;
+    const degreesLeftInSign = 30 - (zp.degree + zp.minute / 60 + zp.second / 3600);
+    const daysUntil = degreesLeftInSign / pos.speed_longitude;
+    if (daysUntil < 0 || daysUntil > 60) continue;
+    if (!best || daysUntil < best.daysUntil) {
+      const currentIdx = SIGN_ORDER.indexOf(zp.sign);
+      const nextSign = SIGN_ORDER[(currentIdx + 1) % 12]!;
+      best = { body, targetSign: nextSign, daysUntil };
+    }
+  }
+  return best;
+}
+
+function formatDateEyebrow(now: Date): string {
+  return now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+}
+
+function formatTime(now: Date, tf: "12h" | "24h"): string {
+  return now.toLocaleTimeString("en-US", {
+    hour: "numeric", minute: "2-digit", hour12: tf === "12h",
+  });
+}
+
+const DAY_RULERS = [
+  "Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn",
+];
 
 export function HomePage() {
+  const navigate = useNavigate();
   const sky = useCurrentSky();
   const timeFormat = useSettings((s) => s.appearance.timeFormat);
   const locationName = useReverseGeocode(sky.location.lat, sky.location.lon);
-  const { display: timezone } = useTimezone(sky.location.lat, sky.location.lon);
+
+  const now = useMemo(() => new Date(), []);
+  const chart = sky.chartData;
+
+  const sunZp = chart?.zodiac_positions[CelestialBody.Sun];
+  const moonZp = chart?.zodiac_positions[CelestialBody.Moon];
+  const ascZp = useMemo(
+    () => (chart ? longitudeToZp(chart, chart.houses.ascendant) : null),
+    [chart],
+  );
+  const moonPhase = useMemo(() => getMoonPhaseName(moonPhaseAngle(now)), [now]);
+  const moonIcon = PHASE_ICONS[moonPhase] ?? "🌙";
+
+  const retroCount = useMemo(() => {
+    const approx = calculateApproximate(now, 0, 0);
+    return [
+      CelestialBody.Mercury, CelestialBody.Venus, CelestialBody.Mars,
+      CelestialBody.Jupiter, CelestialBody.Saturn, CelestialBody.Uranus,
+      CelestialBody.Neptune, CelestialBody.Pluto,
+    ].filter((b) => (approx.positions[b]?.speed_longitude ?? 0) < 0).length;
+  }, [now]);
+
+  const nextIngress = useMemo(() => (chart ? computeNextIngress(chart) : null), [chart]);
 
   return (
     <div className="flex flex-col gap-phi-5 py-phi-5 px-phi-6">
-      {/* Header row */}
-      <div className="flex items-baseline gap-phi-3 animate-fade-in">
-        <h1 className="text-2xl font-semibold text-foreground font-display">Today</h1>
-        <span className="text-[15px] text-muted-foreground">{formatDateTime(new Date(), timeFormat)}</span>
-        {locationName && (
-          <span className="text-[15px] text-muted-foreground">· {locationName}</span>
-        )}
+      {/* Editorial page head */}
+      <header className="flex flex-wrap items-end justify-between gap-phi-4 animate-fade-in">
+        <div className="min-w-0">
+          <div className="eyebrow">
+            {formatDateEyebrow(now)} · {formatTime(now, timeFormat)}
+            {locationName ? ` · ${locationName}` : ""}
+          </div>
+          <h1 className="font-display text-foreground mt-phi-2 text-[44px] leading-[1.05]">
+            The sky <em className="italic text-muted-foreground">today</em>
+          </h1>
+          {moonZp && (
+            <div className="text-[13px] text-muted-foreground mt-phi-2">
+              <span className="mr-1 text-primary">{moonIcon}</span>
+              {moonPhase} at {moonZp.degree}° {moonZp.sign}
+              <span className="mx-[10px] text-faint-foreground">·</span>
+              Day of {DAY_RULERS[now.getDay()]}
+              <span className="mx-[10px] text-faint-foreground">·</span>
+              {retroCount} retrograde
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-phi-2 shrink-0">
+          <Button onClick={() => navigate("/chart/new")} className="gap-1.5">
+            <Plus className="w-4 h-4" />
+            New Chart
+          </Button>
+        </div>
+      </header>
+
+      {/* Stat row — 4 hero stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-phi-4">
+        <HeroStat
+          eyebrow="Sun"
+          value={
+            sunZp ? (
+              <>
+                <span style={{ color: `var(--color-${SIGN_ELEMENT[sunZp.sign]})` }}>
+                  {SIGN_GLYPHS[sunZp.sign]}
+                </span>{" "}
+                {sunZp.degree}°
+              </>
+            ) : (
+              "—"
+            )
+          }
+          meta={sunZp ? `${sunZp.sign}${sunZp.is_retrograde ? " · ℞" : ""}` : "Loading"}
+        />
+        <HeroStat
+          eyebrow="Ascending"
+          value={
+            ascZp ? (
+              <>
+                <span style={{ color: `var(--color-${SIGN_ELEMENT[ascZp.sign]})` }}>
+                  {SIGN_GLYPHS[ascZp.sign]}
+                </span>{" "}
+                {ascZp.degree}°
+              </>
+            ) : (
+              "—"
+            )
+          }
+          meta={ascZp ? `${ascZp.sign} rising` : "Loading"}
+        />
+        <HeroStat
+          eyebrow="Next Ingress"
+          tone="accent"
+          value={
+            nextIngress ? (
+              <>
+                <span>{PLANET_GLYPHS[nextIngress.body] ?? "·"}</span>
+                {" → "}
+                <span style={{ color: `var(--color-${SIGN_ELEMENT[nextIngress.targetSign]})` }}>
+                  {SIGN_GLYPHS[nextIngress.targetSign]}
+                </span>
+              </>
+            ) : (
+              "—"
+            )
+          }
+          meta={
+            nextIngress
+              ? `${PLANET_NAME[nextIngress.body] ?? nextIngress.body} enters ${nextIngress.targetSign} · in ${Math.round(nextIngress.daysUntil)}d`
+              : "No ingress in 60d"
+          }
+        />
+        <HeroStat
+          eyebrow="Moon"
+          value={
+            moonZp ? (
+              <>
+                <span className="mr-phi-1">{moonIcon}</span>
+                {formatDegree(moonZp.degree, moonZp.minute).replace(/'$/, "′")}
+              </>
+            ) : (
+              "—"
+            )
+          }
+          meta={moonZp ? `${moonPhase} in ${moonZp.sign}` : "Loading"}
+        />
       </div>
 
-      {/* Top row: φ split — 61.8% left / 38.2% right */}
-      <div className="flex gap-phi-5 items-start">
-        <div className="flex flex-col gap-phi-4 min-w-0 animate-fade-in" style={{ flex: "1.618", animationDelay: "0.05s" }}>
-          <ChartWheel sky={sky} locationName={locationName} timezone={timezone} />
-          <AspectGrid chartData={sky.chartData} />
+      {/* Hero row: chart wheel (1.3fr) + right rail (1fr) — stacks below 820px */}
+      <div className="flex flex-col md:flex-row gap-phi-5 items-start">
+        <div
+          className="flex flex-col gap-phi-4 min-w-0 w-full animate-fade-in"
+          style={{ flex: "1.3", animationDelay: "0.05s" }}
+        >
+          <ChartWheel sky={sky} locationName={locationName} />
         </div>
-        <div className="flex flex-col gap-phi-4 animate-fade-in" style={{ flex: "1", animationDelay: "0.1s" }}>
+        <div
+          className="flex flex-col gap-phi-4 min-w-0 w-full animate-fade-in"
+          style={{ flex: "1", animationDelay: "0.1s" }}
+        >
           <MoonCard />
           <PlanetaryHours lat={sky.location.lat} lon={sky.location.lon} />
-          <PlanetCard chartData={sky.chartData} apiError={sky.apiError} retry={sky.retry} />
           <RetrogradeTracker />
-          <ElementModalityCard chartData={sky.chartData} />
         </div>
       </div>
 
-      {/* Aspects Timeline — full-width below */}
-      <div className="animate-fade-in" style={{ animationDelay: "0.15s" }}>
-        <AspectsTimeline />
+      {/* Three-column detail row: Positions | Aspects | Element × Modality */}
+      <div className="grid grid-cols-1 md:grid-cols-[1.1fr_1.4fr_1fr] gap-phi-4 items-start animate-fade-in" style={{ animationDelay: "0.15s" }}>
+        <PlanetCard chartData={chart} apiError={sky.apiError} retry={sky.retry} />
+        <AspectGrid chartData={chart} />
+        <ElementModalityCard chartData={chart} />
+      </div>
+
+      {/* Aspects Timeline — full-width, major + minor stacked */}
+      <div className="animate-fade-in" style={{ animationDelay: "0.2s" }}>
+        <AspectsTimeline variant="major" />
+      </div>
+      <div className="animate-fade-in" style={{ animationDelay: "0.25s" }}>
+        <AspectsTimeline variant="minor" />
       </div>
     </div>
   );
