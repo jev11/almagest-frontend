@@ -1,6 +1,24 @@
 import { describe, it, expect } from "vitest";
-import { findOrbCrossing, orbAtTime, orbIntensity, refinePeakTime } from "./aspects-timeline-utils";
+import { findOrbCrossing, findLocalMaxIndices, orbAtTime, orbIntensity, refinePeakTime } from "./aspects-timeline-utils";
 import { CelestialBody } from "@astro-app/shared-types";
+
+describe("findLocalMaxIndices", () => {
+  it("finds single peak in unimodal array", () => {
+    expect(findLocalMaxIndices([0, 0.3, 0.7, 1.0, 0.7, 0.3, 0])).toEqual([3]);
+  });
+
+  it("finds two peaks in bimodal array", () => {
+    expect(
+      findLocalMaxIndices([0, 0.5, 0.8, 0.5, 0, 0.5, 0.8, 0.5, 0]),
+    ).toEqual([2, 6]);
+  });
+
+  it("includes boundary index 0 when it is a local max", () => {
+    expect(
+      findLocalMaxIndices([0.8, 0.5, 0, 0.5, 0.8, 0.5, 0]),
+    ).toEqual([0, 4]);
+  });
+});
 
 describe("orbIntensity", () => {
   it("returns 1 when orb is 0 (exact aspect)", () => {

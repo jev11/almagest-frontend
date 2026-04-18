@@ -4,8 +4,10 @@ import { CelestialBody, AspectType } from "@astro-app/shared-types";
 import { PLANET_GLYPHS, ASPECT_GLYPHS } from "@/lib/format";
 import {
   orbIntensity,
+  orbAtTime,
   refinePeakTime,
   findOrbCrossing,
+  findLocalMaxIndices,
 } from "./aspects-timeline-utils";
 import { useSettings } from "@/hooks/use-settings";
 import {
@@ -261,104 +263,152 @@ async function computeAspectBarsAsync(
 interface BarRange {
   bar: AspectBar;
   startMs: number;
-  peakMs: number;
   endMs: number;
-  peakValue: number;
+  peaks: Array<{ ms: number; value: number }>;
   startClipped: boolean;
   endClipped: boolean;
 }
 
-function computeRange(
+/**
+ * Golden-section MAXIMIZATION of orbAtTime(t) in [aMs, bMs].
+ * Used to detect whether the aspect exits orb between two local peaks.
+ */
+function localOrbMax(
+  aMs: number,
+  bMs: number,
+  body1: CelestialBody,
+  body2: CelestialBody,
+  aspectAngle: number,
+): number {
+  const R = (Math.sqrt(5) - 1) / 2;
+  const CONV = 30_000;
+  const MAX = 30;
+  let a = aMs, b = bMs;
+  let x1 = a + (1 - R) * (b - a);
+  let x2 = a + R * (b - a);
+  let f1 = orbAtTime(x1, body1, body2, aspectAngle);
+  let f2 = orbAtTime(x2, body1, body2, aspectAngle);
+  for (let i = 0; i < MAX; i++) {
+    if (b - a < CONV) break;
+    if (f1 < f2) {
+      a = x1; x1 = x2; f1 = f2;
+      x2 = a + R * (b - a);
+      f2 = orbAtTime(x2, body1, body2, aspectAngle);
+    } else {
+      b = x2; x2 = x1; f2 = f1;
+      x1 = a + (1 - R) * (b - a);
+      f1 = orbAtTime(x1, body1, body2, aspectAngle);
+    }
+  }
+  return orbAtTime((a + b) / 2, body1, body2, aspectAngle);
+}
+
+function computeRanges(
   bar: AspectBar,
   windowStartMs: number,
   maxOrbMap: Partial<Record<AspectType, number>>,
-): BarRange | null {
-  // Locate the sample with the strongest intensity.
-  let bestIdx = -1;
-  let bestValue = 0;
-  for (let i = 0; i < bar.samples.length; i++) {
-    const v = bar.samples[i]!;
-    if (v > bestValue) {
-      bestValue = v;
-      bestIdx = i;
-    }
-  }
-  if (bestIdx === -1) return null;
-
+): BarRange[] {
   const maxOrb = maxOrbMap[bar.aspectType] ?? 8;
   const aspectAngle = ASPECT_ANGLES[bar.aspectType] ?? 0;
 
-  // Peak-refinement bracket: ±1 sample around bestIdx, clamped to [0, N-1].
-  const peakBracketStart =
-    windowStartMs + Math.max(0, bestIdx - 1) * SAMPLE_MS;
-  const peakBracketEnd =
-    windowStartMs + Math.min(bar.samples.length - 1, bestIdx + 1) * SAMPLE_MS;
+  const candidates = findLocalMaxIndices(bar.samples);
+  if (candidates.length === 0) return [];
 
-  const peak = refinePeakTime(
-    peakBracketStart,
-    peakBracketEnd,
-    bar.groupPlanet,
-    bar.otherPlanet,
-    aspectAngle,
-  );
+  // Refine each candidate to a precise peak.
+  type RefinedPeak = { ms: number; orb: number; sampleIdx: number };
+  const refined: RefinedPeak[] = [];
+  for (const idx of candidates) {
+    const bracketStart =
+      windowStartMs + Math.max(0, idx - 1) * SAMPLE_MS;
+    const bracketEnd =
+      windowStartMs + Math.min(bar.samples.length - 1, idx + 1) * SAMPLE_MS;
+    const p = refinePeakTime(
+      bracketStart,
+      bracketEnd,
+      bar.groupPlanet,
+      bar.otherPlanet,
+      aspectAngle,
+    );
+    if (p.orb < maxOrb) refined.push({ ms: p.ms, orb: p.orb, sampleIdx: idx });
+  }
+  if (refined.length === 0) return [];
+  refined.sort((a, b) => a.ms - b.ms);
 
-  if (peak.orb >= maxOrb) return null;
-
-  // Seed the crossing brackets from the nearest zero-intensity samples.
-  let leftInactiveIdx = -1;
-  for (let i = bestIdx - 1; i >= 0; i--) {
-    if (bar.samples[i]! === 0) {
-      leftInactiveIdx = i;
-      break;
+  // Partition into continuous-window groups.
+  const groups: RefinedPeak[][] = [[refined[0]!]];
+  for (let i = 1; i < refined.length; i++) {
+    const prev = refined[i - 1]!;
+    const curr = refined[i]!;
+    const maxBetween = localOrbMax(
+      prev.ms,
+      curr.ms,
+      bar.groupPlanet,
+      bar.otherPlanet,
+      aspectAngle,
+    );
+    if (maxBetween >= maxOrb) {
+      groups.push([curr]);
+    } else {
+      groups[groups.length - 1]!.push(curr);
     }
   }
-  let rightInactiveIdx = -1;
-  for (let i = bestIdx + 1; i < bar.samples.length; i++) {
-    if (bar.samples[i]! === 0) {
-      rightInactiveIdx = i;
-      break;
+
+  // Emit one BarRange per group.
+  const out: BarRange[] = [];
+  for (const group of groups) {
+    const first = group[0]!;
+    const last = group[group.length - 1]!;
+
+    // Left outer bracket: last zero before first peak's sample, else window start.
+    let leftIdx = -1;
+    for (let i = first.sampleIdx - 1; i >= 0; i--) {
+      if (bar.samples[i]! === 0) { leftIdx = i; break; }
     }
+    const leftOuterMs =
+      leftIdx >= 0 ? windowStartMs + leftIdx * SAMPLE_MS : windowStartMs;
+
+    // Right outer bracket: first zero after last peak's sample, else window end.
+    let rightIdx = -1;
+    for (let i = last.sampleIdx + 1; i < bar.samples.length; i++) {
+      if (bar.samples[i]! === 0) { rightIdx = i; break; }
+    }
+    const rightOuterMs =
+      rightIdx >= 0
+        ? windowStartMs + rightIdx * SAMPLE_MS
+        : windowStartMs + (bar.samples.length - 1) * SAMPLE_MS;
+
+    const start = findOrbCrossing(
+      "left",
+      first.ms,
+      first.orb,
+      leftOuterMs,
+      maxOrb,
+      bar.groupPlanet,
+      bar.otherPlanet,
+      aspectAngle,
+    );
+    const end = findOrbCrossing(
+      "right",
+      last.ms,
+      last.orb,
+      rightOuterMs,
+      maxOrb,
+      bar.groupPlanet,
+      bar.otherPlanet,
+      aspectAngle,
+    );
+
+    out.push({
+      bar,
+      startMs: start.ms,
+      endMs: end.ms,
+      peaks: group.map((p) => ({ ms: p.ms, value: 1 - p.orb / maxOrb })),
+      startClipped: start.clipped,
+      endClipped: end.clipped,
+    });
   }
 
-  const leftOuterMs =
-    leftInactiveIdx >= 0
-      ? windowStartMs + leftInactiveIdx * SAMPLE_MS
-      : windowStartMs;
-  const rightOuterMs =
-    rightInactiveIdx >= 0
-      ? windowStartMs + rightInactiveIdx * SAMPLE_MS
-      : windowStartMs + (bar.samples.length - 1) * SAMPLE_MS;
-
-  const start = findOrbCrossing(
-    "left",
-    peak.ms,
-    peak.orb,
-    leftOuterMs,
-    maxOrb,
-    bar.groupPlanet,
-    bar.otherPlanet,
-    aspectAngle,
-  );
-  const end = findOrbCrossing(
-    "right",
-    peak.ms,
-    peak.orb,
-    rightOuterMs,
-    maxOrb,
-    bar.groupPlanet,
-    bar.otherPlanet,
-    aspectAngle,
-  );
-
-  return {
-    bar,
-    startMs: start.ms,
-    peakMs: peak.ms,
-    endMs: end.ms,
-    peakValue: 1 - peak.orb / maxOrb,
-    startClipped: start.clipped,
-    endClipped: end.clipped,
-  };
+  return out;
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -442,16 +492,19 @@ export const AspectsTimeline = memo(function AspectsTimeline({
       for (const bar of bars) {
         if (controller.signal.aborted) return;
         if (!filter.has(bar.aspectType)) continue;
-        const r = computeRange(bar, windowStartMs, maxOrbMap);
-        if (!r) continue;
-        if (r.endMs < windowStartMs || r.startMs > windowEndMs) continue;
-        list.push(r);
+        const rs = computeRanges(bar, windowStartMs, maxOrbMap);
+        for (const r of rs) {
+          if (r.endMs < windowStartMs || r.startMs > windowEndMs) continue;
+          list.push(r);
+        }
         await yieldToMain();
       }
       if (controller.signal.aborted) return;
       list.sort((a, b) => {
-        if (a.peakMs !== b.peakMs) return a.peakMs - b.peakMs;
-        return b.peakValue - a.peakValue;
+        const aFirst = a.peaks[0]!.ms;
+        const bFirst = b.peaks[0]!.ms;
+        if (aFirst !== bFirst) return aFirst - bFirst;
+        return b.peaks[0]!.value - a.peaks[0]!.value;
       });
       if (!controller.signal.aborted) setRanges(list);
     })();
@@ -548,7 +601,6 @@ export const AspectsTimeline = memo(function AspectsTimeline({
             const rawX2 = msToX(r.endMs);
             const x1 = clampX(rawX1);
             const x2 = clampX(rawX2);
-            const peakX = clampX(msToX(r.peakMs));
             const color =
               ASPECT_COLORS[r.bar.aspectType] ?? "var(--muted-foreground)";
             const pG = PLANET_GLYPHS[r.bar.groupPlanet] ?? "·";
@@ -563,7 +615,6 @@ export const AspectsTimeline = memo(function AspectsTimeline({
             const endLabel = r.endClipped
               ? `after ${formatMs(windowEndMs)}`
               : formatMs(r.endMs);
-            const peakLabel = formatMs(r.peakMs);
             return (
               <Tooltip key={`bar-${idx}`}>
                 <TooltipTrigger
@@ -587,7 +638,15 @@ export const AspectsTimeline = memo(function AspectsTimeline({
                         opacity={0.38}
                         strokeLinecap="round"
                       />
-                      <circle cx={peakX} cy={y} r={3} fill={color} />
+                      {r.peaks.map((p, pi) => (
+                        <circle
+                          key={`peak-${idx}-${pi}`}
+                          cx={clampX(msToX(p.ms))}
+                          cy={y}
+                          r={3}
+                          fill={color}
+                        />
+                      ))}
                       <text
                         x={x1 - 6}
                         y={y + 3}
@@ -618,8 +677,12 @@ export const AspectsTimeline = memo(function AspectsTimeline({
                   <div className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5 opacity-90">
                     <span className="opacity-60">Start</span>
                     <span className="font-mono">{startLabel}</span>
-                    <span className="opacity-60">Peak</span>
-                    <span className="font-mono">{peakLabel}</span>
+                    <span className="opacity-60 self-start">{r.peaks.length > 1 ? "Peaks" : "Peak"}</span>
+                    <span className="font-mono flex flex-col">
+                      {r.peaks.map((p, pi) => (
+                        <span key={pi}>{formatMs(p.ms)}</span>
+                      ))}
+                    </span>
                     <span className="opacity-60">End</span>
                     <span className="font-mono">{endLabel}</span>
                   </div>

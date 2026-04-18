@@ -2,6 +2,26 @@ import { calculateBodyPosition } from "@astro-app/approx-engine";
 import type { CelestialBody } from "@astro-app/shared-types";
 
 /**
+ * Indices of strict local maxima in a sample array. Plateaus are reported at
+ * their leftmost index. Boundary indices (0, n-1) are included if the single
+ * adjacent neighbour is lower.
+ */
+export function findLocalMaxIndices(samples: number[]): number[] {
+  const out: number[] = [];
+  const n = samples.length;
+  for (let i = 0; i < n; i++) {
+    const v = samples[i]!;
+    if (v <= 0) continue;
+    const prev = i > 0 ? samples[i - 1]! : -Infinity;
+    const next = i < n - 1 ? samples[i + 1]! : -Infinity;
+    if (v >= prev && v >= next && (v > prev || v > next)) {
+      out.push(i);
+    }
+  }
+  return out;
+}
+
+/**
  * Converts an orb value to an intensity in [0, 1].
  * intensity = 1 at orb = 0 (exact aspect), 0 at orb = maxOrb.
  */
