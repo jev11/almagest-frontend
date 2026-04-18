@@ -8,6 +8,9 @@ import {
   refinePeakTime,
   findOrbCrossing,
   findLocalMaxIndices,
+  GOLDEN_R,
+  CONVERGENCE_MS,
+  MAX_ITER,
 } from "./aspects-timeline-utils";
 import { useSettings } from "@/hooks/use-settings";
 import {
@@ -280,23 +283,20 @@ function localOrbMax(
   body2: CelestialBody,
   aspectAngle: number,
 ): number {
-  const R = (Math.sqrt(5) - 1) / 2;
-  const CONV = 30_000;
-  const MAX = 30;
   let a = aMs, b = bMs;
-  let x1 = a + (1 - R) * (b - a);
-  let x2 = a + R * (b - a);
+  let x1 = a + (1 - GOLDEN_R) * (b - a);
+  let x2 = a + GOLDEN_R * (b - a);
   let f1 = orbAtTime(x1, body1, body2, aspectAngle);
   let f2 = orbAtTime(x2, body1, body2, aspectAngle);
-  for (let i = 0; i < MAX; i++) {
-    if (b - a < CONV) break;
+  for (let i = 0; i < MAX_ITER; i++) {
+    if (b - a < CONVERGENCE_MS) break;
     if (f1 < f2) {
       a = x1; x1 = x2; f1 = f2;
-      x2 = a + R * (b - a);
+      x2 = a + GOLDEN_R * (b - a);
       f2 = orbAtTime(x2, body1, body2, aspectAngle);
     } else {
       b = x2; x2 = x1; f2 = f1;
-      x1 = a + (1 - R) * (b - a);
+      x1 = a + (1 - GOLDEN_R) * (b - a);
       f1 = orbAtTime(x1, body1, body2, aspectAngle);
     }
   }

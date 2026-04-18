@@ -14,7 +14,7 @@ export function findLocalMaxIndices(samples: number[]): number[] {
     if (v <= 0) continue;
     const prev = i > 0 ? samples[i - 1]! : -Infinity;
     const next = i < n - 1 ? samples[i + 1]! : -Infinity;
-    if (v >= prev && v >= next && (v > prev || v > next)) {
+    if (v > prev && v >= next) {
       out.push(i);
     }
   }
@@ -30,9 +30,9 @@ export function orbIntensity(orb: number, maxOrb: number): number {
   return Math.max(0, Math.min(1, 1 - orb / maxOrb));
 }
 
-const GOLDEN_R = (Math.sqrt(5) - 1) / 2; // ~0.618034
-const CONVERGENCE_MS = 30_000; // 30 seconds
-const MAX_ITER = 30;
+export const GOLDEN_R = (Math.sqrt(5) - 1) / 2; // ~0.618034
+export const CONVERGENCE_MS = 30_000; // 30 seconds
+export const MAX_ITER = 30;
 
 /**
  * Golden-section minimization of orbAtTime(t) across [bracketStartMs,

@@ -18,6 +18,11 @@ describe("findLocalMaxIndices", () => {
       findLocalMaxIndices([0.8, 0.5, 0, 0.5, 0.8, 0.5, 0]),
     ).toEqual([0, 4]);
   });
+
+  it("returns only the leftmost index of a plateau", () => {
+    expect(findLocalMaxIndices([0.5, 0.8, 0.8, 0.5])).toEqual([1]);
+    expect(findLocalMaxIndices([0, 0.5, 0.8, 0.8, 0.8, 0.5, 0])).toEqual([2]);
+  });
 });
 
 describe("orbIntensity", () => {
