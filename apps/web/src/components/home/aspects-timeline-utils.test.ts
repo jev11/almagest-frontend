@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { orbIntensity, catmullRomPath, interpolatePeaks } from "./aspects-timeline-utils";
-import { orbAtTime } from "./aspects-timeline-utils";
+import { catmullRomPath, interpolatePeaks, orbAtTime, orbIntensity } from "./aspects-timeline-utils";
 import { CelestialBody } from "@astro-app/shared-types";
 
 describe("orbIntensity", () => {
@@ -147,7 +146,7 @@ describe("orbAtTime", () => {
     expect(orb).toBeCloseTo(0, 6);
   });
 
-  it("returns ~60° from a conjunction when testing as a trine", () => {
+  it("returns ~120° when a conjunction is tested as a trine", () => {
     // Sun vs itself, asked as trine (120°): separation 0°, orb = |0 - 120| = 120°.
     const ms = Date.UTC(2026, 3, 19, 12, 0, 0);
     const orb = orbAtTime(ms, CelestialBody.Sun, CelestialBody.Sun, 120);
