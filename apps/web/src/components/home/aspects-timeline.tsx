@@ -428,22 +428,42 @@ export const AspectsTimeline = memo(function AspectsTimeline({
   const windowDurationMs = DAY_COUNT * 24 * 3600 * 1000;
   const windowEndMs = windowStartMs + windowDurationMs;
 
-  const ranges = useMemo(() => {
-    const filter = isMinor ? MINOR_ASPECTS : MAJOR_ASPECTS;
-    const list: BarRange[] = [];
-    for (const bar of bars) {
-      if (!filter.has(bar.aspectType)) continue;
-      const r = computeRange(bar, windowStartMs, maxOrbMap);
-      if (!r) continue;
-      // Include bar if its in-orb window overlaps the visible 10-day window.
-      if (r.endMs < windowStartMs || r.startMs > windowEndMs) continue;
-      list.push(r);
-    }
-    list.sort((a, b) => {
-      if (a.peakMs !== b.peakMs) return a.peakMs - b.peakMs;
-      return b.peakValue - a.peakValue;
-    });
-    return list;
+  const [ranges, setRanges] = useState<BarRange[]>([]);
+  const rangesAbortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    rangesAbortRef.current?.abort();
+    const controller = new AbortController();
+    rangesAbortRef.current = controller;
+
+    void (async () => {
+      const filter = isMinor ? MINOR_ASPECTS : MAJOR_ASPECTS;
+      const list: BarRange[] = [];
+      for (const bar of bars) {
+        if (controller.signal.aborted) return;
+        if (!filter.has(bar.aspectType)) {
+          await yieldToMain();
+          continue;
+        }
+        const r = computeRange(bar, windowStartMs, maxOrbMap);
+        if (!r || r.endMs < windowStartMs || r.startMs > windowEndMs) {
+          await yieldToMain();
+          continue;
+        }
+        list.push(r);
+        await yieldToMain();
+      }
+      if (controller.signal.aborted) return;
+      list.sort((a, b) => {
+        if (a.peakMs !== b.peakMs) return a.peakMs - b.peakMs;
+        return b.peakValue - a.peakValue;
+      });
+      if (!controller.signal.aborted) setRanges(list);
+    })();
+
+    return () => {
+      controller.abort();
+    };
   }, [bars, isMinor, windowStartMs, windowEndMs, maxOrbMap]);
 
   const todayIdx = -DAY_OFFSET;
@@ -504,7 +524,7 @@ export const AspectsTimeline = memo(function AspectsTimeline({
             <>
               <text
                 x={nowX}
-                y={16}
+                y={height - 6}
                 fontSize="10"
                 fill="var(--primary)"
                 letterSpacing="0.15em"
@@ -626,7 +646,7 @@ export const AspectsTimeline = memo(function AspectsTimeline({
               <text
                 key={`label-${i}`}
                 x={x}
-                y={height - 6}
+                y={16}
                 fontSize={9.5}
                 textAnchor="middle"
                 fill={isToday ? "var(--primary)" : "var(--faint-foreground)"}
