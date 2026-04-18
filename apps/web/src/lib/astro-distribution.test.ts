@@ -57,9 +57,12 @@ describe("computeDistribution", () => {
     expect(dist.elements.get(Element.Earth)).toBe(1);
     expect(dist.modalities.get("Cardinal")).toBe(1);
     expect(dist.modalities.get("Fixed")).toBe(2);
+    expect(dist.elements.get(Element.Air)).toBeUndefined();
+    expect(dist.elements.get(Element.Water)).toBeUndefined();
+    expect(dist.modalities.get("Mutable")).toBeUndefined();
   });
 
-  it("skips bodies missing from zodiac_positions without lowering total", () => {
+  it("counts all requested bodies toward total even when position data is absent", () => {
     const chart = makeChart({
       [CelestialBody.Sun]: ZodiacSign.Aries,
     });
@@ -72,6 +75,8 @@ describe("computeDistribution", () => {
     expect(dist.total).toBe(2);
     expect(dist.elements.get(Element.Fire)).toBe(1);
     expect(dist.elements.get(Element.Earth)).toBeUndefined();
+    expect(dist.modalities.get("Cardinal")).toBe(1);
+    expect(dist.modalities.size).toBe(1);
   });
 });
 
