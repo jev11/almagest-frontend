@@ -18,7 +18,7 @@ import {
 
 const DAY_COUNT = 10;
 const DAY_OFFSET = -2;
-const SAMPLES_PER_DAY = 4;
+const SAMPLES_PER_DAY = 12;
 const TOTAL_SAMPLES = DAY_COUNT * SAMPLES_PER_DAY;
 
 const VIEWBOX_W = 1000;
