@@ -1,23 +1,10 @@
 import { useMemo } from "react";
-import { CelestialBody, ZodiacSign, Element, SIGN_ELEMENT } from "@astro-app/shared-types";
+import { CelestialBody, Element } from "@astro-app/shared-types";
 import type { ChartData } from "@astro-app/shared-types";
-
-type Modality = "Cardinal" | "Fixed" | "Mutable";
-
-const SIGN_MODALITY: Record<ZodiacSign, Modality> = {
-  [ZodiacSign.Aries]: "Cardinal",
-  [ZodiacSign.Taurus]: "Fixed",
-  [ZodiacSign.Gemini]: "Mutable",
-  [ZodiacSign.Cancer]: "Cardinal",
-  [ZodiacSign.Leo]: "Fixed",
-  [ZodiacSign.Virgo]: "Mutable",
-  [ZodiacSign.Libra]: "Cardinal",
-  [ZodiacSign.Scorpio]: "Fixed",
-  [ZodiacSign.Sagittarius]: "Mutable",
-  [ZodiacSign.Capricorn]: "Cardinal",
-  [ZodiacSign.Aquarius]: "Fixed",
-  [ZodiacSign.Pisces]: "Mutable",
-};
+import {
+  computeDistribution,
+  type Modality,
+} from "@/lib/astro-distribution";
 
 const ELEMENT_LABELS: { key: Element; label: string; color: string }[] = [
   { key: Element.Fire, label: "Fire", color: "var(--color-fire)" },
@@ -45,23 +32,6 @@ const COUNT_BODIES: CelestialBody[] = [
   CelestialBody.Pluto,
 ];
 
-function computeDistribution(chartData: ChartData) {
-  const elements = new Map<Element, number>();
-  const modalities = new Map<Modality, number>();
-
-  for (const body of COUNT_BODIES) {
-    const zp = chartData.zodiac_positions[body];
-    if (!zp) continue;
-    const el = SIGN_ELEMENT[zp.sign];
-    const mod = SIGN_MODALITY[zp.sign];
-    elements.set(el, (elements.get(el) ?? 0) + 1);
-    modalities.set(mod, (modalities.get(mod) ?? 0) + 1);
-  }
-
-  const total = COUNT_BODIES.length;
-  return { elements, modalities, total };
-}
-
 const overlayFont: React.CSSProperties = {
   fontSize: "1.8cqi",
   lineHeight: 1.5,
@@ -73,7 +43,10 @@ interface Props {
 }
 
 export function DistributionOverlay({ chartData }: Props) {
-  const dist = useMemo(() => computeDistribution(chartData), [chartData]);
+  const dist = useMemo(
+    () => computeDistribution(chartData, COUNT_BODIES),
+    [chartData],
+  );
 
   return (
     <>
