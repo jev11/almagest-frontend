@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { catmullRomPath, interpolatePeaks, orbAtTime, orbIntensity } from "./aspects-timeline-utils";
+import { catmullRomPath, interpolatePeaks, orbAtTime, orbIntensity, refinePeakTime } from "./aspects-timeline-utils";
 import { CelestialBody } from "@astro-app/shared-types";
 
 describe("orbIntensity", () => {
@@ -159,5 +159,52 @@ describe("orbAtTime", () => {
     const orb = orbAtTime(ms, CelestialBody.Sun, CelestialBody.Moon, 0);
     expect(orb).toBeGreaterThanOrEqual(0);
     expect(orb).toBeLessThanOrEqual(180);
+  });
+});
+
+describe("refinePeakTime", () => {
+  it("converges to a time inside the bracket with a non-negative orb", () => {
+    const ms = Date.UTC(2026, 3, 19, 12, 0, 0);
+    const HALF = 6 * 3600 * 1000;
+    const bracketStart = ms - HALF;
+    const bracketEnd = ms + HALF;
+    const { ms: peakMs, orb: peakOrb } = refinePeakTime(
+      bracketStart,
+      bracketEnd,
+      CelestialBody.Sun,
+      CelestialBody.Moon,
+      30,
+    );
+    expect(peakMs).toBeGreaterThanOrEqual(bracketStart);
+    expect(peakMs).toBeLessThanOrEqual(bracketEnd);
+    expect(peakOrb).toBeGreaterThanOrEqual(0);
+  });
+
+  it("converges to within 60 seconds of a brute-force minimum", () => {
+    // Brute-force: sample orb at 1-minute resolution across a 4-hour bracket.
+    const centerMs = Date.UTC(2026, 3, 19, 12, 0, 0);
+    const HALF = 2 * 3600 * 1000;
+    const start = centerMs - HALF;
+    const end = centerMs + HALF;
+
+    const { ms: peakMs } = refinePeakTime(
+      start,
+      end,
+      CelestialBody.Sun,
+      CelestialBody.Moon,
+      30,
+    );
+
+    let bruteBestOrb = Infinity;
+    let bruteBestMs = start;
+    for (let t = start; t <= end; t += 60_000) {
+      const o = orbAtTime(t, CelestialBody.Sun, CelestialBody.Moon, 30);
+      if (o < bruteBestOrb) {
+        bruteBestOrb = o;
+        bruteBestMs = t;
+      }
+    }
+
+    expect(Math.abs(peakMs - bruteBestMs)).toBeLessThanOrEqual(60_000);
   });
 });

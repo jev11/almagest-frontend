@@ -136,6 +136,49 @@ export function catmullRomPath(points: [number, number][]): string {
   return d;
 }
 
+const GOLDEN_R = (Math.sqrt(5) - 1) / 2; // ~0.618034
+const CONVERGENCE_MS = 30_000; // 30 seconds
+const MAX_ITER = 30;
+
+/**
+ * Golden-section minimization of orbAtTime(t) across [bracketStartMs,
+ * bracketEndMs]. Returns the converged peak time and orb at that time.
+ */
+export function refinePeakTime(
+  bracketStartMs: number,
+  bracketEndMs: number,
+  body1: CelestialBody,
+  body2: CelestialBody,
+  aspectAngle: number,
+): { ms: number; orb: number } {
+  let a = bracketStartMs;
+  let b = bracketEndMs;
+  let x1 = a + (1 - GOLDEN_R) * (b - a);
+  let x2 = a + GOLDEN_R * (b - a);
+  let f1 = orbAtTime(x1, body1, body2, aspectAngle);
+  let f2 = orbAtTime(x2, body1, body2, aspectAngle);
+
+  for (let i = 0; i < MAX_ITER; i++) {
+    if (b - a < CONVERGENCE_MS) break;
+    if (f1 > f2) {
+      a = x1;
+      x1 = x2;
+      f1 = f2;
+      x2 = a + GOLDEN_R * (b - a);
+      f2 = orbAtTime(x2, body1, body2, aspectAngle);
+    } else {
+      b = x2;
+      x2 = x1;
+      f2 = f1;
+      x1 = a + (1 - GOLDEN_R) * (b - a);
+      f1 = orbAtTime(x1, body1, body2, aspectAngle);
+    }
+  }
+
+  const mid = (a + b) / 2;
+  return { ms: mid, orb: orbAtTime(mid, body1, body2, aspectAngle) };
+}
+
 /**
  * Angular distance between two bodies' longitudes minus the target aspect
  * angle, both folded onto [0, 180]. Returns degrees. A return value of 0
