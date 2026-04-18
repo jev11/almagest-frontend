@@ -237,17 +237,23 @@ function DonutBlock({ title, data, dominant, config }: DonutBlockProps) {
             nameKey="key"
             innerRadius={50}
             strokeWidth={2}
-            label={({ value, x, y }) => (
-              <text
-                x={x}
-                y={y}
-                textAnchor="middle"
-                dominantBaseline="central"
-                className="fill-white text-[11px] font-semibold"
-              >
-                {value}
-              </text>
-            )}
+            label={({ cx, cy, midAngle, innerRadius, outerRadius, value }) => {
+              const r = ((innerRadius ?? 0) + (outerRadius ?? 0)) / 2;
+              const rad = -(midAngle ?? 0) * (Math.PI / 180);
+              const lx = (cx ?? 0) + r * Math.cos(rad);
+              const ly = (cy ?? 0) + r * Math.sin(rad);
+              return (
+                <text
+                  x={lx}
+                  y={ly}
+                  textAnchor="middle"
+                  dominantBaseline="central"
+                  className="fill-white text-[11px] font-semibold"
+                >
+                  {value}
+                </text>
+              );
+            }}
             labelLine={false}
           >
             <Label
