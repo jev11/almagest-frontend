@@ -104,17 +104,12 @@ describe("known-event regression", () => {
   // a ±12-hour bracket around the published moment and assert the recovered
   // peak agrees within our model's documented precision for Sun-Moon aspects.
   //
-  // Tolerance: ±45 minutes. Rationale: the engine correctly converges the orb
-  // to 0.000° at the recovered peak (the aspect IS found), but our approx-engine
-  // has a systematic clock offset for Sun-Moon conjunctions/oppositions of up to
-  // ~42 min in the 2017-2024 range. The theoretical worst-case from ~0.3°
-  // longitude accuracy at 0.5°/hr relative speed is 36 min, but Moon position
-  // errors compound non-linearly away from J2000, pushing observed offsets to
-  // 30–42 min. 45 min gives a 3-min margin over the empirical worst case while
-  // still catching any systematic regression (e.g. a new >1° longitude error
-  // would push timing error to ~120 min and fail this test).
-  // See: packages/approx-engine/src/parity.test.ts for per-body accuracy.
-  const TOLERANCE_MS = 45 * 60 * 1000;
+  // Tolerance: ±5 minutes. astronomy-engine is sub-arcsecond accurate, so
+  // Sun-Moon aspect moments should recover within seconds of the published
+  // value. 5 minutes is a conservative post-swap tolerance that catches any
+  // systematic regression while giving headroom for differences between
+  // reference sources (eclipse timing vs. USNO vs. astrology software).
+  const TOLERANCE_MS = 5 * 60 * 1000;
 
   interface KnownEvent {
     name: string;

@@ -14,13 +14,11 @@ import type {
   Aspect,
 } from "@astro-app/shared-types";
 import { dateToJulianDay, julianCenturies, normalizeDegrees, toRad, toDeg } from "./julian.js";
-import { calculateSunPosition, calculatePlanetPosition, PLANET_BODIES } from "./vsop87.js";
-import { calculateMoonPosition } from "./elp2000.js";
+import { calculateSunPosition, calculatePlanetPosition, calculateMoonPosition, PLANET_BODIES } from "./bodies.js";
 import { meanNorthNode, meanSouthNode } from "./nodes.js";
 
 export { dateToJulianDay, julianCenturies, normalizeDegrees } from "./julian.js";
-export { calculateSunPosition, calculatePlanetPosition } from "./vsop87.js";
-export { calculateMoonPosition } from "./elp2000.js";
+export { calculateSunPosition, calculatePlanetPosition, calculateMoonPosition } from "./bodies.js";
 export { meanNorthNode, meanSouthNode } from "./nodes.js";
 
 const SIGN_ORDER: ZodiacSign[] = [

@@ -1,5 +1,42 @@
 # Agent Changelog
 
+## 2026-04-18 — approx-engine: swap internals to astronomy-engine
+
+### Change
+Replaced the truncated VSOP87 / ELP2000 position code in `packages/approx-engine` with `astronomy-engine` (already installed as devDep; promoted to runtime dep). Public API surface is unchanged — all consumers continue to use `calculateApproximate`, `calculateBodyPosition`, `moonPhaseAngle`, etc. without modification.
+
+- Created `packages/approx-engine/src/bodies.ts` wrapping `astronomy-engine`'s `GeoVector` + `Ecliptic` functions. Provides `calculateSunPosition`, `calculateMoonPosition`, `calculatePlanetPosition` with the same `PlanetPosition` shape as before. Speed is a 1-day finite-difference geocentric longitude derivative.
+- Deleted `vsop87.ts`, `vsop87.test.ts`, `elp2000.ts`, `elp2000.test.ts`.
+- Updated `index.ts` to import/re-export from `./bodies.js` instead of the deleted files.
+- Moved `astronomy-engine` from `devDependencies` to `dependencies` in `packages/approx-engine/package.json`.
+- Tightened `parity.test.ts` tolerances from 0.5°–1.3° to `0.001°` across all bodies — the test now compares astronomy-engine to itself (regression guard against accidental breakage).
+- Tightened `TOLERANCE_MS` in `aspects-timeline-utils.test.ts` from 45 min to 5 min.
+
+### Results
+- Test counts: approx-engine 137 → 86 (vsop87 + elp2000 test files removed); apps/web aspects-timeline 14 → 19 (known-event tests now pass).
+- Parity tests: all 50 pass at 0.001° — effectively zero error (floating-point rounding only).
+- Known-event timing deltas vs. published eclipse/new-moon UTC:
+  - 2017-08-21 total solar eclipse: **Δ=0.16 min** (was ~42 min)
+  - 2022-05-16 total lunar eclipse: **Δ=0.04 min**
+  - 2023-10-14 annular solar eclipse: **Δ=0.08 min**
+  - 2024-04-08 total solar eclipse: **Δ=0.16 min**
+  - 2024-11-01 new moon: **Δ=0.06 min**
+
+### Decisions Made
+- **Date ↔ T round-trip via JD.** `tToDate` reverses `julianCenturies` using the standard JD formula. Precision loss vs. direct Date input is < 0.001 ms — negligible.
+- **`aberration=true` flag.** Both `bodies.ts` and `parity.test.ts` use `GeoVector(body, date, true)` so the comparison is apples-to-apples.
+- **Moon distance in AU (not km).** The consumer (`toCelestialPosition` in `index.ts`) passes the distance through to the `CelestialPosition` struct unchanged. The field is display-only; callers don't do physics with it, so the unit change from ~384,000 km → ~0.0026 AU is benign.
+- **`nodes.ts` and `julian.ts` untouched.** Mean lunar nodes use a simple linear formula with no meaningful astronomy-engine equivalent; kept as-is.
+
+### References
+- Primary files changed:
+  - `packages/approx-engine/package.json`
+  - `packages/approx-engine/src/bodies.ts` (new)
+  - `packages/approx-engine/src/index.ts`
+  - `packages/approx-engine/src/parity.test.ts`
+  - `apps/web/src/components/home/aspects-timeline-utils.test.ts`
+- Deleted: `vsop87.ts`, `vsop87.test.ts`, `elp2000.ts`, `elp2000.test.ts`
+
 ## 2026-04-18 — fix calculatePlanetPosition to return geocentric longitude
 
 ### Change

@@ -13,25 +13,21 @@ const TEST_DATES = [
   new Date("2075-12-22T12:00:00Z"),
 ];
 
-// Tolerances reflect the actual accuracy of the truncated Keplerian model
-// (no planetary perturbations). Near J2000 errors are ~0.3°; at ±75 years
-// secular drift accumulates to ~1°–1.15°. Set to ~2× observed max.
-// See vsop87.ts header for per-body accuracy notes.
-//
-// To recalibrate after an engine improvement: temporarily set each tolerance
-// to Infinity, log `diff` in the assertion, record the max per body across
-// all TEST_DATES, and set the new tolerance to ~1.5–2× that max.
+// Backed by astronomy-engine; parity check is effectively a regression guard
+// against accidental breakage. 0.001° tolerance absorbs floating-point
+// rounding. calculateBodyPosition now IS astronomy-engine internally, so
+// agreement should be essentially zero (up to floating-point noise).
 const TOLERANCE: Partial<Record<CelestialBody, number>> = {
-  [CelestialBody.Sun]:     1.20, // observed max ~1.05° at 2075
-  [CelestialBody.Moon]:    0.50, // ELP2000 truncated, drift over decades
-  [CelestialBody.Mercury]: 1.20, // observed max ~1.06° at 2075
-  [CelestialBody.Venus]:   1.20, // observed max ~1.05° at 2075
-  [CelestialBody.Mars]:    1.20, // observed max ~1.06° at 2075
-  [CelestialBody.Jupiter]: 1.20, // observed max ~1.00° at 2075
-  [CelestialBody.Saturn]:  1.30, // observed max ~1.15° at 2075
-  [CelestialBody.Uranus]:  1.20, // observed max ~1.07° at 2075
-  [CelestialBody.Neptune]: 1.20, // observed max ~1.07° at 2075
-  [CelestialBody.Pluto]:   1.20, // observed max ~1.05° at 2075
+  [CelestialBody.Sun]:     0.001,
+  [CelestialBody.Moon]:    0.001,
+  [CelestialBody.Mercury]: 0.001,
+  [CelestialBody.Venus]:   0.001,
+  [CelestialBody.Mars]:    0.001,
+  [CelestialBody.Jupiter]: 0.001,
+  [CelestialBody.Saturn]:  0.001,
+  [CelestialBody.Uranus]:  0.001,
+  [CelestialBody.Neptune]: 0.001,
+  [CelestialBody.Pluto]:   0.001,
 };
 
 // Chiron and the lunar nodes (MeanNorthNode / MeanSouthNode) are intentionally
@@ -61,9 +57,8 @@ describe("parity: calculateBodyPosition vs astronomy-engine", () => {
       const label = `${ourBody} at ${date.toISOString().slice(0, 10)}`;
       it(label, () => {
         const ours = calculateBodyPosition(date, ourBody);
-        // `true` = include annual aberration (~0.006° bias vs. our
-        // true-geocentric output). Negligible against current tolerances
-        // (~1°); flip to `false` if tolerances ever reach that regime.
+        // `true` = include annual aberration — same flag used in bodies.ts,
+        // so the comparison is apples-to-apples.
         const ref = Ecliptic(GeoVector(refBody, date, true)).elon;
         const diff = angularDiff(ours.longitude, ref);
         const tol = TOLERANCE[ourBody] ?? 1.0;
