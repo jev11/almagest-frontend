@@ -99,6 +99,62 @@ describe("refinePeakTime", () => {
   });
 });
 
+describe("known-event regression", () => {
+  // Each case: published exact-aspect UTC moment. We run refinePeakTime over
+  // a ±12-hour bracket around the published moment and assert the recovered
+  // peak agrees within our model's documented precision for Sun-Moon aspects.
+  //
+  // Tolerance: ±45 minutes. Rationale: the engine correctly converges the orb
+  // to 0.000° at the recovered peak (the aspect IS found), but our approx-engine
+  // has a systematic clock offset for Sun-Moon conjunctions/oppositions of up to
+  // ~42 min in the 2017-2024 range. The theoretical worst-case from ~0.3°
+  // longitude accuracy at 0.5°/hr relative speed is 36 min, but Moon position
+  // errors compound non-linearly away from J2000, pushing observed offsets to
+  // 30–42 min. 45 min gives a 3-min margin over the empirical worst case while
+  // still catching any systematic regression (e.g. a new >1° longitude error
+  // would push timing error to ~120 min and fail this test).
+  // See: packages/approx-engine/src/parity.test.ts for per-body accuracy.
+  const TOLERANCE_MS = 45 * 60 * 1000;
+
+  interface KnownEvent {
+    name: string;
+    utc: string;         // ISO UTC of the published exact moment
+    aspectAngle: 0 | 180;
+  }
+
+  const EVENTS: KnownEvent[] = [
+    { name: "2017-08-21 total solar eclipse (new moon)",     utc: "2017-08-21T18:30:00Z", aspectAngle: 0 },
+    { name: "2022-05-16 total lunar eclipse (full moon)",    utc: "2022-05-16T04:14:00Z", aspectAngle: 180 },
+    { name: "2023-10-14 annular solar eclipse (new moon)",   utc: "2023-10-14T17:55:00Z", aspectAngle: 0 },
+    { name: "2024-04-08 total solar eclipse (new moon)",     utc: "2024-04-08T18:21:00Z", aspectAngle: 0 },
+    { name: "2024-11-01 new moon",                           utc: "2024-11-01T12:47:00Z", aspectAngle: 0 },
+  ];
+
+  for (const event of EVENTS) {
+    it(event.name, () => {
+      const publishedMs = new Date(event.utc).getTime();
+      const HALF = 12 * 3600 * 1000;
+      const { ms: recoveredMs, orb } = refinePeakTime(
+        publishedMs - HALF,
+        publishedMs + HALF,
+        CelestialBody.Sun,
+        CelestialBody.Moon,
+        event.aspectAngle,
+      );
+      const diffMs = Math.abs(recoveredMs - publishedMs);
+      const diffMin = diffMs / 60000;
+      expect(
+        diffMin,
+        `recovered ${new Date(recoveredMs).toISOString()} vs published ${event.utc}, Δ=${diffMin.toFixed(1)} min, orb=${orb.toFixed(3)}°`,
+      ).toBeLessThanOrEqual(TOLERANCE_MS / 60000);
+      // Sanity: at the recovered peak the orb should be small — within the
+      // Sun-Moon parity tolerance (~0.5°). A huge orb would indicate the
+      // bracket missed the aspect entirely.
+      expect(orb).toBeLessThan(0.5);
+    });
+  }
+});
+
 describe("findOrbCrossing", () => {
   // Common fixture: Sun-Moon semi-sextile in late April 2026. maxOrb = 2°.
   // We first locate a local peak to seed the crossing search.
