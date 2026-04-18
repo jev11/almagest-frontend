@@ -1,5 +1,4 @@
 import { ChartCanvas } from "@/components/chart/chart-canvas";
-import { DistributionOverlay } from "@/components/chart/distribution-overlay";
 import { ChartSkeleton } from "@/components/ui/skeleton";
 import { useSettings } from "@/hooks/use-settings";
 import type { CurrentSkyState } from "@/hooks/use-current-sky";
@@ -43,7 +42,6 @@ export function ChartWheel({ sky, locationName }: Props) {
     >
       {/* Chart canvas — info labels suppressed; we overlay HTML chips below */}
       <ChartCanvas data={chartData} className="w-full h-full" />
-      <DistributionOverlay chartData={chartData} />
 
       {/* Top-left: Natal Sky · Now eyebrow + mono location */}
       <div className="absolute top-4 left-4 pointer-events-none select-none">

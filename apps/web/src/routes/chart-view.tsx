@@ -14,7 +14,6 @@ import { useSettings } from "@/hooks/use-settings";
 import { useTimezone } from "@/hooks/use-timezone";
 import { PlanetCard } from "@/components/home/planet-card";
 import { AspectGrid } from "@/components/home/aspect-grid";
-import { DistributionOverlay } from "@/components/chart/distribution-overlay";
 import { ElementModalityCard } from "@/components/home/element-modality-card";
 import { cn, localTimeToUtc } from "@/lib/utils";
 import { LocationSearch } from "@/components/forms/location-search";
@@ -319,7 +318,6 @@ export function ChartViewPage() {
               ) : (
                 <ChartCanvas data={chart} chartInfo={chartInfo} nodeType={chartNodeType} className="w-full h-full" />
               )}
-              <DistributionOverlay chartData={chart} />
             </div>
             <AspectGrid chartData={chart} nodeType={chartNodeType} />
           </div>
