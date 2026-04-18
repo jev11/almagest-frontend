@@ -441,15 +441,10 @@ export const AspectsTimeline = memo(function AspectsTimeline({
       const list: BarRange[] = [];
       for (const bar of bars) {
         if (controller.signal.aborted) return;
-        if (!filter.has(bar.aspectType)) {
-          await yieldToMain();
-          continue;
-        }
+        if (!filter.has(bar.aspectType)) continue;
         const r = computeRange(bar, windowStartMs, maxOrbMap);
-        if (!r || r.endMs < windowStartMs || r.startMs > windowEndMs) {
-          await yieldToMain();
-          continue;
-        }
+        if (!r) continue;
+        if (r.endMs < windowStartMs || r.startMs > windowEndMs) continue;
         list.push(r);
         await yieldToMain();
       }
