@@ -179,7 +179,6 @@ export function refinePeakTime(
   return { ms: mid, orb: orbAtTime(mid, body1, body2, aspectAngle) };
 }
 
-const ARCMIN = 1 / 60;
 const WIDEN_CAP_MS = 180 * 24 * 3600 * 1000; // 6 months
 const WIDEN_MAX_STEPS = 25;
 
@@ -234,7 +233,7 @@ export function findOrbCrossing(
   // Bracket [innerMs ↔ outerMs] straddles maxOrb. Normalise so we bisect
   // with `low` = in-orb side, `high` = out-of-orb side.
   let innerMs = peakMs;
-  let innerOrb = peakOrb;
+  const innerOrb = peakOrb;
 
   // 3-point monotonicity check at 25/50/75% of bracket.
   const p25ms = innerMs + (outerMs - innerMs) * 0.25;
@@ -283,11 +282,6 @@ export function findOrbCrossing(
       outerMs = inflectionMs;
       outerOrb = inflectionOrb;
     }
-    // If the inflection is still below maxOrb the whole bracket stays in
-    // orb; fall through to the cap-clipped return below.
-    if (inflectionOrb < maxOrb && outerOrb < maxOrb) {
-      return { ms: peakMs + direction * WIDEN_CAP_MS, clipped: true };
-    }
   }
 
   // Bisection.
@@ -297,7 +291,6 @@ export function findOrbCrossing(
     const midOrb = orbAtTime(midMs, body1, body2, aspectAngle);
     if (midOrb < maxOrb) {
       innerMs = midMs;
-      innerOrb = midOrb;
     } else {
       outerMs = midMs;
       outerOrb = midOrb;
