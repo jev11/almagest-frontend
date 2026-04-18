@@ -195,6 +195,8 @@
 - [x] Verify: page loads fast (approx-engine renders first frame instantly)
 - [x] Verify: snap-to-server updates without flicker
 - [x] Verify: responsive (mobile: stacked, planet list below wheel)
+- [x] Extract shared `src/lib/astro-distribution.ts` helper (computeDistribution, dominantKeys, SIGN_MODALITY)
+- [x] Add dominant element / modality donuts to `ElementModalityCard` (recharts PieChart, shadcn chart wrapper, stacked tie labels, midpoint-radius slice labels)
 
 **Definition of done:** Home screen shows live sky, moon, aspects, retrogrades. Matches design.
 

@@ -1,5 +1,30 @@
 # Agent Changelog
 
+## 2026-04-18 — home: dominant element / modality donuts on ElementModalityCard
+
+### Change
+Added two recharts-powered donut charts below the existing element × modality grid in `element-modality-card.tsx`. Each donut shows the distribution of the 11 display bodies (Sun through Pluto + Chiron) across the four elements and three modalities respectively. Slice labels show numeric counts; center text shows the dominant category name (or stacked names on a tie). Extracted a shared `astro-distribution.ts` helper used by both the donuts and the grid.
+
+### Commits
+- `5e1fa31` — `Phase 3 Task: extract shared astro-distribution helper` — new `apps/web/src/lib/astro-distribution.ts` + test file. Consolidates `SIGN_MODALITY` (capitalised values: Cardinal/Fixed/Mutable) and `computeDistribution(chartData, bodies)` into one shared helper. Adds a new `dominantKeys<K>(counts): K[]` helper returning all keys tied for the max count.
+- `b3ca31f` — `Phase 3 Task: tighten astro-distribution test assertions` — adds negative assertions and clarifies `total` semantics in tests.
+- `5391346` — `Phase 3 Task: switch distribution-overlay to shared helper` — replaces the local duplicate in `apps/web/src/components/chart/distribution-overlay.tsx` with the shared import. Zero behaviour change.
+- `d5b13b5` — `Phase 3 Task: add shadcn chart component` — installs `recharts ^3.8.0` and copies `apps/web/src/components/ui/chart.tsx` via `npx shadcn@latest add chart`.
+- `f9c1d4c` — `Phase 3 Task: add dominant elements/modalities donuts` — adds `ElementModalityPies` + `DonutBlock` private sub-components to `apps/web/src/components/home/element-modality-card.tsx`.
+- `432213b` — `Phase 3 Task: center donut slice labels on ring band` — fixes label placement: count labels now use `(innerRadius + outerRadius) / 2` as the midpoint radius instead of recharts v3's outer-rim default.
+
+### Decisions Made
+- **Body set parity with the grid.** The donuts count the same 11 bodies (`DISPLAY_BODIES`: Sun → Pluto + Chiron) that the grid above them uses. The grid and donuts can never disagree about totals. `distribution-overlay.tsx` kept its pre-existing 10-body list (no Chiron) to preserve the chart-canvas overlay's existing behaviour — that is a separate, independent consumer.
+- **Stacked tie labels, not bulleted.** When multiple categories share the maximum count, the center text renders one `<tspan>` per tied name, stacked vertically — not joined with a separator. This was a direct user request during brainstorm review.
+- **Modality palette uses shades of `--primary`, not element colours.** Elements use `--color-fire/earth/air/water`; modalities use three lightness steps derived from `--primary` via `color-mix(in oklch, ...)`. This gives modality and element a clear visual distinction on the card. Intentionally differs from `distribution-overlay`'s legacy palette.
+- **`recharts` and `chart.tsx` re-added after earlier cleanup.** The 2026-04-18 cleanup deleted `chart.tsx` and removed `recharts` because their only consumer (`aspects-timeline-shadcn.tsx`) had been deleted. The donut work provides real, mounted consumers for both; this is an intentional re-introduction, not a reversal of a design policy. The cleanup decision was "delete when unused," not "never use recharts."
+- **No new chart library written.** shadcn `chart` + recharts handles rendering. `PieChart` + `Pie` + `Cell` from recharts with `innerRadius`/`outerRadius` props; custom `label` render prop for count text; `ChartContainer` + `ChartTooltipContent` from shadcn chart for theming consistency.
+
+### References
+- Spec and plan: `docs/superpowers/plans/2026-04-18-element-modality-donuts.md`
+- Primary file changed: `apps/web/src/components/home/element-modality-card.tsx`
+- New shared helper: `apps/web/src/lib/astro-distribution.ts`
+
 ## 2026-04-18 — cleanup: delete unused code across the monorepo
 
 ### Change
