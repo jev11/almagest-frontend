@@ -60,10 +60,10 @@ const MODALITY_COLORS: Record<Modality, string> = {
 
 const elementChartConfig = {
   count: { label: "Bodies" },
-  [Element.Fire]: { label: "Fire", color: "var(--color-fire)" },
-  [Element.Earth]: { label: "Earth", color: "var(--color-earth)" },
-  [Element.Air]: { label: "Air", color: "var(--color-air)" },
-  [Element.Water]: { label: "Water", color: "var(--color-water)" },
+  [Element.Fire]: { label: "Fire" },
+  [Element.Earth]: { label: "Earth" },
+  [Element.Air]: { label: "Air" },
+  [Element.Water]: { label: "Water" },
 } satisfies ChartConfig;
 
 const modalityChartConfig = {
