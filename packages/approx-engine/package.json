@@ -20,6 +20,7 @@
     "@astro-app/shared-types": "*"
   },
   "devDependencies": {
+    "astronomy-engine": "^2.1.19",
     "typescript": "^5.5",
     "vitest": "^2.0"
   }
