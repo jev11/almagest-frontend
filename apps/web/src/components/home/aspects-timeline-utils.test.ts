@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { orbIntensity, catmullRomPath, interpolatePeaks } from "./aspects-timeline-utils";
+import { orbAtTime } from "./aspects-timeline-utils";
+import { CelestialBody } from "@astro-app/shared-types";
 
 describe("orbIntensity", () => {
   it("returns 1 when orb is 0 (exact aspect)", () => {
@@ -134,5 +136,29 @@ describe("interpolatePeaks", () => {
     const apex = pts.find((p) => p.value === 1);
     expect(apex).toBeDefined();
     expect(apex!.x).toBeCloseTo(1.5, 6);
+  });
+});
+
+describe("orbAtTime", () => {
+  it("returns ~0 when the exact aspect holds (Sun-Sun conjunction self-test)", () => {
+    const ms = Date.UTC(2026, 3, 19, 12, 0, 0); // Apr 19 12:00 UTC
+    // Conjunction of Sun with itself: separation 0°, aspect angle 0° → orb 0°.
+    const orb = orbAtTime(ms, CelestialBody.Sun, CelestialBody.Sun, 0);
+    expect(orb).toBeCloseTo(0, 6);
+  });
+
+  it("returns ~60° from a conjunction when testing as a trine", () => {
+    // Sun vs itself, asked as trine (120°): separation 0°, orb = |0 - 120| = 120°.
+    const ms = Date.UTC(2026, 3, 19, 12, 0, 0);
+    const orb = orbAtTime(ms, CelestialBody.Sun, CelestialBody.Sun, 120);
+    expect(orb).toBeCloseTo(120, 6);
+  });
+
+  it("folds separations > 180° to the short way around", () => {
+    // Sun-Moon at a known full moon-ish time. We only need that orb <= 180.
+    const ms = Date.UTC(2026, 3, 19, 12, 0, 0);
+    const orb = orbAtTime(ms, CelestialBody.Sun, CelestialBody.Moon, 0);
+    expect(orb).toBeGreaterThanOrEqual(0);
+    expect(orb).toBeLessThanOrEqual(180);
   });
 });

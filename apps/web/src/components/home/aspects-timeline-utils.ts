@@ -1,3 +1,6 @@
+import { calculateBodyPosition } from "@astro-app/approx-engine";
+import type { CelestialBody } from "@astro-app/shared-types";
+
 /**
  * Converts an orb value to an intensity in [0, 1].
  * intensity = 1 at orb = 0 (exact aspect), 0 at orb = maxOrb.
@@ -131,4 +134,24 @@ export function catmullRomPath(points: [number, number][]): string {
   }
 
   return d;
+}
+
+/**
+ * Angular distance between two bodies' longitudes minus the target aspect
+ * angle, both folded onto [0, 180]. Returns degrees. A return value of 0
+ * means the aspect is exact; returns > maxOrb mean the aspect is not in
+ * orb.
+ */
+export function orbAtTime(
+  ms: number,
+  body1: CelestialBody,
+  body2: CelestialBody,
+  aspectAngle: number,
+): number {
+  const date = new Date(ms);
+  const p1 = calculateBodyPosition(date, body1);
+  const p2 = calculateBodyPosition(date, body2);
+  const raw = Math.abs(p1.longitude - p2.longitude);
+  const sep = raw > 180 ? 360 - raw : raw;
+  return Math.abs(sep - aspectAngle);
 }
