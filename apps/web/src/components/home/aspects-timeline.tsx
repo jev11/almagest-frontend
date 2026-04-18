@@ -524,7 +524,7 @@ export const AspectsTimeline = memo(function AspectsTimeline({
             <>
               <text
                 x={nowX}
-                y={height - 6}
+                y={16}
                 fontSize="10"
                 fill="var(--primary)"
                 letterSpacing="0.15em"
@@ -646,7 +646,7 @@ export const AspectsTimeline = memo(function AspectsTimeline({
               <text
                 key={`label-${i}`}
                 x={x}
-                y={16}
+                y={height - 6}
                 fontSize={9.5}
                 textAnchor="middle"
                 fill={isToday ? "var(--primary)" : "var(--faint-foreground)"}
