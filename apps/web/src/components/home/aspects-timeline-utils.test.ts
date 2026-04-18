@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { catmullRomPath, interpolatePeaks, orbAtTime, orbIntensity, refinePeakTime } from "./aspects-timeline-utils";
+import { catmullRomPath, findOrbCrossing, interpolatePeaks, orbAtTime, orbIntensity, refinePeakTime } from "./aspects-timeline-utils";
 import { CelestialBody } from "@astro-app/shared-types";
 
 describe("orbIntensity", () => {
@@ -206,5 +206,135 @@ describe("refinePeakTime", () => {
     }
 
     expect(Math.abs(peakMs - bruteBestMs)).toBeLessThanOrEqual(60_000);
+  });
+});
+
+describe("findOrbCrossing", () => {
+  // Common fixture: Sun-Moon semi-sextile in late April 2026. maxOrb = 2°.
+  // We first locate a local peak to seed the crossing search.
+  const body1 = CelestialBody.Sun;
+  const body2 = CelestialBody.Moon;
+  const aspectAngle = 30;
+  const maxOrb = 2;
+
+  function setupPeak(centerMs: number, halfMs: number) {
+    const { ms: peakMs, orb: peakOrb } = refinePeakTime(
+      centerMs - halfMs,
+      centerMs + halfMs,
+      body1,
+      body2,
+      aspectAngle,
+    );
+    return { peakMs, peakOrb };
+  }
+
+  it("locates left and right crossings with sub-minute precision (brute-force check)", () => {
+    // Seed around a plausible semi-sextile peak within April 2026.
+    const center = Date.UTC(2026, 3, 19, 12, 0, 0);
+    const { peakMs, peakOrb } = setupPeak(center, 6 * 3600 * 1000);
+    // Only meaningful if peak is inside orb; skip otherwise.
+    if (peakOrb >= maxOrb) return;
+
+    const left = findOrbCrossing(
+      "left",
+      peakMs,
+      peakOrb,
+      peakMs - 6 * 3600 * 1000,
+      maxOrb,
+      body1,
+      body2,
+      aspectAngle,
+    );
+    const right = findOrbCrossing(
+      "right",
+      peakMs,
+      peakOrb,
+      peakMs + 6 * 3600 * 1000,
+      maxOrb,
+      body1,
+      body2,
+      aspectAngle,
+    );
+
+    expect(left.clipped).toBe(false);
+    expect(right.clipped).toBe(false);
+    expect(left.ms).toBeLessThan(peakMs);
+    expect(right.ms).toBeGreaterThan(peakMs);
+
+    // Brute force: scan at 1-minute resolution.
+    const SCAN_MIN = 60_000;
+    let bruteLeftMs: number | null = null;
+    for (let t = peakMs; t >= peakMs - 24 * 3600 * 1000; t -= SCAN_MIN) {
+      if (orbAtTime(t, body1, body2, aspectAngle) >= maxOrb) {
+        bruteLeftMs = t;
+        break;
+      }
+    }
+    let bruteRightMs: number | null = null;
+    for (let t = peakMs; t <= peakMs + 24 * 3600 * 1000; t += SCAN_MIN) {
+      if (orbAtTime(t, body1, body2, aspectAngle) >= maxOrb) {
+        bruteRightMs = t;
+        break;
+      }
+    }
+
+    expect(bruteLeftMs).not.toBeNull();
+    expect(bruteRightMs).not.toBeNull();
+    expect(Math.abs(left.ms - bruteLeftMs!)).toBeLessThanOrEqual(60_000);
+    expect(Math.abs(right.ms - bruteRightMs!)).toBeLessThanOrEqual(60_000);
+  });
+
+  it("widens the bracket when the initial outer edge is still in orb", () => {
+    // Give a deliberately too-narrow bracket (1 minute): widening must kick in.
+    const center = Date.UTC(2026, 3, 19, 12, 0, 0);
+    const { peakMs, peakOrb } = setupPeak(center, 6 * 3600 * 1000);
+    if (peakOrb >= maxOrb) return;
+
+    const right = findOrbCrossing(
+      "right",
+      peakMs,
+      peakOrb,
+      peakMs + 60_000, // 1 minute — well inside the active window
+      maxOrb,
+      body1,
+      body2,
+      aspectAngle,
+    );
+    expect(right.clipped).toBe(false);
+    expect(right.ms).toBeGreaterThan(peakMs + 60_000);
+  });
+
+  it("returns clipped=true when the crossing is beyond the 6-month cap", () => {
+    // Saturn-Neptune was near their slow ~2026 conjunction; the
+    // approximate engine puts the pair inside an 8° orb across months on
+    // either side of exact. Entry to orb is > 6 months earlier → clipped.
+    const b1 = CelestialBody.Saturn;
+    const b2 = CelestialBody.Neptune;
+    const angle = 0;
+    const orb = 8;
+
+    const center = Date.UTC(2026, 3, 19, 12, 0, 0);
+    const { ms: peakMs, orb: peakOrb } = refinePeakTime(
+      center - 24 * 3600 * 1000,
+      center + 24 * 3600 * 1000,
+      b1,
+      b2,
+      angle,
+    );
+    // Skip if the simulation doesn't put the pair in orb at the probe
+    // centre — the clipped path only exists when there's a valid peak.
+    if (peakOrb >= orb) return;
+
+    const left = findOrbCrossing(
+      "left",
+      peakMs,
+      peakOrb,
+      peakMs - 60_000,
+      orb,
+      b1,
+      b2,
+      angle,
+    );
+    expect(left.clipped).toBe(true);
   });
 });
