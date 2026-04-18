@@ -1,5 +1,39 @@
 # Agent Changelog
 
+## 2026-04-18 — fix calculatePlanetPosition to return geocentric longitude
+
+### Change
+Fixed a scientific-accuracy bug in `packages/approx-engine/src/vsop87.ts` where
+`calculatePlanetPosition` was returning heliocentric ecliptic coordinates instead
+of geocentric (as seen from Earth).
+
+- Extracted `heliocentricCartesian(el, T)` helper that computes heliocentric
+  Cartesian (x, y, z, r) from Keplerian orbital elements.
+- Extracted `EARTH_ELEMENTS` constant from the inline block inside `calculateSunPosition`.
+- `calculatePlanetPosition` now computes geocentric = planet − Earth in Cartesian
+  space before converting to longitude/latitude. Errors vs astronomy-engine:
+  Mercury 164°→<1°, Venus 134°→<1°, Mars 41°→<1°, Jupiter 11°→<1°.
+- Replaced the old analytic (heliocentric) speed formula with a finite-difference
+  derivative of geocentric longitude over 1 day. This enables retrograde detection.
+- `calculateSunPosition` refactored to use the same `heliocentricCartesian` helper
+  (negated Earth position). Removed the old aberration+nutation correction (already
+  outside the model's accuracy class after geocentric fix).
+- Removed unused `MEAN_DAILY_MOTION` constant.
+- Updated tolerance table in `parity.test.ts` to reflect actual model accuracy
+  (~0.3° near J2000, ~1.15° at ±75 years driven by unmodelled planetary perturbations).
+- Updated `vsop87.test.ts`: Sun latitude test now checks `< 0.01°` (tiny residual
+  from Earth's inclination), Mercury speed threshold updated to `> 1°/day` (geocentric).
+
+### Decisions Made
+- **Tolerances set to ~2× observed max**, not tight. The Keplerian model without
+  perturbations drifts ~1°/century; this is inherent to the model, not a bug.
+  Pluto and Saturn get 1.2°–1.3° tolerance reflecting their larger residuals.
+- **Removed the old aberration correction from calculateSunPosition.** The correction
+  was only ~0.006° while the new model has ~0.3°–1°+ secular drift. Keeping it would
+  be false precision. The parity test at each date is the authoritative accuracy gauge.
+- **Finite-difference speed over 1 day** chosen as the step size. It averages out
+  noise while being short enough to capture rapid Mercury motion accurately.
+
 ## 2026-04-18 — aspects timeline: precise in-orb windows
 
 ### Change

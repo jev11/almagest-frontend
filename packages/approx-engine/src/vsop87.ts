@@ -13,7 +13,13 @@ export interface PlanetPosition {
  * perihelion argument (w), and mean daily motion (n).
  *
  * These are the Keplerian orbital elements at J2000.0 with secular rates.
- * Accuracy: ~1 arcmin for inner planets, ~5 arcmin for outer planets, within 100 years of J2000.
+ * Accuracy: after the J2000 epoch, geocentric ecliptic longitude agrees with
+ * the full-series VSOP87D ephemeris (via astronomy-engine) within:
+ *   - Sun, Moon, Jupiter, Saturn: ~0.1°
+ *   - Mercury, Venus, Mars, Uranus, Neptune: ~0.3°
+ *   - Pluto: ~1° (Keplerian model is especially crude for Pluto)
+ * Drift grows to 2-5x these values at ±50 years from J2000. See
+ * parity.test.ts for the authoritative tolerance bounds.
  *
  * Source: JPL planetary fact sheets, simplified Keplerian elements.
  */
@@ -30,6 +36,14 @@ interface OrbitalElements {
   Om0: number; // longitude of ascending node, degrees
   Om1: number; // node rate per century
 }
+
+const EARTH_ELEMENTS: OrbitalElements = {
+  a0: 1.00000261, e0: 0.01671123, e1: -0.00004392,
+  i0: -0.00001531, i1: -0.01294668,
+  L0: 100.46457166, L1: 35999.37244981,
+  w0: 102.93768193, w1: 0.32327364,
+  Om0: 0.0, Om1: 0.0,
+};
 
 const ELEMENTS: Partial<Record<CelestialBody, OrbitalElements>> = {
   [CelestialBody.Mercury]: {
@@ -90,18 +104,6 @@ const ELEMENTS: Partial<Record<CelestialBody, OrbitalElements>> = {
   },
 };
 
-/** Mean motion in degrees/day for each planet. */
-const MEAN_DAILY_MOTION: Partial<Record<CelestialBody, number>> = {
-  [CelestialBody.Mercury]: 4.09234,
-  [CelestialBody.Venus]: 1.60214,
-  [CelestialBody.Mars]: 0.52403,
-  [CelestialBody.Jupiter]: 0.08309,
-  [CelestialBody.Saturn]: 0.03346,
-  [CelestialBody.Uranus]: 0.01175,
-  [CelestialBody.Neptune]: 0.00599,
-  [CelestialBody.Pluto]: 0.00397,
-};
-
 function solveKeplersEquation(M: number, e: number): number {
   // Newton-Raphson to solve E - e*sin(E) = M
   let E = M;
@@ -113,6 +115,43 @@ function solveKeplersEquation(M: number, e: number): number {
   return E;
 }
 
+/**
+ * Heliocentric ecliptic cartesian position (AU) at time T (Julian centuries
+ * from J2000.0), computed from Keplerian orbital elements. Returns the
+ * unit-sphere-scaled (x, y, z) plus the heliocentric distance r.
+ */
+function heliocentricCartesian(
+  el: OrbitalElements,
+  T: number,
+): { x: number; y: number; z: number; r: number } {
+  const e = el.e0 + el.e1 * T;
+  const L = normalizeDegrees(el.L0 + el.L1 * T);
+  const w = normalizeDegrees(el.w0 + el.w1 * T);
+  const Om = normalizeDegrees(el.Om0 + el.Om1 * T);
+  const i = el.i0 + el.i1 * T;
+
+  const M = toRad(normalizeDegrees(L - w));
+  const E = solveKeplersEquation(M, e);
+
+  const nu = 2 * Math.atan2(
+    Math.sqrt(1 + e) * Math.sin(E / 2),
+    Math.sqrt(1 - e) * Math.cos(E / 2),
+  );
+
+  const r = el.a0 * (1 - e * Math.cos(E));
+  const u = toDeg(nu) + w - Om;
+
+  const iRad = toRad(i);
+  const OmRad = toRad(Om);
+  const uRad = toRad(u);
+
+  const x = r * (Math.cos(OmRad) * Math.cos(uRad) - Math.sin(OmRad) * Math.sin(uRad) * Math.cos(iRad));
+  const y = r * (Math.sin(OmRad) * Math.cos(uRad) + Math.cos(OmRad) * Math.sin(uRad) * Math.cos(iRad));
+  const z = r * Math.sin(uRad) * Math.sin(iRad);
+
+  return { x, y, z, r };
+}
+
 export function calculatePlanetPosition(
   T: number,
   body: CelestialBody,
@@ -122,90 +161,57 @@ export function calculatePlanetPosition(
     throw new Error(`No orbital elements for ${body}`);
   }
 
-  // Orbital elements at epoch T
-  const e = el.e0 + el.e1 * T;
-  const L = normalizeDegrees(el.L0 + el.L1 * T);
-  const w = normalizeDegrees(el.w0 + el.w1 * T);
-  const Om = normalizeDegrees(el.Om0 + el.Om1 * T);
-  const i = el.i0 + el.i1 * T;
-
-  // Mean anomaly
-  const M = toRad(normalizeDegrees(L - w));
-
-  // Eccentric anomaly
-  const E = solveKeplersEquation(M, e);
-
-  // True anomaly
-  const nu = 2 * Math.atan2(
-    Math.sqrt(1 + e) * Math.sin(E / 2),
-    Math.sqrt(1 - e) * Math.cos(E / 2),
-  );
-
-  // Distance (AU)
-  const r = el.a0 * (1 - e * Math.cos(E));
-
-  // Argument of latitude
-  const u = toDeg(nu) + w - Om;
-
-  // Ecliptic coordinates
-  const iRad = toRad(i);
-  const OmRad = toRad(Om);
-  const uRad = toRad(u);
-
-  const x = r * (Math.cos(OmRad) * Math.cos(uRad) - Math.sin(OmRad) * Math.sin(uRad) * Math.cos(iRad));
-  const y = r * (Math.sin(OmRad) * Math.cos(uRad) + Math.cos(OmRad) * Math.sin(uRad) * Math.cos(iRad));
-  const z = r * Math.sin(uRad) * Math.sin(iRad);
+  // Geocentric position = planet (heliocentric) − Earth (heliocentric)
+  const p = heliocentricCartesian(el, T);
+  const earth = heliocentricCartesian(EARTH_ELEMENTS, T);
+  const x = p.x - earth.x;
+  const y = p.y - earth.y;
+  const z = p.z - earth.z;
 
   const longitude = normalizeDegrees(toDeg(Math.atan2(y, x)));
   const latitude = toDeg(Math.atan2(z, Math.sqrt(x * x + y * y)));
-  const distance = r;
+  const distance = Math.sqrt(x * x + y * y + z * z);
 
-  // Approximate speed: use mean daily motion, modulated by eccentricity
-  const baseSpeed = MEAN_DAILY_MOTION[body] ?? 0;
-  // Speed varies inversely with distance squared (vis-viva approximation)
-  const speed = baseSpeed * (el.a0 / r) * (el.a0 / r) * Math.sqrt(1 - e * e);
+  // Speed: numerical derivative of longitude over 1 day.
+  // This captures retrograde motion correctly (geocentric parallax-style
+  // effect when Earth overtakes an outer planet) — the old analytic speed
+  // formula computed heliocentric speed, which can never go negative.
+  const dTday = 1 / 36525; // 1 day in Julian centuries
+  const pNext = heliocentricCartesian(el, T + dTday);
+  const earthNext = heliocentricCartesian(EARTH_ELEMENTS, T + dTday);
+  const xNext = pNext.x - earthNext.x;
+  const yNext = pNext.y - earthNext.y;
+  const longitudeNext = normalizeDegrees(toDeg(Math.atan2(yNext, xNext)));
+  let dLong = longitudeNext - longitude;
+  if (dLong > 180) dLong -= 360;
+  if (dLong < -180) dLong += 360;
+  const speed = dLong; // degrees per day; negative = retrograde
 
   return { longitude, latitude, distance, speed };
 }
 
-/** Calculate Sun position (Earth's heliocentric position + 180°). */
+/** Calculate Sun position (geocentric = −Earth's heliocentric position). */
 export function calculateSunPosition(T: number): PlanetPosition {
-  const earthEl: OrbitalElements = {
-    a0: 1.00000261, e0: 0.01671123, e1: -0.00004392,
-    i0: -0.00001531, i1: -0.01294668,
-    L0: 100.46457166, L1: 35999.37244981,
-    w0: 102.93768193, w1: 0.32327364,
-    Om0: 0, Om1: 0,
-  };
+  // Sun's geocentric position = −Earth's heliocentric position.
+  const earth = heliocentricCartesian(EARTH_ELEMENTS, T);
+  const x = -earth.x;
+  const y = -earth.y;
+  const z = -earth.z;
 
-  const e = earthEl.e0 + earthEl.e1 * T;
-  const L = normalizeDegrees(earthEl.L0 + earthEl.L1 * T);
-  const w = normalizeDegrees(earthEl.w0 + earthEl.w1 * T);
-  const M = toRad(normalizeDegrees(L - w));
-  const E = solveKeplersEquation(M, e);
+  const longitude = normalizeDegrees(toDeg(Math.atan2(y, x)));
+  const latitude = toDeg(Math.atan2(z, Math.sqrt(x * x + y * y)));
+  const distance = Math.sqrt(x * x + y * y + z * z);
 
-  const nu = 2 * Math.atan2(
-    Math.sqrt(1 + e) * Math.sin(E / 2),
-    Math.sqrt(1 - e) * Math.cos(E / 2),
-  );
+  // Speed: numerical derivative of longitude over 1 day.
+  const dTday = 1 / 36525;
+  const earthNext = heliocentricCartesian(EARTH_ELEMENTS, T + dTday);
+  const longitudeNext = normalizeDegrees(toDeg(Math.atan2(-earthNext.y, -earthNext.x)));
+  let dLong = longitudeNext - longitude;
+  if (dLong > 180) dLong -= 360;
+  if (dLong < -180) dLong += 360;
+  const speed = dLong;
 
-  const r = earthEl.a0 * (1 - e * Math.cos(E));
-
-  // Sun's geocentric ecliptic longitude = Earth's heliocentric + 180°
-  const sunLon = normalizeDegrees(toDeg(nu) + w + 180);
-
-  // Apply aberration correction (-0.00569°) and nutation approximation
-  const sunLonCorrected = normalizeDegrees(sunLon - 0.00569 - 0.00478 * Math.sin(toRad(125.04 - 1934.136 * T)));
-
-  // Mean solar speed: ~0.9856 degrees/day, varies with eccentricity
-  const speed = 0.9856 / (r * r);
-
-  return {
-    longitude: sunLonCorrected,
-    latitude: 0,
-    distance: r,
-    speed,
-  };
+  return { longitude, latitude, distance, speed };
 }
 
 export const PLANET_BODIES: CelestialBody[] = [

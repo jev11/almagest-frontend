@@ -16,7 +16,8 @@ describe("Sun at J2000.0", () => {
 
   it("latitude is near 0", () => {
     const sun = calculateSunPosition(T0);
-    expect(sun.latitude).toBe(0); // Sun has zero ecliptic latitude by definition
+    // Sun geocentric ecliptic latitude is nearly 0 (tiny residual from Earth's inclination)
+    expect(Math.abs(sun.latitude)).toBeLessThan(0.01);
   });
 
   it("distance is near 0.9833 AU (perihelion is in early January)", () => {
@@ -55,10 +56,10 @@ describe("Planets at J2000.0", () => {
     }
   });
 
-  it("Mercury speed is fastest among planets (>2 deg/day)", () => {
-    // At J2000.0 Mercury isn't at perihelion so speed is below mean; still fastest
+  it("Mercury speed is fastest among planets (>1 deg/day)", () => {
+    // Geocentric speed at J2000.0 depends on relative geometry; still fastest planet
     const mercury = calculatePlanetPosition(T0, PLANET_BODIES[0]!);
-    expect(mercury.speed).toBeGreaterThan(2);
+    expect(mercury.speed).toBeGreaterThan(1);
   });
 
   it("Neptune speed is slowest (<0.1 deg/day)", () => {
