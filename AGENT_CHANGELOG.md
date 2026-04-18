@@ -1,5 +1,20 @@
 # Agent Changelog
 
+## 2026-04-18 — polish: planetary hours current-row highlight
+
+### Change
+In `apps/web/src/components/home/planetary-hours.tsx`, cleaned up the current-hour row rendering in the expanded day/night hours list:
+
+- Removed the small `current` text label that appeared next to the time on the active row (both day-hours and night-hours sections). The row highlight alone now conveys the active state.
+- Replaced the `bg-muted` row highlight with `bg-primary/15`. In dark mode `--muted` resolves to `oklch(17% 0.004 265)`, which is virtually identical to the card background and made the highlight invisible. `bg-primary/15` gives a clear accent-tinted row in both themes, consistent with the `bg-primary/10` pattern already used for active nav items in `apps/web/src/components/layout/sidebar.tsx:59`.
+
+### Decisions Made
+- **No separate dark-mode override.** `bg-primary/15` reads well on both light and dark card backgrounds, so a single class works for both themes. Matches the sidebar's approach.
+- **`/15` vs `/10`.** Sidebar active items also carry `text-primary`, so `/10` is enough contrast against plain foreground text. Planetary-hours rows keep the regular `text-foreground`, so the tint alone carries the signal — bumped one step to `/15` for visibility.
+
+### References
+- Primary file changed: `apps/web/src/components/home/planetary-hours.tsx`
+
 ## 2026-04-18 — home: dominant element / modality donuts on ElementModalityCard
 
 ### Change

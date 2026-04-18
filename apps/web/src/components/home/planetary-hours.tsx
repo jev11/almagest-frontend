@@ -135,7 +135,7 @@ export function PlanetaryHours({ lat, lon }: PlanetaryHoursProps) {
                     <div
                       key={`day-${hour.hourNumber}`}
                       className={`flex items-center gap-2 py-1 px-1 rounded text-[13px] ${
-                        isCurrent ? "bg-muted" : ""
+                        isCurrent ? "bg-primary/15" : ""
                       }`}
                     >
                       <span className="text-muted-foreground text-[11px] w-4 text-right shrink-0">
@@ -151,9 +151,6 @@ export function PlanetaryHours({ lat, lon }: PlanetaryHoursProps) {
                         {formatTime(hour.start, timeFormat)} –{" "}
                         {formatTime(hour.end, timeFormat)}
                       </span>
-                      {isCurrent && (
-                        <span className="text-primary text-[11px] ml-1">current</span>
-                      )}
                     </div>
                   );
                 })}
@@ -178,7 +175,7 @@ export function PlanetaryHours({ lat, lon }: PlanetaryHoursProps) {
                     <div
                       key={`night-${hour.hourNumber}`}
                       className={`flex items-center gap-2 py-1 px-1 rounded text-[13px] ${
-                        isCurrent ? "bg-muted" : ""
+                        isCurrent ? "bg-primary/15" : ""
                       }`}
                     >
                       <span className="text-muted-foreground text-[11px] w-4 text-right shrink-0">
@@ -194,9 +191,6 @@ export function PlanetaryHours({ lat, lon }: PlanetaryHoursProps) {
                         {formatTime(hour.start, timeFormat)} –{" "}
                         {formatTime(hour.end, timeFormat)}
                       </span>
-                      {isCurrent && (
-                        <span className="text-primary text-[11px] ml-1">current</span>
-                      )}
                     </div>
                   );
                 })}
