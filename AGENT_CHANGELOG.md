@@ -1,5 +1,92 @@
 # Agent Changelog
 
+## 2026-04-18 — aspects timeline: precise in-orb windows
+
+### Change
+Replaced sample-grid-based Start / Peak / End computation in
+`apps/web/src/components/home/aspects-timeline.tsx` with bisection-based
+root finding against `@astro-app/approx-engine`:
+
+- New helpers in `aspects-timeline-utils.ts`: `orbAtTime`,
+  `refinePeakTime` (golden-section minimisation), `findOrbCrossing`
+  (bisection with exponential widening and 3-point monotonicity safety
+  for retrograde reversals).
+- `BarRange` migrated from sample-index fields to absolute `ms`
+  timestamps plus `startClipped` / `endClipped` flags.
+- Rendering now uses `msToX` and `clampX` so bars placed entirely by
+  real time and clipped to the viewport; tooltip labels render the
+  converged ms directly or "before / after 〈window edge〉" for clipped
+  boundaries.
+- `ACTIVE_THRESHOLD` sample-gate removed — bars are included if their
+  `[startMs, endMs]` overlaps the 10-day window.
+- Deleted the now-unused `interpolatePeaks` helper and its tests.
+
+### Decisions Made
+- **Bisection over analytic linear-speed formula.** An earlier design used
+  `halfWindow = peakValue × maxOrb / |s1 − s2|` evaluated at the peak.
+  That works for fast-moving pairs but degrades by days-to-weeks for
+  slow-slow aspects (e.g. Saturn-Neptune) because relative angular speed
+  varies dramatically across a multi-month in-orb window. Bisection is
+  accurate to sub-minute for any pair.
+- **Window overlap, not peak-in-window, for inclusion filter.** An
+  aspect whose orb window extends across the 10-day window but whose
+  peak is outside it (e.g. already past exact, still in orb) should
+  still render.
+- **3-point monotonicity guard, not full scan.** Retrograde reversals
+  inside an in-orb window are rare; a 3-probe check catches them cheaply
+  and a fallback golden-section max narrows the bracket to the first
+  crossing when needed.
+- **6-month widening cap.** Aspects in orb beyond that are effectively
+  "always on" in the 10-day view; labelling them `before / after 〈edge〉`
+  is more useful than an extrapolation that could be years away.
+- **Drop the plan's ARCMIN bisection early-exit.** The 1/60° threshold
+  would trigger on an in-orb midpoint ~109 s from the true crossing at
+  Moon speeds — beyond the 60 s brute-force test tolerance. The spec's
+  30 s `CONVERGENCE_MS` window is the sole termination condition, and
+  the final return is `outerMs` (last confirmed out-of-orb probe) so
+  the returned timestamp is guaranteed past the crossing.
+
+### References
+- Spec: `docs/superpowers/specs/2026-04-18-aspect-timeline-precision-design.md`
+- Plan: `docs/superpowers/plans/2026-04-18-aspect-timeline-precision.md`
+- Primary files changed:
+  - `apps/web/src/components/home/aspects-timeline-utils.ts`
+  - `apps/web/src/components/home/aspects-timeline-utils.test.ts`
+  - `apps/web/src/components/home/aspects-timeline.tsx`
+- Commits: `70e50ff`, `1a1c421`, `44342bd`, `ea0b7be`, `a34628d`, `57eb908`, `851ef86`.
+
+## 2026-04-18 — aspects timeline: row hover tooltips
+
+### Change
+Added hover tooltips to each aspect row in `apps/web/src/components/home/aspects-timeline.tsx`. Hovering a row now shows:
+
+- The planet-glyph / aspect-glyph / planet-glyph trio plus the aspect name (e.g. `☉ ☌ ☽ · Conjunction`).
+- Start time (when the aspect enters orb — derived from `fromSample`).
+- Peak time (from `peakSample`, which can be fractional thanks to `interpolatePeaks`).
+- End time (from `toSample`).
+
+Times are rendered with `toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })` — a short `Apr 20, 14:30`-style format.
+
+Implementation details:
+- Each row's `<g>` is wrapped in `TooltipTrigger render={...}` using the Base UI tooltip primitives (`@/components/ui/tooltip`).
+- Inserted a transparent `<rect>` spanning the full 20px row height and the bar's x-range (padded by 2px on each side) before the visible `<line>` so the hover target is comfortable despite the 1.5px visible stroke. `fill="transparent"` + `pointerEvents="all"` so it catches hover without occluding the line visually.
+- Sample-index-to-time conversion uses the existing `windowStartMs` constant already computed for the NOW marker and the implicit `(24 / SAMPLES_PER_DAY) * 3600 * 1000` step. Fractional `peakSample` values carry straight through without rounding.
+- Small local `ASPECT_NAMES` map added — there was no pre-existing name lookup for `AspectType`. Uses hyphenated forms for Semi-Sextile / Semi-Square / Bi-Quintile; Sesquisquare is left as-is (the enum value is already the display name in common astrology UIs).
+- Tooltip content uses a 2-column grid for the time rows (`grid-cols-[auto_1fr]`) with monospaced times for alignment, and tints the middle aspect glyph with the row's aspect color for continuity with the bar.
+
+### Decisions Made
+- **Base UI over Radix:** `apps/web/src/components/ui/tooltip.tsx` is already wired on top of `@base-ui/react/tooltip`, and `TooltipProvider` is mounted once in `apps/web/src/components/layout/app-layout.tsx:8`. Reused that without introducing a second provider or pulling in Radix. Base UI's `TooltipTrigger` accepts a `render` prop (analog of Radix's `asChild`), which works with SVG `<g>` because it exposes `getBoundingClientRect` for anchoring — matches the pattern already used in `apps/web/src/components/layout/sidebar.tsx:71`.
+- **Full-row transparent hit rect:** The visible bar is 1.5px tall and rows are 20px apart; hovering the thin stroke directly is fiddly. A full-height transparent rect gives the user a comfortable 20px hover band without shifting the visual design.
+- **Short localized time format:** `Apr 20, 14:30` is compact enough to fit in the small tooltip and unambiguous across the 10-day window (includes the month so the user can tell the difference between rows spanning a month boundary). 24h format (`hour12: false`) matches the astrology convention and the app's other time displays.
+- **Aspect name map kept local:** No shared aspect-name lookup existed anywhere else in the repo. Chose a small local map over hauling one into `shared-types` — the tooltip is currently the only consumer, and adding it to the types package without a use case there felt premature.
+
+### Known Tradeoffs
+- The tooltip fires via pointer hover on desktop; on touch devices Base UI's default touch behavior applies (long-press). Acceptable — the primary consumption surface is desktop.
+- Tooltips render per-row as separate `Tooltip` roots (one per range). For the typical ~10-20 active aspects this is fine; if the timeline ever scales to 100+ rows we might want to switch to a single shared tooltip driven by mouse position.
+
+### References
+- `apps/web/src/components/home/aspects-timeline.tsx` — row tooltips, helper `formatSampleTime`, `ASPECT_NAMES`, wider hit rect.
+
 ## 2026-04-18 — polish: planetary hours current-row highlight
 
 ### Change
