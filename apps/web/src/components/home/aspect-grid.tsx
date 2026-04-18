@@ -1,4 +1,4 @@
-import { useMemo, memo } from "react";
+import { useMemo, memo, useState } from "react";
 import { CelestialBody, AspectType, Element, SIGN_ELEMENT, SIGN_ORDER } from "@astro-app/shared-types";
 import type { CurrentSkyState } from "@/hooks/use-current-sky";
 import { ASPECT_GLYPHS } from "@/lib/format";
@@ -214,6 +214,8 @@ export const AspectGrid = memo(function AspectGrid({ chartData, nodeType: nodeTy
     return map;
   }, [chartData, orbMap, gridBodies]);
 
+  const [hover, setHover] = useState<{ row: number; col: number } | null>(null);
+
   if (!chartData) return null;
 
   const N = gridBodies.length;
@@ -234,6 +236,7 @@ export const AspectGrid = memo(function AspectGrid({ chartData, nodeType: nodeTy
             gridTemplateColumns: `repeat(${N}, ${CELL_SIZE}px)`,
             fontSize: `${CELL_SIZE}px`,
           }}
+          onMouseLeave={() => setHover(null)}
         >
         {gridBodies.flatMap((rowBody, i) => {
           const isAngle = rowBody.kind === "angle";
@@ -247,10 +250,20 @@ export const AspectGrid = memo(function AspectGrid({ chartData, nodeType: nodeTy
             // Border class:
             // Diagonal cells where i > 0 need explicit border-t since the cell
             // above ([i-1][j]) is upper triangle with no border.
+            // Leftmost column needs explicit border-l for the outer edge.
+            const leftBorder = j === 0 ? " border-l" : "";
             const borderClass =
               j === i
-                ? `border-t border-r border-b border-border`
-                : "border-r border-b border-border";
+                ? `border-t border-r border-b border-border${leftBorder}`
+                : `border-r border-b border-border${leftBorder}`;
+
+            const isHighlighted =
+              hover !== null &&
+              (hover.row === hover.col
+                ? (i === hover.row && j <= hover.row) ||
+                  (j === hover.col && i >= hover.col)
+                : (i === hover.row && j >= hover.col && j <= hover.row) ||
+                  (j === hover.col && i >= hover.col && i <= hover.row));
 
             // Diagonal – body label glyph, coloured by the body's element,
             // elevated with --bg-elev (matches design bundle)
@@ -270,7 +283,8 @@ export const AspectGrid = memo(function AspectGrid({ chartData, nodeType: nodeTy
               return (
                 <div
                   key={key}
-                  className={`${borderClass} bg-bg-elev flex items-center justify-center aspect-square`}
+                  className={`${borderClass} ${isHighlighted ? "bg-primary/15" : "bg-bg-elev"} flex items-center justify-center aspect-square`}
+                  onMouseEnter={() => setHover({ row: i, col: i })}
                 >
                   <span
                     className="leading-none select-none"
@@ -290,7 +304,13 @@ export const AspectGrid = memo(function AspectGrid({ chartData, nodeType: nodeTy
             const aspect = aspectMap.get(`${rowBody.key}|${colBody.key}`);
 
             if (!aspect) {
-              return <div key={key} className={`${borderClass} aspect-square`} />;
+              return (
+                <div
+                  key={key}
+                  className={`${borderClass} ${isHighlighted ? "bg-primary/15" : ""} aspect-square`}
+                  onMouseEnter={() => setHover(null)}
+                />
+              );
             }
 
             const color = ASPECT_COLORS[aspect.type];
@@ -302,9 +322,10 @@ export const AspectGrid = memo(function AspectGrid({ chartData, nodeType: nodeTy
             return (
               <div
                 key={key}
-                className={`${borderClass} aspect-cell flex flex-col items-center justify-center aspect-square leading-none select-none`}
+                className={`${borderClass} aspect-cell ${isHighlighted ? "bg-primary/15" : ""} flex flex-col items-center justify-center aspect-square leading-none select-none`}
                 title={`${rowBody.glyph} ${glyph} ${colBody.glyph}  ${orbDeg}°${orbMin.toString().padStart(2, "0")}'`}
                 style={{ color }}
+                onMouseEnter={() => setHover({ row: i, col: j })}
               >
                 <span className="text-[0.52em]">
                   {glyph}

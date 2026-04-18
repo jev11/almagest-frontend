@@ -26,7 +26,7 @@ describe("resolveCollisions", () => {
     const result = resolveCollisions(positions, 200);
     const angleDiff = Math.abs(result[1]!.displayAngle - result[0]!.displayAngle);
     const pixelDist = angleDiff * 200;
-    expect(pixelDist).toBeGreaterThan(14.9); // should have separated by ~minGlyphGap (15px)
+    expect(pixelDist).toBeGreaterThan(9.9); // should have separated by ~half minGlyphGap (~10px)
   });
 
   it("marks displaced positions", () => {
@@ -103,12 +103,12 @@ describe("resolveCollisions", () => {
 
   it("pushes planet away from wide blocker by full minGlyphGap", () => {
     // Planet at 1.0 rad, wide blocker at 1.01 rad
-    // At radius 200, distance = 0.01 * 200 = 2px — well under minGlyphGap (34px)
+    // At radius 200, distance = 0.01 * 200 = 2px — well under minGlyphGap (20px)
     const positions = makePositions([1.0]);
     const result = resolveCollisions(positions, 200, [], [1.01]);
     const dist = Math.abs(result[0]!.displayAngle - 1.01) * 200;
-    // Must be at least minGlyphGap (34px) away, not just blockerGap (17px)
-    expect(dist).toBeGreaterThanOrEqual(33.5);
+    // Must be at least minGlyphGap (20px) away, not just blockerGap (11px)
+    expect(dist).toBeGreaterThanOrEqual(19.5);
   });
 
   it("pushes planet away from thin blocker by only blockerGap", () => {
@@ -116,15 +116,15 @@ describe("resolveCollisions", () => {
     const positions = makePositions([1.0]);
     const result = resolveCollisions(positions, 200, [1.01]);
     const dist = Math.abs(result[0]!.displayAngle - 1.01) * 200;
-    // Thin blocker uses half gap (~17px)
-    expect(dist).toBeGreaterThanOrEqual(16.5);
-    expect(dist).toBeLessThan(33.5);
+    // Thin blocker uses cuspBlockerGap (~11px), half the sign glyph width
+    expect(dist).toBeGreaterThanOrEqual(10.5);
+    expect(dist).toBeLessThan(19.5);
   });
 
   it("does not trap planet between two adjacent wide blockers", () => {
-    // Two wide blockers 36px apart (just above minGlyphGap)
+    // Two wide blockers 22px apart (just above minGlyphGap = 20)
     // Planet between them should be pushed fully outside, not trapped at midpoint
-    const spacing = 36 / 200; // 0.18 rad
+    const spacing = 22 / 200; // 0.11 rad
     const b1 = 1.0;
     const b2 = b1 + spacing;
     const planetAngle = b1 + spacing / 2; // midpoint
@@ -134,7 +134,7 @@ describe("resolveCollisions", () => {
     const distToB2 = Math.abs(result[0]!.displayAngle - b2) * 200;
     // Planet must be pushed outside both zones — at least clear of the nearer one
     const minDist = Math.min(distToB1, distToB2);
-    expect(minDist).toBeGreaterThanOrEqual(16); // at least clear of the nearer one
+    expect(minDist).toBeGreaterThanOrEqual(19); // at least clear of the nearer one
   });
 
   it("resolves planet 2° from angle label without overlap (stellium MC/Neptune case)", () => {
@@ -152,14 +152,14 @@ describe("resolveCollisions", () => {
     const positions = makePositions([deg2rad(451.9)]);
     const result = resolveCollisions(positions, radius, [], mcBlockers);
 
-    // Neptune must be pushed at least minGlyphGap (34px) from the MC label center
+    // Neptune must be pushed at least minGlyphGap (20px) from the MC label center
     const distFromMcCenter = Math.abs(result[0]!.displayAngle - mcCenter) * radius;
-    expect(distFromMcCenter).toBeGreaterThanOrEqual(33);
+    expect(distFromMcCenter).toBeGreaterThanOrEqual(19);
 
     // And must not be trapped between blocker points
     for (const blocker of mcBlockers) {
       const dist = Math.abs(result[0]!.displayAngle - blocker) * radius;
-      // Either well outside (>34px) or not between any pair
+      // Either well outside (>20px) or not between any pair
       expect(dist).not.toBeCloseTo(0, 0);
     }
   });
@@ -178,14 +178,14 @@ describe("resolveCollisions", () => {
 
     // Planet must be pushed clear of AS label zone
     const distFromAs = Math.abs(result[0]!.displayAngle - asCenter) * radius;
-    expect(distFromAs).toBeGreaterThanOrEqual(33);
+    expect(distFromAs).toBeGreaterThanOrEqual(19);
   });
 
   it("planet just before AS (wrap-around near 3π) is pushed clear", () => {
     const radius = 174;
 
     // AS wide blocker at π + small offset (same as real rendering)
-    const asBlocker = Math.PI + 14 / radius;
+    const asBlocker = Math.PI + 7 / radius;
 
     // Planet longitude slightly less than ascendant → chart angle wraps to ~3π
     const planetAngle = 3 * Math.PI - 0.02; // visually just before AS
@@ -195,6 +195,6 @@ describe("resolveCollisions", () => {
     // Circular distance: the planet should be pushed clear of the AS blocker
     const rawDiff = result[0]!.displayAngle - asBlocker;
     const circDist = Math.abs(((rawDiff % (2 * Math.PI)) + 3 * Math.PI) % (2 * Math.PI) - Math.PI) * radius;
-    expect(circDist).toBeGreaterThanOrEqual(33);
+    expect(circDist).toBeGreaterThanOrEqual(19);
   });
 });

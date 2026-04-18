@@ -332,7 +332,7 @@ export const GLYPH_SIZES = {
 
 export const COLLISION = {
   /** Minimum pixel gap between planet glyphs before collision avoidance activates */
-  minGlyphGap: 20,
+  minGlyphGap: 22,
   /** Maximum displacement in pixels for collision resolution */
   maxDisplacement: 40,
   /** Number of iterations for force-directed layout */

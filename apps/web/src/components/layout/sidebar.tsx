@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Home,
-  Plus,
   Sun,
   RefreshCw,
   Settings,
@@ -27,7 +26,6 @@ import { cn } from "@/lib/utils";
 
 const TOP_NAV = [
   { label: "Today", icon: Home, path: "/" },
-  { label: "New Chart", icon: Plus, path: "/chart/new" },
   { label: "My Charts", icon: Sun, path: "/charts" },
   { label: "Transits", icon: RefreshCw, path: "/transits" },
 ];

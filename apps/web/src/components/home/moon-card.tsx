@@ -230,7 +230,13 @@ export function MoonCard() {
 
         {/* Main row: ring + phase info */}
         <div className="flex items-center gap-[18px] animate-fade-in">
-          <MoonCycleRing progress={progress} size={76} />
+          <span
+            className="leading-none shrink-0 text-[44px]"
+            aria-hidden
+            title={phaseName}
+          >
+            {phaseIcon}
+          </span>
           <div className="flex-1 min-w-0">
             <div className="font-display text-foreground text-[22px] leading-tight">
               {phaseName}
@@ -250,13 +256,7 @@ export function MoonCard() {
               </div>
             )}
           </div>
-          <span
-            className="leading-none shrink-0 text-2xl"
-            aria-hidden
-            title={phaseName}
-          >
-            {phaseIcon}
-          </span>
+          <MoonCycleRing progress={progress} size={76} />
         </div>
 
         <Separator className="my-3.5" />
