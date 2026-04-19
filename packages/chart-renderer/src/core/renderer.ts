@@ -1,6 +1,10 @@
 import type { ChartData } from "@astro-app/shared-types";
 import type { ChartTheme } from "../themes/types.js";
-import type { RenderDimensions } from "../layers/types.js";
+import {
+  DEFAULT_CHART_DENSITY,
+  type ChartDensity,
+  type RenderDimensions,
+} from "../layers/types.js";
 import { drawBackground } from "../layers/background.js";
 import { drawZodiacRing } from "../layers/zodiac-ring.js";
 import { drawHouseOverlay } from "../layers/house-overlay.js";
@@ -29,6 +33,22 @@ export interface RenderOptions {
   padding?: number;
   /** Optional metadata shown in the upper-right corner */
   chartInfo?: ChartInfo;
+  /**
+   * Adaptive density knobs (stroke multiplier, glyph scale, label px size).
+   * Omitted keys fall back to `DEFAULT_CHART_DENSITY` — pre-existing
+   * consumers see no behavioral change.
+   */
+  density?: Partial<ChartDensity>;
+}
+
+/** Merge a partial density with defaults. Shared by renderRadix / renderBiwheel. */
+function resolveDensity(partial: Partial<ChartDensity> | undefined): ChartDensity {
+  if (!partial) return { ...DEFAULT_CHART_DENSITY };
+  return {
+    stroke: partial.stroke ?? DEFAULT_CHART_DENSITY.stroke,
+    glyphScale: partial.glyphScale ?? DEFAULT_CHART_DENSITY.glyphScale,
+    labelSize: partial.labelSize ?? DEFAULT_CHART_DENSITY.labelSize,
+  };
 }
 
 export type { ChartInfo };
@@ -74,7 +94,8 @@ export function renderRadix(options: RenderOptions): RenderDimensions {
   const cy = cssHeight / 2;
   const radius = Math.min(cssWidth, cssHeight) / 2 - padding;
 
-  const dim: RenderDimensions = { cx, cy, radius, dpr };
+  const density = resolveDensity(options.density);
+  const dim: RenderDimensions = { cx, cy, radius, dpr, density };
 
   // Render layers in order (back to front)
   if (layers.background) drawBackground(ctx, data, theme, dim);
@@ -132,8 +153,9 @@ export function renderBiwheel(
   // doubles as their reference circle — no extra visual circle needed.
   const separatorR = innerRadius * RING_PROPORTIONS.zodiacInner;
 
-  const innerDim: RenderDimensions = { cx, cy, radius: innerRadius, dpr };
-  const outerDim: RenderDimensions = { cx, cy, radius: totalRadius, dpr };
+  const density = resolveDensity(options.density);
+  const innerDim: RenderDimensions = { cx, cy, radius: innerRadius, dpr, density };
+  const outerDim: RenderDimensions = { cx, cy, radius: totalRadius, dpr, density };
 
   // 1. Background at full size
   drawBackground(ctx, data, theme, outerDim);
@@ -148,7 +170,7 @@ export function renderBiwheel(
   ctx.beginPath();
   ctx.arc(cx, cy, separatorR, 0, Math.PI * 2);
   ctx.strokeStyle = theme.ringStroke;
-  ctx.lineWidth = theme.ringStrokeWidth * 2;
+  ctx.lineWidth = theme.ringStrokeWidth * 2 * density.stroke;
   ctx.stroke();
 
   // 5. Inner natal chart — clipped to the separator so no elements leak outward

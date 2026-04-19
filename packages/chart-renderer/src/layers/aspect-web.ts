@@ -15,7 +15,7 @@ export function drawAspectWeb(
   theme: ChartTheme,
   dim: RenderDimensions,
 ): void {
-  const { cx, cy, radius } = dim;
+  const { cx, cy, radius, density } = dim;
   const ascendant = data.houses.ascendant;
   const aspectR = radius * RING_PROPORTIONS.aspectOuter;
 
@@ -51,7 +51,7 @@ export function drawAspectWeb(
     ctx.moveTo(pt1.x, pt1.y);
     ctx.lineTo(pt2.x, pt2.y);
     ctx.strokeStyle = color;
-    ctx.lineWidth = isMajor ? theme.aspectMajorWidth : theme.aspectMinorWidth;
+    ctx.lineWidth = (isMajor ? theme.aspectMajorWidth : theme.aspectMinorWidth) * density.stroke;
     ctx.setLineDash(isMajor ? [] : theme.aspectMinorDash);
     ctx.stroke();
     ctx.setLineDash([]);
@@ -62,7 +62,7 @@ export function drawAspectWeb(
       const mx = (pt1.x + pt2.x) / 2;
       const my = (pt1.y + pt2.y) / 2;
 
-      const glyphSize = glyphSizes(radius).degreeLabel;
+      const glyphSize = glyphSizes(radius).degreeLabel * density.glyphScale;
       const glyphHalf = Math.round(glyphSize * 0.65);
       ctx.save();
       // Small background behind glyph so it's readable over other lines
@@ -78,6 +78,6 @@ export function drawAspectWeb(
   ctx.beginPath();
   ctx.arc(cx, cy, aspectR, 0, Math.PI * 2);
   ctx.strokeStyle = theme.ringStroke;
-  ctx.lineWidth = theme.ringStrokeWidth;
+  ctx.lineWidth = theme.ringStrokeWidth * density.stroke;
   ctx.stroke();
 }

@@ -16,7 +16,7 @@ export function drawHouseOverlay(
   theme: ChartTheme,
   dim: RenderDimensions,
 ): void {
-  const { cx, cy, radius } = dim;
+  const { cx, cy, radius, density } = dim;
   const { houses } = data;
   const ascendant = houses.ascendant;
 
@@ -28,7 +28,7 @@ export function drawHouseOverlay(
   ctx.beginPath();
   ctx.arc(cx, cy, houseNumberOuterR, 0, 2 * Math.PI);
   ctx.strokeStyle = theme.ringStroke;
-  ctx.lineWidth = theme.ringStrokeWidth;
+  ctx.lineWidth = theme.ringStrokeWidth * density.stroke;
   ctx.stroke();
 
   // Draw house cusp lines
@@ -49,12 +49,12 @@ export function drawHouseOverlay(
       outerR = zodiacOuterR;
       innerR = 0; // extends to center
       strokeColor = theme.angleStroke;
-      strokeWidth = theme.angleStrokeWidth;
+      strokeWidth = theme.angleStrokeWidth * density.stroke;
     } else {
       outerR = radius * RING_PROPORTIONS.zodiacInner;
       innerR = aspectCircleR;
       strokeColor = theme.houseStroke;
-      strokeWidth = theme.houseStrokeWidth;
+      strokeWidth = theme.houseStrokeWidth * density.stroke;
     }
 
     const pt1 = polarToCartesian(cx, cy, angle, outerR);
@@ -74,7 +74,7 @@ export function drawHouseOverlay(
     ctx.moveTo(tickOuter.x, tickOuter.y);
     ctx.lineTo(tickInner.x, tickInner.y);
     ctx.strokeStyle = theme.houseStroke;
-    ctx.lineWidth = theme.houseStrokeWidth;
+    ctx.lineWidth = theme.houseStrokeWidth * density.stroke;
     ctx.stroke();
   }
 
@@ -85,8 +85,13 @@ export function drawHouseOverlay(
   const cuspLabelR = zodiacOuterR + 10 * (radius / 300);
   const s = radius / 300;
   const tokenGap = Math.max(1, Math.round(s));
-  const fontSize = glyphSizes(radius).degreeLabel;
+  // Degree labels use `density.labelSize` directly so their size matches the
+  // rest of the chart's label scale on each tier. Sign glyphs inside the
+  // cusp label row still scale with the per-radius base so they stay in
+  // proportion to the overall chart geometry.
+  const fontSize = density.labelSize;
   const minuteFontSize = Math.round(fontSize * 0.70);
+  const cuspSignGlyphSize = glyphSizes(radius).degreeLabel * density.glyphScale;
 
   ctx.fillStyle = theme.degreeLabelColor;
   ctx.textAlign = "center";
@@ -109,12 +114,12 @@ export function drawHouseOverlay(
     const tokens: Array<{ text: string; size: number; glyphChar?: string }> = houseNum >= 7
       ? [
           { text: minute, size: minuteFontSize },
-          { text: "", size: fontSize, glyphChar: signChar },
+          { text: "", size: cuspSignGlyphSize, glyphChar: signChar },
           { text: deg, size: fontSize },
         ]
       : [
           { text: deg, size: fontSize },
-          { text: "", size: fontSize, glyphChar: signChar },
+          { text: "", size: cuspSignGlyphSize, glyphChar: signChar },
           { text: minute, size: minuteFontSize },
         ];
 
@@ -144,7 +149,7 @@ export function drawHouseOverlay(
   }
 
   // Draw house numbers centered in the ring between houseNumberOuterR and aspectCircleR
-  ctx.font = `${glyphSizes(radius).houseNumber}px ${theme.fontFamily}`;
+  ctx.font = `${glyphSizes(radius).houseNumber * density.glyphScale}px ${theme.fontFamily}`;
   ctx.fillStyle = theme.houseNumberColor;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";

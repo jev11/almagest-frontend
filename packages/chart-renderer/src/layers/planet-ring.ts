@@ -65,7 +65,7 @@ export function drawPlanetRing(
   theme: ChartTheme,
   dim: RenderDimensions,
 ): void {
-  const { cx, cy, radius } = dim;
+  const { cx, cy, radius, density } = dim;
   const ascendant = data.houses.ascendant;
 
   const zodiacInnerR = radius * RING_PROPORTIONS.zodiacInner;
@@ -276,7 +276,12 @@ export function drawPlanetRing(
   }
 
   const sizes = glyphSizes(radius);
-  const fontSize = sizes.degreeLabel;
+  // Planet glyph size scales with glyphScale; degree labels use the absolute
+  // labelSize from density so they match the chart-info / house-cusp label
+  // scale at each breakpoint. `minuteFontSize` keeps the 0.70 ratio.
+  const planetGlyphSize = sizes.planet * density.glyphScale;
+  const signGlyphSize = sizes.degreeLabel * density.glyphScale;
+  const fontSize = density.labelSize;
   const minuteFontSize = Math.round(fontSize * 0.70);
   const gap = Math.max(1.5, Math.round(radius / 300));
 
@@ -294,9 +299,9 @@ export function drawPlanetRing(
       const signColor = element ? (theme.elementColors[element as keyof typeof theme.elementColors] ?? theme.degreeLabelColor) : theme.degreeLabelColor;
       tickColor = theme.angleStroke;
       tokens = [
-        { text: anglePoint.label, color: theme.angleStroke, bold: false, extraGapAfter: true, size: sizes.planet },
+        { text: anglePoint.label, color: theme.angleStroke, bold: false, extraGapAfter: true, size: planetGlyphSize },
         { text: deg, color: theme.degreeLabelColor, bold: false },
-        { text: "", color: signColor, bold: false, glyphChar: signChar },
+        { text: "", color: signColor, bold: false, glyphChar: signChar, size: signGlyphSize },
         { text: min, color: theme.degreeLabelColor, bold: false, small: true },
       ];
     } else {
@@ -316,9 +321,9 @@ export function drawPlanetRing(
 
       tickColor = color;
       tokens = [
-        { text: "", color, bold: true, extraGapAfter: false, size: sizes.planet, glyphChar: planetChar },
+        { text: "", color, bold: true, extraGapAfter: false, size: planetGlyphSize, glyphChar: planetChar },
         { text: deg, color: theme.degreeLabelColor, bold: false },
-        { text: "", color: signColor, bold: false, glyphChar: signChar },
+        { text: "", color: signColor, bold: false, glyphChar: signChar, size: signGlyphSize },
         { text: min, color: theme.degreeLabelColor, bold: false, small: true },
       ];
       if (isRetrograde) {
@@ -332,12 +337,12 @@ export function drawPlanetRing(
     const s = radius / 300;
     if (!isAscDsc) {
       const tickOuter = polarToCartesian(cx, cy, pos.originalAngle, zodiacInnerR);
-      const tickInner = polarToCartesian(cx, cy, pos.originalAngle, zodiacInnerR - 6 * s);
+      const tickInner = polarToCartesian(cx, cy, pos.originalAngle, zodiacInnerR - 6 * s * density.glyphScale);
       ctx.beginPath();
       ctx.moveTo(tickOuter.x, tickOuter.y);
       ctx.lineTo(tickInner.x, tickInner.y);
       ctx.strokeStyle = tickColor;
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 1 * density.stroke;
       ctx.stroke();
     }
 
@@ -359,7 +364,9 @@ export function drawPlanetRing(
       currentR -= size + gap + (token.extraGapAfter ? Math.round(fontSize * 0.6) : 0);
     }
 
-    // Leader line from displaced label back to true position on zodiac inner edge
+    // Leader line from displaced label back to true position on zodiac inner edge.
+    // `0.5` is intentional subpixel width — the leader is a hairline hint, not a
+    // structural stroke, so we only apply `stroke` multiplier without rounding up.
     if (pos.displaced) {
       const leaderFrom = polarToCartesian(cx, cy, pos.displayAngle, zodiacInnerR - 13 * s);
       const leaderTo = polarToCartesian(cx, cy, pos.originalAngle, zodiacInnerR - 4 * s);
@@ -367,7 +374,7 @@ export function drawPlanetRing(
       ctx.moveTo(leaderFrom.x, leaderFrom.y);
       ctx.lineTo(leaderTo.x, leaderTo.y);
       ctx.strokeStyle = theme.leaderLineColor;
-      ctx.lineWidth = 0.5;
+      ctx.lineWidth = 0.5 * density.stroke;
       ctx.stroke();
     }
   }

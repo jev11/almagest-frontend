@@ -1,5 +1,125 @@
 # Agent Changelog
 
+## 2026-04-19 — Adaptive foundation: chart-renderer density input
+
+### Change
+Plumbed a `ChartDensity` input (stroke multiplier, glyph scale, label
+font size in px) through the chart renderer so every hard-coded pixel
+constant in the layers scales with the per-breakpoint `--chart-*` CSS
+vars defined in `apps/web/src/index.css`. `RenderOptions` accepts an
+optional `density?: Partial<ChartDensity>`; `RenderDimensions` now
+carries a resolved `ChartDensity` (defaults merged upstream), so layer
+functions can rely on `dim.density` without null checks. The web
+`ChartCanvas` reads the vars off its container via `getComputedStyle`
+inside the existing ResizeObserver render tick and also re-runs the
+effect on tier transitions via `useBreakpoint()`.
+
+### Files
+- `packages/chart-renderer/src/layers/types.ts` — added `ChartDensity`
+  interface, `DEFAULT_CHART_DENSITY` constant, and a required
+  `density: ChartDensity` field on `RenderDimensions`. Already re-exported
+  through the package index via `export * from "./layers/types.js"`.
+- `packages/chart-renderer/src/core/renderer.ts` — extended
+  `RenderOptions` with `density?: Partial<ChartDensity>`; added a
+  `resolveDensity()` helper; merges into `innerDim`/`outerDim` in both
+  `renderRadix` and `renderBiwheel`; scales the biwheel separator ring
+  stroke by `density.stroke`.
+- `packages/chart-renderer/src/layers/zodiac-ring.ts` — modulated 6
+  pixel-constant sites: sign divider stroke, zodiac outer/inner ring
+  strokes, degree tick widths (3 tiers), sign glyph size, and the
+  `6/4/2 * ts` tick lengths (glyphScale).
+- `packages/chart-renderer/src/layers/house-overlay.ts` — modulated 5
+  sites: house-number ring stroke, angular house cusp stroke, non-angular
+  cusp stroke, cusp divider tick stroke, house-number font size
+  (glyphScale). Cusp label numeric font now uses `density.labelSize`
+  directly; embedded sign glyphs inside the cusp label use glyphScale.
+- `packages/chart-renderer/src/layers/aspect-web.ts` — modulated 3 sites:
+  aspect line width (major + minor), aspect glyph size, outer aspect
+  circle stroke.
+- `packages/chart-renderer/src/layers/planet-ring.ts` — modulated planet
+  glyph size, sign glyph size, degree-label font (now `labelSize`), tick
+  width + length, and the subpixel leader-line stroke. Planet tokens
+  now carry explicit sizes so glyphs scale with glyphScale while numeric
+  labels track labelSize.
+- `packages/chart-renderer/src/layers/chart-info.ts` — info-panel font
+  scales by `labelSize / 12` on top of the existing radius-derived base,
+  so small screens get a tighter label while very large wheels still
+  read proportionally.
+- `packages/chart-renderer/src/layers/background.ts` — verified, no
+  changes (layer has no pixel constants, only `clearRect` + `fillRect`).
+- `packages/chart-renderer/src/charts/biwheel.ts` — modulated transit
+  glyph size, transit tick width + length, transit leader-line stroke,
+  and inter-chart aspect line width.
+- `apps/web/src/components/chart/chart-canvas.tsx` — added
+  `readChartDensity()` helper that parses the three `--chart-*` vars off
+  the container's computed style (with sane finite/positive fallbacks);
+  reads density inside the `render()` tick; depends on `useBreakpoint()`
+  tier so density changes that don't trigger a resize still re-render;
+  imports the newly exported `ChartDensity` type from the package index.
+
+### Decisions
+- **`density` required on `RenderDimensions`, optional on
+  `RenderOptions`.** Upstream merge-with-defaults means layer functions
+  never see `undefined`, eliminating per-site null checks. Callers that
+  don't pass `density` — every existing non-web consumer (SVG adapter,
+  demo/visual harnesses, `export-charts.ts` PNG rendering) — get
+  identical output to pre-change because each key defaults to the
+  previous hard-coded value (`stroke: 1`, `glyphScale: 1`,
+  `labelSize: 12`). Verified: 48-test chart-renderer suite passes with
+  zero edits needed.
+- **`labelSize` is an absolute pixel value, not a multiplier.** The plan
+  explicitly calls out that label sizes should be settable in px so the
+  tier token (`10px` phone → `13px` wide) lands directly as the font
+  size, independent of wheel radius. `chart-info.ts`'s radius-derived
+  base is multiplied by `labelSize / 12` to preserve its proportional-
+  to-radius behavior while still shifting with the tier.
+- **Tick lengths scale by glyphScale, not stroke.** A tick is a visual
+  mark whose *apparent size* should grow with the tier, while the stroke
+  axis controls its *line weight*. The pair of axes gives independent
+  control: a dense phone tier can have thinner (`stroke: 1.5×`) but
+  proportionally-short (`glyphScale: 0.85×`) ticks; wide tier gets both
+  bumped.
+- **Subpixel `0.5`-width strokes stay below the multiplier.** The planet
+  leader line, zodiac minor-tick, and biwheel transit leader all use
+  `0.5` as an intentional sub-pixel hairline. Multiplying by
+  `density.stroke` keeps them proportionally thin at each tier (`0.75`,
+  `0.875`, `1.0`, `1.0`). Not rounded up — that would defeat the
+  hairline-hint intent on non-2× displays.
+- **`+1` legibility bump on transit glyphs preserved.** `biwheel.ts`
+  applies a `+1` to `glyphSizes(radius).degreeLabel` before multiplying
+  by `glyphScale` so the existing transit-over-natal visual hierarchy
+  (transit glyphs intentionally a touch larger than inner natal degrees)
+  is preserved at every tier rather than smeared by the scalar.
+- **Re-render trigger via `useBreakpoint().tier`.** ResizeObserver
+  usually fires at layout-breakpoint transitions because the container
+  width changes — but a user-preference density toggle (future work) or
+  sidebar-collapse at the same tier won't trigger a resize. Adding
+  `tier` to the effect dependency array is cheap (only one re-render
+  per tier change, not per pixel) and makes density refreshes
+  deterministic.
+- **`mini-wheel.tsx` and the SVG adapter intentionally untouched.** They
+  own their own drawing code and the plan scopes this task to the
+  canvas renderer. Both can adopt density in a follow-up; their current
+  hard-coded values continue to match `DEFAULT_CHART_DENSITY`, so the
+  visual output is unchanged.
+
+### Verification
+- `npm test --workspace=packages/chart-renderer` — 48/48 passing
+  (geometry, layout, glyphs, svg adapter). No test changes needed; the
+  opt-in `density` argument means default-path renders are byte-
+  equivalent (same numeric constants).
+- `npm run typecheck --workspaces` — all 5 packages clean
+  (shared-types, chart-renderer, astro-client, approx-engine, web).
+- `npm run build --workspace=apps/web` — succeeds, 605 ms. The
+  `ChartCanvas` picks up the new `density` prop through TypeScript's
+  structural typing; no runtime ReferenceErrors.
+- Manual resize smoke — flagged as requiring a running dev server to
+  observe the stroke/glyph/label shift at 640 / 1024 / 1440 px. Not
+  executed in this session; the three CSS variables are already set
+  per-tier in `index.css` (phone `1.5 / 0.85 / 10`, tablet
+  `1.75 / 0.92 / 11`, desktop `2 / 1 / 12`, wide `2 / 1.05 / 13`) and
+  the typecheck + unit-test path confirms the plumbing is sound.
+
 ## 2026-04-19 — Adaptive foundation: useBreakpoint hook
 
 ### Change

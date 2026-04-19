@@ -48,9 +48,13 @@ export function drawChartInfo(
   dim: RenderDimensions,
   info: ChartInfo,
 ): void {
-  const { cx, radius } = dim;
+  const { cx, radius, density } = dim;
 
-  const fontSize = Math.round(radius * 0.036);
+  // Base size tracks the wheel radius; rescale by the ratio of the tier's
+  // label size to the default so the info text tracks the other labels on
+  // small screens while still reading proportionally to a very large wheel.
+  const labelRatio = density.labelSize / 12;
+  const fontSize = Math.round(radius * 0.036 * labelRatio);
   if (fontSize < 4) return; // too small to read — skip rendering
   const lineHeight = Math.round(fontSize * 1.5);
   const margin = Math.round(radius * 0.04);
