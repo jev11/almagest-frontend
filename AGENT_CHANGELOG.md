@@ -1,5 +1,49 @@
 # Agent Changelog
 
+## 2026-04-19 — Charts redesign Task 2: MiniWheel + NewChartTile
+
+### Change
+Second task of the "Redesign My Charts page" plan — two standalone,
+SVG-based UI components ported faithfully from the design source at
+`/tmp/claude-design/almagest/project/charts-page.jsx`. No page wiring;
+Task 3 will consume them.
+
+- **`apps/web/src/components/chart/mini-wheel.tsx`** (new) — pure SVG
+  `MiniWheel` component with two variants (`compact`, `featured`). Also
+  exports `toMiniWheelPositions(chart)` and `toMiniWheelProps(chart, opts)`
+  adapters that map a `ChartData` to the component's position tuples
+  using the 10-body classical planet order and `PLANET_GLYPHS` from
+  `@/lib/format`. Uses `useId` for a collision-safe `clipPath` id.
+- **`apps/web/src/components/chart/new-chart-tile.tsx`** (new) — ghost
+  chart-wheel button with accessible labels, `atLimit` prop, and a
+  keyboard-hint badge (`<kbd>N</kbd>`).
+
+### Decisions Made
+- **Two variants, not three.** The design source exposes only `compact`
+  (default) and `featured` regimes via the `variant === 'featured'`
+  branch. Collapsed the `MiniWheelVariant` union to `"compact" |
+  "featured"` rather than inventing a `default` level the design
+  doesn't support.
+- **Use design class names directly.** Per the plan revision, the
+  components render with `.cc-new`, `.cc-new-wheel`, etc. unstyled in
+  isolation. Task 3 imports the ported `charts-page.css`, at which
+  point the styles attach automatically. No inline Tailwind fallback,
+  as that would have to be ripped out when Task 3 lands.
+- **Collision-safe `clipPath` id.** Replaced the design's
+  `clip-${size}-${ascDeg}` template with a `useId()`-derived value so
+  multiple wheels can live in the same document (e.g. grid + row-level
+  mini-wheels) without id clashes.
+- **PLANET_GLYPHS coverage verified.** `apps/web/src/lib/format.ts`
+  already has glyphs for all 10 classical bodies (sun, moon, mercury,
+  venus, mars, jupiter, saturn, uranus, neptune, pluto). The
+  `if (!glyph) continue` guard in `toMiniWheelPositions` remains as
+  defense-in-depth for future-added `CelestialBody` enum entries.
+
+### References
+- `apps/web/src/components/chart/mini-wheel.tsx`
+- `apps/web/src/components/chart/new-chart-tile.tsx`
+- Plan: `/home/evgeny/.claude/plans/we-need-to-redesign-stateless-dolphin.md`
+
 ## 2026-04-19 — Charts redesign Task 1: schema + helper libraries
 
 ### Change
