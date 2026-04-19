@@ -1,8 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Bookmark, BookmarkCheck, Settings } from "lucide-react";
+import { ArrowLeft, Bookmark, BookmarkCheck, Download, Settings, Tag } from "lucide-react";
 import { toast } from "sonner";
 import { chartCache, useAstroClient } from "@astro-app/astro-client";
+import { fromStored } from "@/lib/unified-chart";
+import { buildChartPdfBlob } from "@/lib/pdf-export";
+import { triggerDownload, safeFilename } from "@/lib/export-charts";
 import { calculateApproximate } from "@astro-app/approx-engine";
 import type { StoredChart } from "@astro-app/astro-client";
 import { HouseSystem, ZodiacType } from "@astro-app/shared-types";
@@ -14,11 +17,12 @@ import { useSettings } from "@/hooks/use-settings";
 import { useTimezone } from "@/hooks/use-timezone";
 import { PlanetCard } from "@/components/home/planet-card";
 import { AspectGrid } from "@/components/home/aspect-grid";
-import { DistributionOverlay } from "@/components/chart/distribution-overlay";
 import { ElementModalityCard } from "@/components/home/element-modality-card";
+import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { cn, localTimeToUtc } from "@/lib/utils";
 import { LocationSearch } from "@/components/forms/location-search";
 import { DateTimePicker } from "@/components/forms/date-time-picker";
+import { TagInput } from "@/components/forms/tag-input";
 import { ChartSkeleton, TableSkeleton } from "@/components/ui/skeleton";
 import { ErrorCard } from "@/components/ui/error-card";
 import {
@@ -62,6 +66,7 @@ export function ChartViewPage() {
   const navigate = useNavigate();
   const client = useAstroClient();
   const timeFormat = useSettings((s) => s.appearance.timeFormat);
+  const { isDesktopOrLarger, isWide } = useBreakpoint();
   const [stored, setStored] = useState<StoredChart | null>(null);
   const chartLat = stored?.request.latitude ?? 0;
   const chartLon = stored?.request.longitude ?? 0;
@@ -70,6 +75,7 @@ export function ChartViewPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("chart");
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   // Settings dialog state
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -81,7 +87,9 @@ export function ChartViewPage() {
   const [pendingZodiac, setPendingZodiac] = useState<ZodiacType>(ZodiacType.Tropical);
   const [pendingNodeType, setPendingNodeType] = useState<"mean" | "true">("mean");
   const [pendingAyanamsa, setPendingAyanamsa] = useState<string>("lahiri");
+  const [pendingTags, setPendingTags] = useState<string[]>([]);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showTags, setShowTags] = useState(false);
   const [applying, setApplying] = useState(false);
 
   useEffect(() => {
@@ -118,6 +126,27 @@ export function ChartViewPage() {
     }
   }, [id, source, client]);
 
+  // Write-back lastViewedAt so the charts page "Recent" sort reflects visits.
+  // Keyed on stored?.id only (not stored) to avoid re-firing on unrelated
+  // stored updates (e.g., settings-apply mutation). Best-effort — backend
+  // endpoint may not exist yet; degrade gracefully.
+  useEffect(() => {
+    if (!stored) return;
+    const now = Date.now();
+    if (source === "cloud") {
+      client.markCloudChartViewed(stored.id).catch(() => {
+        /* endpoint may not be deployed yet */
+      });
+    } else {
+      chartCache
+        .set({ ...stored, lastViewedAt: now })
+        .catch(() => {
+          /* best effort */
+        });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stored?.id, source]);
+
   // Sync pending settings from loaded chart — convert UTC to local time for display
   useEffect(() => {
     if (!stored) return;
@@ -138,7 +167,12 @@ export function ChartViewPage() {
     setPendingZodiac((stored.request.zodiac_type as ZodiacType) ?? ZodiacType.Tropical);
     setPendingNodeType(stored.nodeType ?? useSettings.getState().defaults.nodeType);
     setPendingAyanamsa(stored.request.ayanamsa ?? "lahiri");
-  }, [stored, timezoneIana]);
+    setPendingTags(stored.tags ?? []);
+    setShowTags((stored.tags ?? []).length > 0);
+    if (searchParams.get("edit") === "1") {
+      setSettingsOpen(true);
+    }
+  }, [stored, timezoneIana, searchParams]);
 
   const currentSky = useMemo(() => {
     if (!stored) return null;
@@ -158,6 +192,21 @@ export function ChartViewPage() {
       setTimeout(() => setSaved(false), 2000);
     } catch {
       toast.error("Could not save chart");
+    }
+  }
+
+  async function handleExportPdf() {
+    if (!stored || exportingPdf) return;
+    setExportingPdf(true);
+    try {
+      const blob = await buildChartPdfBlob(fromStored(stored));
+      triggerDownload(blob, `${safeFilename(stored.name)}.pdf`);
+      toast.success("Chart exported");
+    } catch (err) {
+      console.error("[export-pdf]", err);
+      toast.error("Export failed");
+    } finally {
+      setExportingPdf(false);
     }
   }
 
@@ -186,9 +235,19 @@ export function ChartViewPage() {
         chart: res,
         request: newRequest,
         nodeType: pendingNodeType,
+        tags: pendingTags,
         updatedAt: Date.now(),
       };
       await chartCache.set(updated);
+      if (source === "cloud") {
+        try {
+          await client.updateCloudChart(stored.id, { tags: pendingTags });
+        } catch {
+          // Best-effort: chart recalculation already succeeded and was
+          // stored locally; surface the sync failure but don't block UI.
+          toast.warning("Tags saved locally; cloud sync failed");
+        }
+      }
       setStored(updated);
       setSettingsOpen(false);
       toast.success("Chart updated");
@@ -201,11 +260,19 @@ export function ChartViewPage() {
 
   if (loading) {
     return (
-      <div className="flex gap-gap p-8 h-full items-start">
-        <div className="min-w-0" style={{ flex: "1.618" }}>
+      <div
+        className={cn(
+          "gap-gap p-pad tablet:p-pad-lg h-full items-start",
+          isDesktopOrLarger ? "flex" : "flex flex-col",
+        )}
+      >
+        <div className="min-w-0 w-full" style={isDesktopOrLarger ? { flex: "1.618" } : undefined}>
           <ChartSkeleton />
         </div>
-        <div className="flex flex-col gap-3" style={{ flex: "1" }}>
+        <div
+          className="flex flex-col gap-gap w-full"
+          style={isDesktopOrLarger ? { flex: "1" } : undefined}
+        >
           <TableSkeleton rows={13} />
         </div>
       </div>
@@ -214,7 +281,7 @@ export function ChartViewPage() {
 
   if (!stored) {
     return (
-      <div className="flex items-center justify-center h-full p-8">
+      <div className="flex items-center justify-center h-full p-pad tablet:p-pad-lg">
         <ErrorCard
           message={loadError ?? "Chart not found."}
           onRetry={() => navigate("/charts")}
@@ -254,27 +321,27 @@ export function ChartViewPage() {
   return (
     <>
       <div className="flex flex-col h-full">
-        {/* Top bar */}
-        <div className="flex items-center gap-4 px-6 h-12 shrink-0 border-b border-border">
+        {/* Top bar — on phone, name subtitle moves to a second line to prevent cramping */}
+        <div className="flex items-center gap-gap-sm tablet:gap-4 px-pad tablet:px-6 h-12 shrink-0 border-b border-border">
           <button
             type="button"
-            className="w-11 h-11 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+            className="w-11 h-11 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors shrink-0"
             onClick={() => navigate(-1)}
           >
             <ArrowLeft size={20} />
           </button>
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 flex flex-col tablet:flex-row tablet:items-baseline tablet:gap-2">
             <span className="text-foreground font-medium text-sm truncate">{name}</span>
-            <span className="text-muted-foreground text-xs ml-2">{subtitle}</span>
+            <span className="text-muted-foreground text-xs truncate hidden tablet:inline">{subtitle}</span>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-gap-xs tablet:gap-1 shrink-0">
             {/* Tabs in top bar */}
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 type="button"
                 className={cn(
-                  "px-3 py-1 text-sm font-medium rounded-md transition-colors",
+                  "px-2 tablet:px-3 py-1 text-xs tablet:text-sm font-medium rounded-md transition-colors",
                   activeTab === tab.id
                     ? "text-foreground bg-secondary"
                     : "text-muted-foreground hover:text-foreground",
@@ -284,6 +351,20 @@ export function ChartViewPage() {
                 {tab.label}
               </button>
             ))}
+            <button
+              type="button"
+              title="Export PDF"
+              disabled={exportingPdf}
+              className={cn(
+                "w-11 h-11 flex items-center justify-center transition-colors",
+                exportingPdf
+                  ? "text-muted-foreground opacity-60 cursor-wait"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+              onClick={handleExportPdf}
+            >
+              <Download size={18} />
+            </button>
             <button
               type="button"
               title="Chart settings"
@@ -306,12 +387,58 @@ export function ChartViewPage() {
           </div>
         </div>
 
-        {/* Content: 1.618:1 split layout matching home screen */}
-        <div className="flex gap-gap flex-1 min-h-0 overflow-y-auto p-8 items-start">
-          {/* Left column — chart + aspect grid */}
-          <div className="flex flex-col gap-gap min-w-0" style={{ flex: "1.618" }}>
+        {/* Phone subtitle — date/time shown under the title bar when truncation would drop it */}
+        <div className="tablet:hidden px-pad pt-pad-xs text-muted-foreground text-xs truncate shrink-0">
+          {subtitle}
+        </div>
+
+        {/* Content layout
+            - Phone (<640): single column stack — wheel, aspect grid, planet card, element modality.
+            - Desktop (≥1024): two-column split (1.618 : 1) matching today's layout.
+            - Tablet (640–1023): single column but wheel constrained so it doesn't hog the viewport,
+              then the three smaller panels below in a single column. Rendered with the same DOM
+              as phone (flex-col) — the wheel width cap comes from the canvas container. */}
+        {isDesktopOrLarger ? (
+          <div
+            className={cn(
+              "flex flex-1 min-h-0 overflow-y-auto items-start",
+              isWide ? "gap-gap-lg p-pad-lg" : "gap-gap p-pad-lg",
+            )}
+          >
+            {/* Left column — chart + aspect grid */}
+            <div className="flex flex-col gap-gap min-w-0" style={{ flex: "1.618" }}>
+              <div
+                className="relative w-full aspect-square rounded-lg overflow-hidden bg-card border border-border"
+                style={{ containerType: "inline-size" }}
+              >
+                {activeTab === "transits" && currentSky ? (
+                  <ChartCanvas data={chart} outerData={currentSky} chartInfo={chartInfo} nodeType={chartNodeType} className="w-full h-full" />
+                ) : (
+                  <ChartCanvas data={chart} chartInfo={chartInfo} nodeType={chartNodeType} className="w-full h-full" />
+                )}
+              </div>
+              <AspectGrid chartData={chart} nodeType={chartNodeType} />
+            </div>
+
+            {/* Right column — planet card + element/modality */}
+            <div className="flex flex-col gap-gap" style={{ flex: "1" }}>
+              <PlanetCard chartData={chart} nodeType={chartNodeType} />
+              <ElementModalityCard chartData={chart} />
+            </div>
+          </div>
+        ) : (
+          <div
+            className={cn(
+              "flex flex-col flex-1 min-h-0 overflow-y-auto",
+              "gap-gap p-pad tablet:gap-gap-lg tablet:p-pad-lg",
+            )}
+          >
             <div
-              className="relative w-full aspect-square rounded-lg overflow-hidden bg-card border border-border"
+              className={cn(
+                "relative w-full aspect-square rounded-lg overflow-hidden bg-card border border-border mx-auto",
+                // Tablet: cap the wheel width so it doesn't overwhelm vertical scroll
+                "tablet:max-w-[560px]",
+              )}
               style={{ containerType: "inline-size" }}
             >
               {activeTab === "transits" && currentSky ? (
@@ -319,22 +446,17 @@ export function ChartViewPage() {
               ) : (
                 <ChartCanvas data={chart} chartInfo={chartInfo} nodeType={chartNodeType} className="w-full h-full" />
               )}
-              <DistributionOverlay chartData={chart} />
             </div>
             <AspectGrid chartData={chart} nodeType={chartNodeType} />
-          </div>
-
-          {/* Right column — planet card */}
-          <div className="flex flex-col gap-gap" style={{ flex: "1" }}>
             <PlanetCard chartData={chart} nodeType={chartNodeType} />
             <ElementModalityCard chartData={chart} />
           </div>
-        </div>
+        )}
       </div>
 
       {/* Settings dialog */}
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
-        <DialogContent className="bg-card border-border text-foreground max-w-md max-h-[85vh] overflow-y-auto">
+        <DialogContent className="bg-card border-border text-foreground w-[calc(100vw-2rem)] max-w-md tablet:max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Chart</DialogTitle>
           </DialogHeader>
@@ -421,7 +543,7 @@ export function ChartViewPage() {
             {/* Advanced settings */}
             <button
               type="button"
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors self-start"
               onClick={() => setShowAdvanced((v) => !v)}
             >
               <span className={`text-xs transition-transform ${showAdvanced ? "rotate-90" : ""}`}>▶</span>
@@ -443,6 +565,21 @@ export function ChartViewPage() {
                     <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">▼</div>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* Tags */}
+            <button
+              type="button"
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors self-start"
+              onClick={() => setShowTags((v) => !v)}
+            >
+              <span className={`text-xs transition-transform ${showTags ? "rotate-90" : ""}`}>▶</span>
+              <Tag size={12} /> Tags{pendingTags.length > 0 ? ` (${pendingTags.length})` : ""}
+            </button>
+            {showTags && (
+              <div className="flex flex-col gap-4 pl-4 border-l-2 border-border">
+                <TagInput id="chart-view-tags" value={pendingTags} onChange={setPendingTags} />
               </div>
             )}
           </div>

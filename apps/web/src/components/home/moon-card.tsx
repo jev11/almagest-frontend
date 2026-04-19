@@ -219,7 +219,7 @@ export function MoonCard() {
 
   return (
     <Card className="card-moon card-hover animate-fade-in py-0">
-      <CardContent className="p-pad">
+      <CardContent className="p-card-pad">
         {/* Header */}
         <div className="flex items-baseline justify-between mb-3.5">
           <div className="card-title">Moon</div>
@@ -229,10 +229,16 @@ export function MoonCard() {
         </div>
 
         {/* Main row: ring + phase info */}
-        <div className="flex items-center gap-[18px] animate-fade-in">
-          <MoonCycleRing progress={progress} size={76} />
+        <div className="flex items-center gap-gap animate-fade-in">
+          <span
+            className="leading-none shrink-0 text-[36px] tablet:text-[44px]"
+            aria-hidden
+            title={phaseName}
+          >
+            {phaseIcon}
+          </span>
           <div className="flex-1 min-w-0">
-            <div className="font-display text-foreground text-[22px] leading-tight">
+            <div className="font-display text-foreground text-[18px] tablet:text-[22px] leading-tight">
               {phaseName}
             </div>
             {moonZp && (
@@ -250,13 +256,7 @@ export function MoonCard() {
               </div>
             )}
           </div>
-          <span
-            className="leading-none shrink-0 text-2xl"
-            aria-hidden
-            title={phaseName}
-          >
-            {phaseIcon}
-          </span>
+          <MoonCycleRing progress={progress} size={76} />
         </div>
 
         <Separator className="my-3.5" />

@@ -17,7 +17,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@astro-app/shared-types": "*"
+    "@astro-app/shared-types": "*",
+    "astronomy-engine": "^2.1.19"
   },
   "devDependencies": {
     "typescript": "^5.5",

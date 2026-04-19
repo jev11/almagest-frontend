@@ -50,7 +50,7 @@ export function RetrogradeTracker() {
 
   return (
     <Card className="card-hover py-0">
-      <CardContent className="p-pad">
+      <CardContent className="p-card-pad">
       <div className="flex items-baseline justify-between mb-3.5">
         <div className="card-title">Retrogrades</div>
         <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-muted/60 border border-border text-[11px] text-muted-foreground tabular-nums">

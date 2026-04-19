@@ -5,8 +5,34 @@
 This is the frontend monorepo for an astrology software platform. It contains the web application, chart rendering engine, client-side approximation engine, and API client SDK. The backend calculation API lives in a separate repository (almagest-backend).
 
 **Tech stack:** TypeScript, React 18, Vite, Canvas 2D / SVG, npm workspaces
-**Design direction:** Minimalist, modern, dark-mode-first
+**Design direction:** Minimalist, modern, dark-mode-first, **adaptive by default**
 **Design tool:** Pencil.dev (`.pen` files in repo, usable via MCP)
+
+## Adaptive Design Requirement (non-negotiable)
+
+**Every feature, component, route, and UI decision in this project must be adaptive.** A change is not complete until it works across phone (<640 px), tablet (640–1023 px), desktop (1024–1439 px), and wide (≥1440 px). No more desktop-only screens. No more "we'll make it responsive later."
+
+**What "adaptive" means here — enforced, not aspirational:**
+
+1. **Use the semantic breakpoints, not raw pixels or Tailwind defaults.** Tailwind's `sm:/md:/lg:/xl:/2xl:` are disabled. Only `tablet:`, `desktop:`, `wide:` (defined in `apps/web/src/index.css` `@theme inline`) and the default phone-first (no prefix) are valid.
+
+2. **Use the density tokens, not hard-coded pixel values** for spacing, typography, card geometry, and chart metrics. The tokens in `apps/web/src/index.css` (`--pad-*`, `--gap-*`, `--card-pad`, `--card-radius`, `--text-*`, `--chart-*`) automatically ramp across tiers. Reach for `p-pad`, `gap-gap`, `text-[length:var(--text-base)]` — not `p-6`, `gap-4`, `text-[16px]`. Add new tokens at all four tiers if the existing set doesn't cover your need; do not introduce single-value hard-codes.
+
+3. **Use `useBreakpoint()` when JavaScript needs to branch** — e.g., rendering different markup per tier, feeding density into a canvas, adapting numeric geometry. The hook lives at `apps/web/src/hooks/use-breakpoint.ts` and returns `{ tier, isPhone, isTabletOrSmaller, isDesktopOrLarger, isWide }`. Do not add ad-hoc `window.matchMedia` calls or `useEffect` resize listeners.
+
+4. **Chart-renderer is density-aware.** Any new layer or adapter must read stroke / glyph / label sizes from `dim.density` (`ChartDensity`). The web app supplies density by reading `--chart-*` CSS vars via `chart-canvas.tsx` — mirror that pattern in any new canvas host.
+
+5. **Design decisions must name the tier.** When proposing layouts, always describe behavior at every tier — "1 col on phone, 2 col on tablet, 3 col on desktop, 4 col on wide." "Responsive" without tier-by-tier detail is not a design; it's a hope.
+
+6. **Reference source of truth:** `docs/DESIGN_DOCUMENT.md` §1.5 (Breakpoints) and the appended "Adaptive Design Policy" section. `apps/web/src/index.css` is the token definition. When the two diverge, code wins and the doc must be updated.
+
+**When this rule applies (everywhere):**
+- New components, new routes, new forms, new dialogs, new charts, new canvas layers.
+- Refactors: if you touch a file, leave it more adaptive, not less.
+- Bug fixes: don't introduce desktop-only markup even for a "quick fix."
+- Third-party components (shadcn/ui, etc.): if a copied component has fixed widths or a Tailwind default prefix, adapt it before committing.
+
+**Reject the request, ask for clarification, or propose an adaptive alternative** if you're asked to implement something desktop-only or phone-only without a tier-by-tier design. Silently shipping non-adaptive code is the one failure mode not tolerated.
 
 ## Repository Structure
 
@@ -199,4 +225,10 @@ VITE_APP_NAME=Almagest
 
 # Workflow
 after each task I will update the checklist in the `PHASE3_TASK_CHECKLIST.md` file. And create a commit. Commit comment should state phase number and task number.
-After each change update AGENT_CHANGELOG.md file with changes summary and decision made. Before making changes also read this file. If change contradicts with previous decisions, ask user for clarification.
+After each change update AGENT_CHANGELOG.md file with changes summary and decision made. 
+
+# Subagents usage
+Always use subagents for task implementation. 
+
+# Adaptive design
+All design is 

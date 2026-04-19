@@ -57,7 +57,7 @@ export function resolveCollisions(
   const minGap = COLLISION.minGlyphGap;
   const maxDisp = COLLISION.maxDisplacement;
   // House cusp lines are thin — a smaller clearance is sufficient
-  const blockerGap = Math.round(minGap * 0.5);
+  const blockerGap = COLLISION.cuspBlockerGap;
 
   // Convert pixel gap to angular gap at given radius
   const minAngularGap = minGap / radius; // radians

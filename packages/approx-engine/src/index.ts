@@ -14,14 +14,15 @@ import type {
   Aspect,
 } from "@astro-app/shared-types";
 import { dateToJulianDay, julianCenturies, normalizeDegrees, toRad, toDeg } from "./julian.js";
-import { calculateSunPosition, calculatePlanetPosition, PLANET_BODIES } from "./vsop87.js";
-import { calculateMoonPosition } from "./elp2000.js";
+import { calculateSunPosition, calculatePlanetPosition, calculateMoonPosition, PLANET_BODIES } from "./bodies.js";
 import { meanNorthNode, meanSouthNode } from "./nodes.js";
+import { calculateChironPosition } from "./chiron.js";
 
 export { dateToJulianDay, julianCenturies, normalizeDegrees } from "./julian.js";
-export { calculateSunPosition, calculatePlanetPosition } from "./vsop87.js";
-export { calculateMoonPosition } from "./elp2000.js";
+export { calculateSunPosition, calculatePlanetPosition, calculateMoonPosition } from "./bodies.js";
 export { meanNorthNode, meanSouthNode } from "./nodes.js";
+export { calculateChironPosition } from "./chiron.js";
+export { nextEclipse, type NextEclipse, type EclipseKind, type EclipseSubtype } from "./eclipses.js";
 
 const SIGN_ORDER: ZodiacSign[] = [
   ZodiacSign.Aries, ZodiacSign.Taurus, ZodiacSign.Gemini,
@@ -226,6 +227,11 @@ export function calculateApproximate(
   positions[CelestialBody.MeanSouthNode] = toCelestialPosition(southNodeLon, 0, 0, -0.053);
   zodiacPositions[CelestialBody.MeanSouthNode] = longitudeToZodiac(southNodeLon, true);
 
+  // Chiron (Keplerian approximation — see chiron.ts)
+  const chiron = calculateChironPosition(T);
+  positions[CelestialBody.Chiron] = toCelestialPosition(chiron.longitude, chiron.latitude, chiron.distance, chiron.speed);
+  zodiacPositions[CelestialBody.Chiron] = longitudeToZodiac(chiron.longitude, chiron.speed < 0);
+
   // Houses (approximate equal house)
   const ascendant = approximateAscendant(T, lat, lon);
   const midheaven = approximateMidheaven(T, lon);
@@ -352,6 +358,10 @@ export function calculateBodyPosition(date: Date, body: CelestialBody): Celestia
   }
   if (body === CelestialBody.MeanSouthNode) {
     return toCelestialPosition(meanSouthNode(T), 0, 0, -0.053);
+  }
+  if (body === CelestialBody.Chiron) {
+    const pos = calculateChironPosition(T);
+    return toCelestialPosition(pos.longitude, pos.latitude, pos.distance, pos.speed);
   }
 
   const pos = calculatePlanetPosition(T, body);

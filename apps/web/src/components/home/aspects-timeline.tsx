@@ -2,14 +2,28 @@ import { useMemo, useState, useEffect, useRef, memo } from "react";
 import { calculateApproximate } from "@astro-app/approx-engine";
 import { CelestialBody, AspectType } from "@astro-app/shared-types";
 import { PLANET_GLYPHS, ASPECT_GLYPHS } from "@/lib/format";
-import { orbIntensity, interpolatePeaks } from "./aspects-timeline-utils";
+import {
+  orbIntensity,
+  orbAtTime,
+  refinePeakTime,
+  findOrbCrossing,
+  findLocalMaxIndices,
+  GOLDEN_R,
+  CONVERGENCE_MS,
+  MAX_ITER,
+} from "./aspects-timeline-utils";
 import { useSettings } from "@/hooks/use-settings";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const DAY_COUNT = 10;
 const DAY_OFFSET = -2;
-const SAMPLES_PER_DAY = 4;
+const SAMPLES_PER_DAY = 12;
 const TOTAL_SAMPLES = DAY_COUNT * SAMPLES_PER_DAY;
 
 const VIEWBOX_W = 1000;
@@ -82,6 +96,34 @@ const SETTINGS_KEY_TO_ASPECT: Record<string, AspectType> = {
   sesquiquadrate: AspectType.Sesquisquare,
 };
 
+const ASPECT_ANGLES: Record<AspectType, number> = {
+  [AspectType.Conjunction]: 0,
+  [AspectType.Opposition]: 180,
+  [AspectType.Trine]: 120,
+  [AspectType.Square]: 90,
+  [AspectType.Sextile]: 60,
+  [AspectType.Quincunx]: 150,
+  [AspectType.SemiSextile]: 30,
+  [AspectType.SemiSquare]: 45,
+  [AspectType.Sesquisquare]: 135,
+  [AspectType.Quintile]: 72,
+  [AspectType.BiQuintile]: 144,
+};
+
+const ASPECT_NAMES: Record<AspectType, string> = {
+  [AspectType.Conjunction]: "Conjunction",
+  [AspectType.Opposition]: "Opposition",
+  [AspectType.Trine]: "Trine",
+  [AspectType.Square]: "Square",
+  [AspectType.Sextile]: "Sextile",
+  [AspectType.Quincunx]: "Quincunx",
+  [AspectType.SemiSextile]: "Semi-Sextile",
+  [AspectType.SemiSquare]: "Semi-Square",
+  [AspectType.Sesquisquare]: "Sesquisquare",
+  [AspectType.Quintile]: "Quintile",
+  [AspectType.BiQuintile]: "Bi-Quintile",
+};
+
 const MAJOR_ASPECTS: Set<AspectType> = new Set([
   AspectType.Conjunction,
   AspectType.Opposition,
@@ -101,7 +143,17 @@ const MINOR_ASPECTS: Set<AspectType> = new Set([
 
 type AspectsTimelineVariant = "major" | "minor";
 
-const ACTIVE_THRESHOLD = 0.05;
+const SAMPLE_MS = (24 / SAMPLES_PER_DAY) * 3600 * 1000;
+
+function formatMs(ms: number): string {
+  return new Date(ms).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
 
 function buildMaxOrbMap(
   settingsOrbs: Record<string, number>,
@@ -213,51 +265,150 @@ async function computeAspectBarsAsync(
 
 interface BarRange {
   bar: AspectBar;
-  fromSample: number;
-  toSample: number;
-  peakSample: number;
-  peakValue: number;
+  startMs: number;
+  endMs: number;
+  peaks: Array<{ ms: number; value: number }>;
+  startClipped: boolean;
+  endClipped: boolean;
 }
 
-function computeRange(bar: AspectBar): BarRange | null {
-  let fromSample = -1;
-  let toSample = -1;
-  let peakSample = 0;
-  let peakValue = -1;
-  for (let i = 0; i < bar.samples.length; i++) {
-    const v = bar.samples[i]!;
-    if (v > ACTIVE_THRESHOLD) {
-      if (fromSample === -1) fromSample = i;
-      toSample = i;
-    }
-    if (v > peakValue) {
-      peakValue = v;
-      peakSample = i;
-    }
-  }
-  if (fromSample === -1 || toSample === -1) return null;
-
-  // Fast-body aspects often peak between 6h samples, so the raw sample-max
-  // understates them (Moon-Sun can read 0.91 when the true conjunction is
-  // ~1.0). `interpolatePeaks` fits a V-shape through each local maximum and
-  // returns the analytically-derived apex. Use it for the peak time + value.
-  const interp = interpolatePeaks(bar.samples);
-  let bestX = peakSample;
-  let bestVal = peakValue;
-  for (const p of interp) {
-    if (p.value > bestVal) {
-      bestVal = p.value;
-      bestX = p.x;
+/**
+ * Golden-section MAXIMIZATION of orbAtTime(t) in [aMs, bMs].
+ * Used to detect whether the aspect exits orb between two local peaks.
+ */
+function localOrbMax(
+  aMs: number,
+  bMs: number,
+  body1: CelestialBody,
+  body2: CelestialBody,
+  aspectAngle: number,
+): number {
+  let a = aMs, b = bMs;
+  let x1 = a + (1 - GOLDEN_R) * (b - a);
+  let x2 = a + GOLDEN_R * (b - a);
+  let f1 = orbAtTime(x1, body1, body2, aspectAngle);
+  let f2 = orbAtTime(x2, body1, body2, aspectAngle);
+  for (let i = 0; i < MAX_ITER; i++) {
+    if (b - a < CONVERGENCE_MS) break;
+    if (f1 < f2) {
+      a = x1; x1 = x2; f1 = f2;
+      x2 = a + GOLDEN_R * (b - a);
+      f2 = orbAtTime(x2, body1, body2, aspectAngle);
+    } else {
+      b = x2; x2 = x1; f2 = f1;
+      x1 = a + (1 - GOLDEN_R) * (b - a);
+      f1 = orbAtTime(x1, body1, body2, aspectAngle);
     }
   }
+  return orbAtTime((a + b) / 2, body1, body2, aspectAngle);
+}
 
-  return {
-    bar,
-    fromSample,
-    toSample,
-    peakSample: bestX,
-    peakValue: Math.min(1, bestVal),
-  };
+function computeRanges(
+  bar: AspectBar,
+  windowStartMs: number,
+  maxOrbMap: Partial<Record<AspectType, number>>,
+): BarRange[] {
+  const maxOrb = maxOrbMap[bar.aspectType] ?? 8;
+  const aspectAngle = ASPECT_ANGLES[bar.aspectType] ?? 0;
+
+  const candidates = findLocalMaxIndices(bar.samples);
+  if (candidates.length === 0) return [];
+
+  // Refine each candidate to a precise peak.
+  type RefinedPeak = { ms: number; orb: number; sampleIdx: number };
+  const refined: RefinedPeak[] = [];
+  for (const idx of candidates) {
+    const bracketStart =
+      windowStartMs + Math.max(0, idx - 1) * SAMPLE_MS;
+    const bracketEnd =
+      windowStartMs + Math.min(bar.samples.length - 1, idx + 1) * SAMPLE_MS;
+    const p = refinePeakTime(
+      bracketStart,
+      bracketEnd,
+      bar.groupPlanet,
+      bar.otherPlanet,
+      aspectAngle,
+    );
+    if (p.orb < maxOrb) refined.push({ ms: p.ms, orb: p.orb, sampleIdx: idx });
+  }
+  if (refined.length === 0) return [];
+  refined.sort((a, b) => a.ms - b.ms);
+
+  // Partition into continuous-window groups.
+  const groups: RefinedPeak[][] = [[refined[0]!]];
+  for (let i = 1; i < refined.length; i++) {
+    const prev = refined[i - 1]!;
+    const curr = refined[i]!;
+    const maxBetween = localOrbMax(
+      prev.ms,
+      curr.ms,
+      bar.groupPlanet,
+      bar.otherPlanet,
+      aspectAngle,
+    );
+    if (maxBetween >= maxOrb) {
+      groups.push([curr]);
+    } else {
+      groups[groups.length - 1]!.push(curr);
+    }
+  }
+
+  // Emit one BarRange per group.
+  const out: BarRange[] = [];
+  for (const group of groups) {
+    const first = group[0]!;
+    const last = group[group.length - 1]!;
+
+    // Left outer bracket: last zero before first peak's sample, else window start.
+    let leftIdx = -1;
+    for (let i = first.sampleIdx - 1; i >= 0; i--) {
+      if (bar.samples[i]! === 0) { leftIdx = i; break; }
+    }
+    const leftOuterMs =
+      leftIdx >= 0 ? windowStartMs + leftIdx * SAMPLE_MS : windowStartMs;
+
+    // Right outer bracket: first zero after last peak's sample, else window end.
+    let rightIdx = -1;
+    for (let i = last.sampleIdx + 1; i < bar.samples.length; i++) {
+      if (bar.samples[i]! === 0) { rightIdx = i; break; }
+    }
+    const rightOuterMs =
+      rightIdx >= 0
+        ? windowStartMs + rightIdx * SAMPLE_MS
+        : windowStartMs + (bar.samples.length - 1) * SAMPLE_MS;
+
+    const start = findOrbCrossing(
+      "left",
+      first.ms,
+      first.orb,
+      leftOuterMs,
+      maxOrb,
+      bar.groupPlanet,
+      bar.otherPlanet,
+      aspectAngle,
+    );
+    const end = findOrbCrossing(
+      "right",
+      last.ms,
+      last.orb,
+      rightOuterMs,
+      maxOrb,
+      bar.groupPlanet,
+      bar.otherPlanet,
+      aspectAngle,
+    );
+
+    out.push({
+      bar,
+      startMs: start.ms,
+      endMs: end.ms,
+      peaks: group.map((p) => ({ ms: p.ms, value: 1 - p.orb / maxOrb })),
+      startClipped: start.clipped,
+      endClipped: end.clipped,
+    });
+  }
+
+  return out;
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -323,35 +474,58 @@ export const AspectsTimeline = memo(function AspectsTimeline({
     };
   }, [today, aspectSettings, maxOrbMap, includeMinor]);
 
-  const ranges = useMemo(() => {
-    const filter = isMinor ? MINOR_ASPECTS : MAJOR_ASPECTS;
-    const list: BarRange[] = [];
-    for (const bar of bars) {
-      if (!filter.has(bar.aspectType)) continue;
-      const r = computeRange(bar);
-      if (r) list.push(r);
-    }
-    list.sort((a, b) => {
-      if (a.peakSample !== b.peakSample) return a.peakSample - b.peakSample;
-      return b.peakValue - a.peakValue;
-    });
-    return list;
-  }, [bars, isMinor]);
+  const windowStartMs = today.getTime() + DAY_OFFSET * 24 * 3600 * 1000;
+  const windowDurationMs = DAY_COUNT * 24 * 3600 * 1000;
+  const windowEndMs = windowStartMs + windowDurationMs;
+
+  const [ranges, setRanges] = useState<BarRange[]>([]);
+  const rangesAbortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    rangesAbortRef.current?.abort();
+    const controller = new AbortController();
+    rangesAbortRef.current = controller;
+
+    void (async () => {
+      const filter = isMinor ? MINOR_ASPECTS : MAJOR_ASPECTS;
+      const list: BarRange[] = [];
+      for (const bar of bars) {
+        if (controller.signal.aborted) return;
+        if (!filter.has(bar.aspectType)) continue;
+        const rs = computeRanges(bar, windowStartMs, maxOrbMap);
+        for (const r of rs) {
+          if (r.endMs < windowStartMs || r.startMs > windowEndMs) continue;
+          list.push(r);
+        }
+        await yieldToMain();
+      }
+      if (controller.signal.aborted) return;
+      list.sort((a, b) => {
+        const aFirst = a.peaks[0]!.ms;
+        const bFirst = b.peaks[0]!.ms;
+        if (aFirst !== bFirst) return aFirst - bFirst;
+        return b.peaks[0]!.value - a.peaks[0]!.value;
+      });
+      if (!controller.signal.aborted) setRanges(list);
+    })();
+
+    return () => {
+      controller.abort();
+    };
+  }, [bars, isMinor, windowStartMs, windowEndMs, maxOrbMap]);
 
   const todayIdx = -DAY_OFFSET;
   const dayW = VIEWBOX_W / DAY_COUNT;
-  const todayX = todayIdx * dayW;           // left boundary of today's slot
-  const todayCenterX = todayX + dayW / 2;
   const height = TOP_PAD + Math.max(ranges.length, 6) * ROW_HEIGHT + BOTTOM_PAD;
 
-  const sampleToX = (sampleIdx: number) =>
-    ((sampleIdx + 0.5) / TOTAL_SAMPLES) * VIEWBOX_W;
+  const msToX = (ms: number) =>
+    ((ms - windowStartMs) / windowDurationMs) * VIEWBOX_W;
+
+  const clampX = (x: number) => Math.max(0, Math.min(VIEWBOX_W, x));
 
   // Current moment within the 10-day window, expressed in viewBox x.
   // Used to draw a thin accent line at "now" so the user can distinguish
   // "happened earlier today" (peak left of NOW) from "coming up" (peak right).
-  const windowStartMs = today.getTime() + DAY_OFFSET * 24 * 3600 * 1000;
-  const windowDurationMs = DAY_COUNT * 24 * 3600 * 1000;
   const nowProgress = (Date.now() - windowStartMs) / windowDurationMs;
   const nowX =
     nowProgress >= 0 && nowProgress <= 1
@@ -361,7 +535,7 @@ export const AspectsTimeline = memo(function AspectsTimeline({
   const isLoading = bars.length === 0;
 
   return (
-    <div className="bg-card border border-border rounded-lg p-pad card-hover">
+    <div className="bg-card border border-border rounded-lg p-card-pad card-hover">
       <div className="flex items-baseline justify-between mb-3.5">
         <div className="card-title">{title}</div>
       </div>
@@ -393,70 +567,128 @@ export const AspectsTimeline = memo(function AspectsTimeline({
             );
           })}
 
-          {/* TODAY eyebrow — centered inside today's slot */}
-          <text
-            x={todayCenterX}
-            y={16}
-            fontSize="10"
-            fill="var(--muted-foreground)"
-            style={{ fontFamily: "var(--font-mono)" }}
-            letterSpacing="0.15em"
-            fontWeight="500"
-            textAnchor="middle"
-          >
-            TODAY
-          </text>
-
-          {/* NOW marker — thin dotted accent line at the current moment */}
+          {/* NOW marker — label + thin dotted accent line at the current moment */}
           {nowX !== null && (
-            <line
-              x1={nowX}
-              y1={TOP_PAD - 10}
-              x2={nowX}
-              y2={height - BOTTOM_PAD + 4}
-              stroke="var(--primary)"
-              strokeWidth={1}
-              strokeDasharray="1,3"
-              opacity={0.5}
-            />
+            <>
+              <text
+                x={nowX}
+                y={16}
+                fontSize="10"
+                fill="var(--primary)"
+                letterSpacing="0.15em"
+                fontWeight="500"
+                textAnchor="middle"
+              >
+                NOW
+              </text>
+              <line
+                x1={nowX}
+                y1={TOP_PAD - 10}
+                x2={nowX}
+                y2={height - BOTTOM_PAD + 4}
+                stroke="var(--primary)"
+                strokeWidth={1}
+                strokeDasharray="1,3"
+                opacity={0.5}
+              />
+            </>
           )}
 
           {/* Aspect bars */}
           {ranges.map((r, idx) => {
             const y = TOP_PAD + idx * ROW_HEIGHT;
-            const x1 = sampleToX(r.fromSample);
-            const x2 = sampleToX(r.toSample);
-            const peakX = sampleToX(r.peakSample);
+            const rawX1 = msToX(r.startMs);
+            const rawX2 = msToX(r.endMs);
+            const x1 = clampX(rawX1);
+            const x2 = clampX(rawX2);
             const color =
               ASPECT_COLORS[r.bar.aspectType] ?? "var(--muted-foreground)";
             const pG = PLANET_GLYPHS[r.bar.groupPlanet] ?? "·";
             const aG = ASPECT_GLYPHS[r.bar.aspectType] ?? "·";
             const oG = PLANET_GLYPHS[r.bar.otherPlanet] ?? "·";
+            const aspectName = ASPECT_NAMES[r.bar.aspectType] ?? r.bar.aspectType;
+            const hitX = Math.min(x1, x2) - 2;
+            const hitW = Math.abs(x2 - x1) + 4;
+            const startLabel = r.startClipped
+              ? `before ${formatMs(windowStartMs)}`
+              : formatMs(r.startMs);
+            const endLabel = r.endClipped
+              ? `after ${formatMs(windowEndMs)}`
+              : formatMs(r.endMs);
             return (
-              <g key={`bar-${idx}`}>
-                <line
-                  x1={x1}
-                  y1={y}
-                  x2={x2}
-                  y2={y}
-                  stroke={color}
-                  strokeWidth={1.5}
-                  opacity={0.38}
-                  strokeLinecap="round"
+              <Tooltip key={`bar-${idx}`}>
+                <TooltipTrigger
+                  render={
+                    <g>
+                      <rect
+                        x={hitX}
+                        y={y - ROW_HEIGHT / 2}
+                        width={hitW}
+                        height={ROW_HEIGHT}
+                        fill="transparent"
+                        pointerEvents="all"
+                      />
+                      <line
+                        x1={x1}
+                        y1={y}
+                        x2={x2}
+                        y2={y}
+                        stroke={color}
+                        strokeWidth={1.5}
+                        opacity={0.38}
+                        strokeLinecap="round"
+                      />
+                      {r.peaks.map((p, pi) => (
+                        <circle
+                          key={`peak-${idx}-${pi}`}
+                          cx={clampX(msToX(p.ms))}
+                          cy={y}
+                          r={3}
+                          fill={color}
+                        />
+                      ))}
+                      <text
+                        x={x1 - 6}
+                        y={y + 3}
+                        fontSize={10}
+                        textAnchor="end"
+                        fill="var(--muted-foreground)"
+                        fontFamily="'Noto Sans Symbols 2', 'Noto Sans Symbols', sans-serif"
+                      >
+                        <tspan>{pG}</tspan>
+                        <tspan style={{ fill: color }}>{aG}</tspan>
+                        <tspan>{oG}</tspan>
+                      </text>
+                    </g>
+                  }
                 />
-                <circle cx={peakX} cy={y} r={3} fill={color} />
-                <text
-                  x={x1 - 6}
-                  y={y + 3}
-                  fontSize={10}
-                  textAnchor="end"
-                  fill="var(--muted-foreground)"
+                <TooltipContent
+                  side="top"
+                  className="flex-col items-start gap-1 py-2 text-[11px] leading-tight"
                 >
-                  <tspan>{pG}</tspan>
-                  <tspan style={{ fill: color }}>{aG}</tspan>
-                  <tspan>{oG}</tspan>
-                </text>
-              </g>
+                  <div className="font-medium text-[12px]">
+                    <span>{pG}</span>
+                    <span className="mx-1" style={{ color }}>
+                      {aG}
+                    </span>
+                    <span>{oG}</span>
+                    <span className="mx-1 opacity-60">·</span>
+                    <span>{aspectName}</span>
+                  </div>
+                  <div className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5 opacity-90">
+                    <span className="opacity-60">Start</span>
+                    <span className="font-mono">{startLabel}</span>
+                    <span className="opacity-60 self-start">{r.peaks.length > 1 ? "Peaks" : "Peak"}</span>
+                    <span className="font-mono flex flex-col">
+                      {r.peaks.map((p, pi) => (
+                        <span key={pi}>{formatMs(p.ms)}</span>
+                      ))}
+                    </span>
+                    <span className="opacity-60">End</span>
+                    <span className="font-mono">{endLabel}</span>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
             );
           })}
 
@@ -477,7 +709,6 @@ export const AspectsTimeline = memo(function AspectsTimeline({
                 fontSize={9.5}
                 textAnchor="middle"
                 fill={isToday ? "var(--primary)" : "var(--faint-foreground)"}
-                style={{ fontFamily: "var(--font-mono)" }}
                 fontWeight={isToday ? 500 : 400}
               >
                 {label}

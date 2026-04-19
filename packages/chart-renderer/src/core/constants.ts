@@ -52,9 +52,12 @@ export function glyphSizes(radius: number) {
 }
 
 export const COLLISION = {
-  minGlyphGap: 34,
+  minGlyphGap: 20,
   maxDisplacement: 55,
   iterations: 89,
+  // Half the sign glyph's tangential width at base radius (21 px / 2) —
+  // enough for a label to clear a thin cusp line without fighting the resolver.
+  cuspBlockerGap: 11,
 } as const;
 
 export const ASPECT_ANGLES: Record<string, number> = {

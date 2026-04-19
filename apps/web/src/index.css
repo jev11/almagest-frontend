@@ -41,12 +41,32 @@
   --accent-h: 275;
   --accent-soft: oklch(52% 0.17 var(--accent-h) / 0.10);
 
-  /* Spacing — design bundle's flat 16px grid with a density axis.
-     Override per-theme via `[data-density="compact"|"spacious"]` on <html>. */
+  /* Spacing + density tokens — phone baseline (most compact).
+     Per-breakpoint overrides below loosen these at tablet/desktop/wide.
+     `[data-density="compact"|"spacious"]` user preferences (bottom of file)
+     override the breakpoint defaults. `--space`, `--gap`, `--pad`, `--pad-sm`
+     are the originals; remaining `--*-xs`/`--*-lg` / `--text-*` / `--chart-*`
+     / `--card-*` tokens complete the inventory for adaptive design. */
   --space: 16px;
-  --gap: 16px;           /* grid + stack gaps (between cards, inside grids) */
-  --pad: 18px;           /* card interior padding */
-  --pad-sm: 12px;        /* tight card padding (used in Positions) */
+  --pad-xs: 6px;
+  --pad-sm: 8px;
+  --pad: 14px;
+  --pad-lg: 20px;
+  --gap-xs: 4px;
+  --gap-sm: 8px;
+  --gap: 12px;
+  --gap-lg: 20px;
+  --text-xs: 11px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-lg: 16px;
+  --text-xl: 18px;
+  --text-2xl: 22px;
+  --chart-stroke: 1.5px;
+  --chart-glyph-scale: 0.85;
+  --chart-label-size: 10px;
+  --card-radius: 8px;
+  --card-pad: 14px;
 
   /* Sidebar widths */
   --sidebar-collapsed: 64px;
@@ -156,6 +176,12 @@
   --font-display: 'Instrument Serif', 'Cormorant Garamond', 'Georgia', serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
+  /* Semantic four-tier breakpoints — replaces Tailwind's default sm/md/lg/xl/2xl.
+     Phone is 0–639 (no prefix). Use `tablet:`, `desktop:`, `wide:` for the rest. */
+  --breakpoint-tablet: 640px;
+  --breakpoint-desktop: 1024px;
+  --breakpoint-wide: 1440px;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -203,14 +229,100 @@
   --radius-lg: var(--radius);
   --radius-xl: 12px;
 
-  /* Semantic spacing — registered so Tailwind generates `gap-gap`, `p-pad`, `p-pad-sm` */
+  /* Semantic spacing — registered so Tailwind generates `gap-gap`, `p-pad-sm`, etc.
+     Each --spacing-* entry surfaces a density token as a Tailwind utility. */
   --spacing-gap: var(--gap);
+  --spacing-gap-xs: var(--gap-xs);
+  --spacing-gap-sm: var(--gap-sm);
+  --spacing-gap-lg: var(--gap-lg);
   --spacing-pad: var(--pad);
+  --spacing-pad-xs: var(--pad-xs);
   --spacing-pad-sm: var(--pad-sm);
+  --spacing-pad-lg: var(--pad-lg);
+  --spacing-card-pad: var(--card-pad);
+
+  /* Typography size tokens — usable as `text-[var(--text-base)]` in arbitrary-value
+     classes; not registered as text-* Tailwind utilities to avoid conflicts with
+     Tailwind's own text-xs/sm/base scale. */
 }
 
-/* Density axis — switches both --gap and --pad site-wide. Toggle via
-   `document.documentElement.dataset.density = "compact" | "balanced" | "spacious"` */
+/* Breakpoint-scoped density overrides — loosen the phone baseline at each tier.
+   Placed BEFORE [data-density] blocks so user-preference overrides win via
+   source order (all selectors have identical specificity here). */
+@media (min-width: 640px) {
+  :root {
+    --pad-xs: 8px;
+    --pad-sm: 10px;
+    --pad: 16px;
+    --pad-lg: 24px;
+    --gap-xs: 6px;
+    --gap-sm: 10px;
+    --gap: 14px;
+    --gap-lg: 24px;
+    --text-xs: 11px;
+    --text-sm: 13px;
+    --text-base: 15px;
+    --text-lg: 17px;
+    --text-xl: 20px;
+    --text-2xl: 26px;
+    --chart-stroke: 1.75px;
+    --chart-glyph-scale: 0.92;
+    --chart-label-size: 11px;
+    --card-radius: 10px;
+    --card-pad: 16px;
+  }
+}
+@media (min-width: 1024px) {
+  :root {
+    --pad-xs: 10px;
+    --pad-sm: 12px;
+    --pad: 18px;
+    --pad-lg: 28px;
+    --gap-xs: 8px;
+    --gap-sm: 12px;
+    --gap: 16px;
+    --gap-lg: 28px;
+    --text-xs: 12px;
+    --text-sm: 14px;
+    --text-base: 16px;
+    --text-lg: 18px;
+    --text-xl: 22px;
+    --text-2xl: 30px;
+    --chart-stroke: 2px;
+    --chart-glyph-scale: 1;
+    --chart-label-size: 12px;
+    --card-radius: 12px;
+    --card-pad: 18px;
+  }
+}
+@media (min-width: 1440px) {
+  :root {
+    --pad-xs: 12px;
+    --pad-sm: 14px;
+    --pad: 22px;
+    --pad-lg: 32px;
+    --gap-xs: 8px;
+    --gap-sm: 14px;
+    --gap: 20px;
+    --gap-lg: 32px;
+    --text-xs: 12px;
+    --text-sm: 14px;
+    --text-base: 16px;
+    --text-lg: 19px;
+    --text-xl: 24px;
+    --text-2xl: 34px;
+    --chart-stroke: 2px;
+    --chart-glyph-scale: 1.05;
+    --chart-label-size: 13px;
+    --card-radius: 12px;
+    --card-pad: 20px;
+  }
+}
+
+/* User-preference density axis — overrides the breakpoint defaults for users
+   who opt into a tighter or looser feel. Toggle via
+   `document.documentElement.dataset.density = "compact" | "balanced" | "spacious"`.
+   Placed AFTER the @media overrides above so these selectors win on ties. */
 [data-density="compact"] {
   --gap: 10px;
   --pad: 12px;

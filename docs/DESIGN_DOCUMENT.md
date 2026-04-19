@@ -130,13 +130,22 @@ Use only these values — never arbitrary pixel amounts:
 | Input border radius | 6px |
 | Bottom tab bar height | 56px + safe area |
 
-### 1.5 Breakpoints
+### 1.5 Breakpoints (semantic 4-tier — authoritative)
 
-| Name | Width | Sidebar | Chart Layout |
-|------|-------|---------|-------------|
-| Mobile | < 768px | Hidden (bottom tabs) | Stacked |
-| Tablet | 768–1024px | Collapsed | Side-by-side (narrow panel) |
-| Desktop | > 1024px | Collapsible | Side-by-side (full panel) |
+Tailwind's default `sm:/md:/lg:/xl:/2xl:` prefixes are **disabled**. The app uses four semantic tiers defined in `apps/web/src/index.css` (`@theme inline`) and consumed as Tailwind variants `tablet:`, `desktop:`, `wide:`:
+
+| Tier     | Width        | Prefix      | Navigation          | Chart Layout                   |
+|----------|--------------|-------------|---------------------|--------------------------------|
+| phone    | < 640px      | (none)      | Bottom tab bar      | Stacked single column          |
+| tablet   | 640–1023px   | `tablet:`   | Bottom tab bar      | Stacked (often single column)  |
+| desktop  | 1024–1439px  | `desktop:`  | Collapsible sidebar | Two-column split               |
+| wide     | ≥ 1440px     | `wide:`     | Expanded sidebar    | Two-column split, more gap     |
+
+**JS-side breakpoint detection**: `useBreakpoint()` at `apps/web/src/hooks/use-breakpoint.ts` returns `{ tier, isPhone, isTabletOrSmaller, isDesktopOrLarger, isWide }`. Use it when markup must branch per tier (e.g., canvas density input, layout swaps). Do not add ad-hoc `matchMedia` calls.
+
+**Density tokens** (see `apps/web/src/index.css`) automatically ramp at each tier and cover spacing (`--pad-xs/sm/pad/lg`, `--gap-xs/sm/gap/lg`), typography (`--text-xs/sm/base/lg/xl/2xl`), card geometry (`--card-pad`, `--card-radius`), and chart metrics (`--chart-stroke`, `--chart-glyph-scale`, `--chart-label-size`). Reach for token-based classes (`p-pad`, `gap-gap`, `text-[length:var(--text-base)]`) before hard-coded pixel values.
+
+See the **Adaptive Design Policy** section at the end of this document for the full requirement.
 
 ---
 
@@ -1296,4 +1305,41 @@ Setting `document.documentElement.dataset.density = "compact" | "balanced" | "sp
 | Page outer padding | `32px` (`py-8 px-8`) |
 
 The one vestige of the golden ratio is the `1.618:1` split still used on the Chart Viewer page (`/chart/:id`) — documented in that route's code comment, not a design token.
+
+---
+
+## Adaptive Design Policy (2026-04-19 — permanent)
+
+**Every feature, component, route, and UI decision in this project is adaptive by default.** A change is not complete until it works across all four tiers (phone < 640, tablet 640–1023, desktop 1024–1439, wide ≥ 1440). There is no "desktop-only" or "phone-only" surface. There is no "we'll make it responsive later."
+
+### What this commits us to
+
+1. **Only the semantic breakpoints are used.** `tablet:`, `desktop:`, `wide:` (from `apps/web/src/index.css` `@theme inline`). Tailwind's `sm:/md:/lg:/xl:/2xl:` are disabled and MUST NOT be reintroduced.
+
+2. **Density is expressed through tokens, not hard-coded pixels.** Spacing, typography, card geometry, and chart metrics all live in `apps/web/src/index.css` as CSS custom properties that ramp per tier. Code uses them via Tailwind utilities (`p-pad`, `gap-gap-lg`, `rounded-[var(--card-radius)]`) or arbitrary-value classes (`text-[length:var(--text-base)]`). Hard-coded pixel values are permitted only for values that are genuinely scale-invariant (1px hairlines, sub-pixel geometry in the renderer).
+
+3. **JavaScript-driven adaptivity uses `useBreakpoint()`.** The hook at `apps/web/src/hooks/use-breakpoint.ts` is the single source for tier detection on the client. No ad-hoc `window.matchMedia`, no `useEffect` resize listeners, no `window.innerWidth` checks.
+
+4. **Chart-renderer is density-aware.** All canvas layers consume `dim.density: ChartDensity` for stroke / glyph / label sizing. The web app reads `--chart-stroke`, `--chart-glyph-scale`, `--chart-label-size` from CSS via `chart-canvas.tsx` and threads them through `renderRadix` / `renderBiwheel`. New layers MUST follow this pattern.
+
+5. **Designs name every tier.** When proposing a layout, describe behavior at phone, tablet, desktop, and wide — not "responsive." If a tier has the same behavior as the one below it, say so explicitly.
+
+6. **Adaptivity extends to shared and third-party components.** If a shadcn/ui component or a copied utility has hard-coded widths or a disabled Tailwind prefix, adapt it before committing. Copy-paste components are owned code; own them adaptively.
+
+### When in doubt
+
+Default to **mobile-first**: start from the phone layout, then loosen at `tablet:`, `desktop:`, `wide:` with progressive overrides. A phone-first draft that reads well is easier to expand than a desktop-first draft to compress.
+
+### Escape hatches
+
+There are none for production code paths. The only legitimate exception is the canvas adapters (`packages/chart-renderer/src/adapters/svg.ts`) and the standalone `mini-wheel.tsx` — they predate the density system and may scale into it later. New standalone renderers must be density-aware from day one.
+
+### Authoritative references
+
+- `apps/web/src/index.css` — the breakpoint definitions and the full density token ladder.
+- `apps/web/src/hooks/use-breakpoint.ts` — the JS-side tier detection contract.
+- `packages/chart-renderer/src/layers/types.ts` — `ChartDensity` type and `DEFAULT_CHART_DENSITY`.
+- `CLAUDE.md` §"Adaptive Design Requirement" — the short enforcement statement for agent sessions.
+
+When code and documentation diverge, code is authoritative and the documentation must be updated to match.
 

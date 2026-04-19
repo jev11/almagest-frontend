@@ -83,7 +83,7 @@ export function drawTransitRing(
   outerDim: RenderDimensions,
   separatorR: number,
 ): void {
-  const { cx, cy, radius } = outerDim;
+  const { cx, cy, radius, density } = outerDim;
   const zodiacInnerR = radius * RING_PROPORTIONS.zodiacInner;
 
   // Glyph center sits at the mid-point of the transit annular zone
@@ -105,7 +105,9 @@ export function drawTransitRing(
 
   const resolved = resolveCollisions(glyphPositions, transitMidR);
   const s = radius / 300;
-  const fontSize = glyphSizes(radius).degreeLabel + 1;
+  // Transit glyphs pick up glyphScale; the `+1` bump preserves the original
+  // legibility boost on top of the scaled base.
+  const fontSize = (glyphSizes(radius).degreeLabel + 1) * density.glyphScale;
 
   for (const pos of resolved) {
     const body = pos.body as CelestialBody;
@@ -119,12 +121,12 @@ export function drawTransitRing(
 
     // Tick mark on the zodiac inner edge at the planet's true ecliptic position
     const tickOuter = polarToCartesian(cx, cy, pos.originalAngle, zodiacInnerR);
-    const tickInner = polarToCartesian(cx, cy, pos.originalAngle, zodiacInnerR - 5 * s);
+    const tickInner = polarToCartesian(cx, cy, pos.originalAngle, zodiacInnerR - 5 * s * density.glyphScale);
     ctx.beginPath();
     ctx.moveTo(tickOuter.x, tickOuter.y);
     ctx.lineTo(tickInner.x, tickInner.y);
     ctx.strokeStyle = color;
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1 * density.stroke;
     ctx.stroke();
 
     // Planet glyph at the mid-radius of the transit zone
@@ -143,7 +145,8 @@ export function drawTransitRing(
       ctx.fillText("℞", retrogPt.x, retrogPt.y);
     }
 
-    // Arc leader line along the zodiac inner edge if the glyph was displaced
+    // Arc leader line along the zodiac inner edge if the glyph was displaced.
+    // `0.5` is an intentional subpixel hairline — scaled only by stroke.
     if (pos.displaced) {
       const arcR = zodiacInnerR - 4 * s;
       const fromAngle = pos.originalAngle;
@@ -154,7 +157,7 @@ export function drawTransitRing(
       ctx.beginPath();
       ctx.arc(cx, cy, arcR, -fromAngle, -toAngle, clockwise);
       ctx.strokeStyle = theme.leaderLineColor;
-      ctx.lineWidth = 0.5;
+      ctx.lineWidth = 0.5 * density.stroke;
       ctx.stroke();
     }
   }
@@ -178,7 +181,7 @@ export function drawInterChartAspects(
   theme: ChartTheme,
   innerDim: RenderDimensions,
 ): void {
-  const { cx, cy, radius } = innerDim;
+  const { cx, cy, radius, density } = innerDim;
   const aspectR = radius * RING_PROPORTIONS.aspectOuter;
   const innerAscendant = innerData.houses.ascendant;
 
@@ -228,7 +231,7 @@ export function drawInterChartAspects(
       ctx.moveTo(pt1.x, pt1.y);
       ctx.lineTo(pt2.x, pt2.y);
       ctx.strokeStyle = color;
-      ctx.lineWidth = theme.aspectMinorWidth;
+      ctx.lineWidth = theme.aspectMinorWidth * density.stroke;
       // Dashed to distinguish inter-chart aspects from natal-natal aspects
       ctx.setLineDash([3, 3]);
       ctx.stroke();

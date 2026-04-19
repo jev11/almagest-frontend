@@ -6,17 +6,37 @@ import {
   darkTheme,
   lightTheme,
   type ChartTheme,
+  type ChartDensity,
   type ChartInfo,
   type RenderOptions,
 } from "@astro-app/chart-renderer";
 import { cn } from "@/lib/utils";
 import { filterNodeType } from "@/lib/format";
 import { useSettings } from "@/hooks/use-settings";
+import { useBreakpoint } from "@/hooks/use-breakpoint";
 
 function readCardBg(): string {
   return getComputedStyle(document.documentElement)
     .getPropertyValue("--card")
     .trim();
+}
+
+/**
+ * Read the chart-density CSS variables off a container's computed style.
+ * These are defined per semantic breakpoint in `apps/web/src/index.css`
+ * (phone → wide). Falls back to the renderer's defaults if a var is missing
+ * or unparsable.
+ */
+function readChartDensity(el: HTMLElement): ChartDensity {
+  const s = getComputedStyle(el);
+  const stroke = parseFloat(s.getPropertyValue("--chart-stroke"));
+  const glyphScale = parseFloat(s.getPropertyValue("--chart-glyph-scale"));
+  const labelSize = parseFloat(s.getPropertyValue("--chart-label-size"));
+  return {
+    stroke: Number.isFinite(stroke) && stroke > 0 ? stroke : 1,
+    glyphScale: Number.isFinite(glyphScale) && glyphScale > 0 ? glyphScale : 1,
+    labelSize: Number.isFinite(labelSize) && labelSize > 0 ? labelSize : 12,
+  };
 }
 
 interface ChartCanvasProps {
@@ -44,6 +64,11 @@ export function ChartCanvas({
   const appTheme = useSettings((s) => s.appearance.theme);
   const globalNodeType = useSettings((s) => s.defaults.nodeType);
   const nodeType = nodeTypeProp ?? globalNodeType;
+  // Re-run the render effect whenever the semantic tier changes so the
+  // canvas picks up the new --chart-* CSS vars even if the container size
+  // didn't change (the ResizeObserver fires on most tier transitions but
+  // a density-only user-preference shift still needs an explicit trigger).
+  const { tier } = useBreakpoint();
   const filteredData = useMemo(() => filterNodeType(data, nodeType), [data, nodeType]);
   const filteredOuterData = useMemo(
     () => outerData ? filterNodeType(outerData, nodeType) : undefined,
@@ -85,10 +110,14 @@ export function ChartCanvas({
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
 
+      // Read density fresh on every render so breakpoint transitions (and any
+      // future user-preference density toggle) land on the canvas immediately.
+      const density = readChartDensity(container);
+
       if (filteredOuterData) {
-        renderBiwheel({ data: filteredData, outerData: filteredOuterData, theme: resolvedTheme, canvas, layers, padding, chartInfo });
+        renderBiwheel({ data: filteredData, outerData: filteredOuterData, theme: resolvedTheme, canvas, layers, padding, chartInfo, density });
       } else {
-        renderRadix({ data: filteredData, theme: resolvedTheme, canvas, layers, padding, chartInfo });
+        renderRadix({ data: filteredData, theme: resolvedTheme, canvas, layers, padding, chartInfo, density });
       }
     };
 
@@ -98,7 +127,7 @@ export function ChartCanvas({
     observer.observe(container);
 
     return () => observer.disconnect();
-  }, [filteredData, filteredOuterData, resolvedTheme, layers, padding, chartInfo]);
+  }, [filteredData, filteredOuterData, resolvedTheme, layers, padding, chartInfo, tier]);
 
   return (
     <div ref={containerRef} className={cn("w-full h-full", className)}>

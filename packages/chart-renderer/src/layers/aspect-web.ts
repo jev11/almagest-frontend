@@ -8,18 +8,6 @@ import type { RenderDimensions } from "./types.js";
 import { ASPECT_GLYPHS } from "../glyphs/aspect-glyphs.js";
 import { drawGlyphText } from "../glyphs/draw.js";
 
-function hexWithOpacity(hex: string, opacity: number): string {
-  const base = hex.length > 7 ? hex.slice(0, 7) : hex;
-  const alpha = Math.round(opacity * 255).toString(16).padStart(2, "0");
-  return base + alpha;
-}
-
-function orbToOpacity(orb: number): number {
-  if (orb <= 1.0) return 1.0;
-  if (orb <= 3.0) return 0.7;
-  if (orb <= 5.0) return 0.4;
-  return 0.2;
-}
 
 export function drawAspectWeb(
   ctx: CanvasRenderingContext2D,
@@ -27,7 +15,7 @@ export function drawAspectWeb(
   theme: ChartTheme,
   dim: RenderDimensions,
 ): void {
-  const { cx, cy, radius } = dim;
+  const { cx, cy, radius, density } = dim;
   const ascendant = data.houses.ascendant;
   const aspectR = radius * RING_PROPORTIONS.aspectOuter;
 
@@ -56,16 +44,14 @@ export function drawAspectWeb(
     const pt2 = polarToCartesian(cx, cy, angle2, aspectR);
 
     const isMajor = MAJOR_ASPECTS.has(aspect.type as string);
-    const opacity = orbToOpacity(aspect.orb);
-    const baseColor = theme.aspectColors[aspect.type as AspectType] ?? "#888888";
-    const color = hexWithOpacity(baseColor, opacity);
+    const color = theme.aspectColors[aspect.type as AspectType] ?? "#888888";
 
     // Draw aspect line
     ctx.beginPath();
     ctx.moveTo(pt1.x, pt1.y);
     ctx.lineTo(pt2.x, pt2.y);
     ctx.strokeStyle = color;
-    ctx.lineWidth = isMajor ? theme.aspectMajorWidth : theme.aspectMinorWidth;
+    ctx.lineWidth = (isMajor ? theme.aspectMajorWidth : theme.aspectMinorWidth) * density.stroke;
     ctx.setLineDash(isMajor ? [] : theme.aspectMinorDash);
     ctx.stroke();
     ctx.setLineDash([]);
@@ -76,7 +62,7 @@ export function drawAspectWeb(
       const mx = (pt1.x + pt2.x) / 2;
       const my = (pt1.y + pt2.y) / 2;
 
-      const glyphSize = glyphSizes(radius).degreeLabel;
+      const glyphSize = glyphSizes(radius).degreeLabel * density.glyphScale;
       const glyphHalf = Math.round(glyphSize * 0.65);
       ctx.save();
       // Small background behind glyph so it's readable over other lines
@@ -92,6 +78,6 @@ export function drawAspectWeb(
   ctx.beginPath();
   ctx.arc(cx, cy, aspectR, 0, Math.PI * 2);
   ctx.strokeStyle = theme.ringStroke;
-  ctx.lineWidth = theme.ringStrokeWidth;
+  ctx.lineWidth = theme.ringStrokeWidth * density.stroke;
   ctx.stroke();
 }

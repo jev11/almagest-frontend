@@ -2,10 +2,6 @@
 node_modules
 **/dist
 .playwright-mcp
-test_data*
-verify*.png
-image.png
-qa-*.png
 .superpowers/
 .mcp.json
 node_modules

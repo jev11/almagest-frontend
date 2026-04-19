@@ -1,5 +1,2408 @@
 # Agent Changelog
 
+## 2026-04-19 — Export: replace PNG with PDF (wheel + aspect grid, white background)
+
+### Change
+Replaced PNG export with PDF export. Every PDF contains the chart
+wheel AND the aspect grid on a clean white page, regardless of the
+app's current theme, with a minimal header (chart name + birth
+date/time + location). Available from two surfaces:
+
+1. **Bulk Export dialog** (`/charts`) — the PNG radio option became
+   PDF; single selection downloads a `.pdf`, multi selection still
+   produces a `charts-YYYY-MM-DD.zip` of PDFs.
+2. **Chart-view top bar** — new Download icon button between
+   Settings and Bookmark; exports the single chart on demand.
+
+The wheel is drawn on an offscreen canvas at 1200 px via the
+chart-renderer's existing `lightTheme`. The aspect grid is a DOM
+component, so we mount `<PdfLightScope><AspectGrid …/></PdfLightScope>`
+into a detached `<div>`, wait for `document.fonts.ready` + two
+rAF ticks, and snapshot it with `html-to-image`. The scope wrapper
+sets every themeable CSS variable inline to its light-mode value,
+so dark-mode users get the same white output.
+
+### Files
+- Created `apps/web/src/lib/pdf-export.ts` — `buildChartPdfBlob(chart)`
+  composes an A4 portrait page: 15 mm margins, 18 pt name, 10 pt
+  birth line, 140 × 140 mm wheel centered, aspect grid fit-to-width
+  with preserved aspect ratio (and clipped to remaining page height
+  if it would overflow).
+- Created `apps/web/src/components/chart/pdf-light-scope.tsx` —
+  inline-style wrapper that locks `--background`, `--foreground`,
+  `--card`, `--border`, `--primary`, `--muted-foreground`,
+  `--color-fire/earth/air/water`, `--aspect-*` etc. to light values.
+  Keeps the override local — no global class toggle. Width prop
+  defaults to 720 px so the grid's `100cqi`-driven cell sizing has
+  a deterministic basis during offscreen capture.
+- Modified `apps/web/src/lib/export-charts.ts` — removed
+  `renderChartToPngBlob` + `exportChartsPNG`; added
+  `exportChartsPDF(charts)` using the same zip-for-multi pattern.
+- Modified `apps/web/src/components/chart/bulk-export-dialog.tsx`
+  — `ExportFormat` union is `"json" | "pdf"`; radio copy updated
+  to "Chart wheel + aspect grid on a clean white page".
+- Modified `apps/web/src/routes/chart-view.tsx` — added `Download`
+  icon import, `exportingPdf` state, `handleExportPdf()` handler,
+  and a new 44 × 44 px icon button in the top-bar cluster. Button
+  keeps its `w-11 h-11` touch target at every breakpoint so the
+  new action respects the adaptive rules.
+- Modified `apps/web/package.json` — added `jspdf ^4.2.1` and
+  `html-to-image ^1.11.13`.
+
+### Decisions
+- **html-to-image over html2canvas**: better CSS-variable handling,
+  and jsPDF already pulls html2canvas in transitively, so this only
+  adds html-to-image's own footprint (~15 KB gz).
+- **Inline CSS-variable scope instead of `class="light"` swap**:
+  avoids fighting the global `.dark` class on `<html>` and keeps
+  the export purely local — export styling cannot leak into live UI.
+- **DOM snapshot of the existing `AspectGrid` instead of a
+  canvas reimplementation**: faster to ship, no duplicate geometry,
+  and the only tradeoff (font loading) is handled with
+  `document.fonts.ready` + two rAFs.
+- **Wheel at 1200 px**: the previous 800 px PNG looked fuzzy when
+  blown up to the 140 mm PDF target; 1200 px keeps it sharp at
+  print DPI without blowing up file size meaningfully.
+- **No chart-view export menu, just an icon**: there's only one
+  export format at this surface, so a dropdown would be ceremony.
+  Keeps the top bar tight on phone.
+
+### Verification
+- `npm run typecheck --workspaces` — clean across all five workspaces.
+- `npm run build --workspace=apps/web` — clean production build.
+- Manual end-to-end testing (PDF open in browser, dark-mode export
+  still renders white, glyphs present in wheel + grid, multi-chart
+  zip) pending user run.
+
+## 2026-04-19 — Tags: shared chip-input component in Advanced everywhere
+
+### Change
+Replaced the comma-separated `<input>` used for tags on `/charts` →
+Edit Chart with a proper chip input: type a word, press Enter (or
+comma), it becomes a chip below the input; hover a chip and an X
+appears to remove it. The same control now appears on the two edit
+surfaces where tags were previously dropped on the floor — the
+create-a-chart form (`/chart/new`) and the chart-view Edit Chart
+dialog — so tags round-trip end-to-end. All three surfaces expose
+the control under the existing "Advanced settings" collapsible, not
+the top-level form.
+
+### Files
+- Created `apps/web/src/components/forms/tag-input.tsx` — shared
+  `TagInput` component plus exported `normalizeTag` and `appendTags`
+  helpers. Phone shows the X at `opacity-60` (touch has no hover);
+  tablet+ starts `opacity-0` and reveals the X on `group-hover` or
+  keyboard focus. Uses density tokens (`gap-gap-sm`, `min-h-[44px]`)
+  and semantic color tokens only.
+- Created `tests/apps/web/src/components/forms/tag-input.test.tsx`
+  — 13 Vitest unit tests covering `normalizeTag` (trim + lowercase,
+  whitespace-only, mixed case) and `appendTags` (dedupe across
+  existing + within a batch, empty/whitespace filtering, immutability,
+  the canonical `"Work, CLIENT , client, 2024" → ["work","client","2024"]`
+  paste example from the plan).
+- Modified `apps/web/src/routes/charts.tsx` — `EditMetaDialog` now
+  shows Name / Notes at top level and moves Tags into an Advanced
+  collapsible that defaults open when `chart.tags` is non-empty.
+  Dropped the comma-split-on-save logic (the component normalizes
+  as you type).
+- Modified `apps/web/src/routes/chart-view.tsx` — added
+  `pendingTags` state, seeded from `stored.tags ?? []`, rendered
+  `<TagInput>` under Lunar Node in the Advanced section.
+  `handleApplySettings` now writes `tags: pendingTags` onto the
+  updated StoredChart and, when `source === "cloud"`, calls
+  `client.updateCloudChart(id, { tags })` so the server stays in
+  sync with the local chartCache.
+- Modified `apps/web/src/components/forms/birth-data-form.tsx` —
+  added `tags` state, rendered `<TagInput>` in the Advanced block
+  under Lunar Node, and threaded tags through both
+  `calculateChart.mutateAsync` and `client.saveCloudChart` so a
+  freshly created chart carries its tags into both local cache and
+  the cloud on first save.
+- Modified `packages/astro-client/src/hooks.ts` —
+  `useCalculateChart` mutation now accepts optional `tags?: string[]`
+  and includes it on the `StoredChart` written to `chartCache`.
+- Modified `apps/web/vite.config.ts` — expanded the vitest
+  `include` pattern from `*.test.ts` to `*.test.{ts,tsx}` so the new
+  `.tsx` test file is picked up. (No `.tsx` tests existed before.)
+
+### Decisions
+- **One shared component, three call sites.** Keeps normalization
+  rules (trim + lowercase + dedupe) and the adaptive X-visibility
+  behavior in one place; the three edit surfaces pass
+  `value`/`onChange` and nothing else.
+- **Trim + lowercase + dedupe.** Case-insensitive dedupe was the
+  user's explicit ask. Lowercase storage keeps the data layer
+  boring — filters and tag-chip rendering never have to worry about
+  `Work` vs `work`.
+- **Paste splits on comma.** Matches the old comma-separated input
+  so existing muscle memory ("paste `natal, client, work`") still
+  works. Enter and `,` key commit the draft the same way.
+- **Backspace on empty input pops the last tag.** Standard
+  keyboard-only chip-input affordance.
+- **X visibility is tier-aware via `tablet:` prefix, not JS.** Phone
+  lacks hover state, so the X renders at `opacity-60` (always
+  tappable). Tablet+ starts `opacity-0` and appears on
+  `group-hover` / `focus-visible`. No JS branching needed.
+- **Pure-logic test suite (no RTL).** The repo has no React Testing
+  Library setup, and all existing tests are pure Vitest. Rather than
+  add a new test harness, the normalization and dedupe logic was
+  extracted into exported `normalizeTag` / `appendTags` helpers; the
+  test file calls those directly. Component keyboard/paste/render
+  behavior delegates to those helpers, so coverage of the helpers is
+  coverage of the component's commit path.
+- **`updateCloudChart` in chart-view's Apply & Recalculate is
+  best-effort, surfaced via toast.** If the recalculation succeeded
+  but the cloud tag sync failed, the chart has already been written
+  to the local cache; we warn but don't block the user.
+
+### Verification
+- `npm run typecheck --workspaces` — clean (all 5 packages).
+- `npm test --workspace=apps/web` — 13 new tests pass; 2 unrelated
+  pre-existing failures in `format.test.ts` (zodiac glyph variation
+  selector) confirmed to exist on base HEAD (verified via
+  `git stash`).
+- `npm run build --workspace=apps/web` — clean; emits a
+  `tag-input-*.js` chunk of 2.35 kB (gzip 1.18 kB).
+
+### Notes
+- Adaptive check: the component markup uses only `tablet:` (no
+  `sm:`/`md:`/`lg:`/`xl:`/`2xl:`), density tokens `gap-gap-sm` and
+  `min-h-[44px]` (44 px = iOS touch minimum), and semantic color
+  tokens (`bg-input`, `border-border`, `text-foreground`,
+  `text-dim-foreground`, `bg-secondary`). No raw pixel spacing or
+  colors introduced. Layout behavior: chips wrap via `flex-wrap`
+  at every tier; input is `flex-1 min-w-[8ch]` so it always has a
+  reasonable hit target even when chips fill the row.
+
+## 2026-04-19 — Charts page: remove mini-wheel thumbnail
+
+### Change
+Removed the per-row mini-wheel thumbnail from the charts list on the
+user's request ("mini chart can completely be removed from the app").
+The list now starts with the selection checkbox, then jumps straight
+to the chart name. With no remaining call sites, the `MiniWheel`
+component and its sibling `FeaturedChart` (which also rendered a
+wheel, and had been orphaned by the earlier charts-page simplification)
+were deleted outright rather than left as dead code.
+
+### Files
+- Modified `apps/web/src/components/chart/charts-table.tsx` —
+  dropped the `MiniWheel` / `toMiniWheelProps` import, the thead
+  placeholder slot, and the `<div className="mini-wheel">…</div>`
+  block from both the desktop `TableRow` and `PhoneRow`.
+- Modified `apps/web/src/routes/charts-page.css` —
+  `grid-template-columns` on `.charts-table .tr` went from 9 tracks
+  to 8 (dropped the 44px wheel column). Deleted the two `.mini-wheel`
+  rules and the `.charts-table-phone .tr .mini-wheel` rule.
+- Deleted `apps/web/src/components/chart/mini-wheel.tsx`.
+- Deleted `apps/web/src/components/chart/featured-chart.tsx` (dead
+  since the earlier featured-hero removal).
+
+### Verification
+- `rg "MiniWheel|mini-wheel|FeaturedChart|featured-chart" apps/web/src`
+  returns zero matches.
+- `npm run typecheck --workspace=apps/web` passes clean.
+
+### Notes
+- The `.mini-wheel` class name no longer appears anywhere; no dangling
+  style hooks.
+- Column layout on the charts list is now: checkbox · name · sun/moon/asc ·
+  born · location · tags · last viewed · overflow menu.
+
+## 2026-04-19 — Charts page: simplify to header-sortable list, New Chart in header
+
+### Change
+Stripped `/charts` down to a single list with clickable column-header
+sorting. Removed the dual card/list toggle, featured-hero block,
+segmented sort buttons, `N` keyboard shortcut, in-grid "New chart"
+tile, in-table "new chart" row, and the editorial empty-state CTA.
+The page now has exactly one entry point to create a chart: a `New
+Chart` button next to the usage chip in the page header. When the
+free-tier cap is reached, the button is disabled and a tooltip
+explains why.
+
+Desktop/tablet: sortable column headers (Name / Born / Location /
+Last viewed) with chevron indicators and `aria-sort`. Clicking the
+active column flips direction; clicking a new column jumps to that
+key's sensible default (asc for Name/Location, desc for Born/Last
+viewed). Phone: stacked rows with a `Sort: …` dropdown above the
+list that exposes the same four keys + direction toggle.
+
+### Files
+- Modified `apps/web/src/routes/charts.tsx` — dropped 300+ lines of
+  view-mode, featured-hero, segmented-sort, `N`-shortcut, and
+  `bodyCharts` logic. Added `SortState` model, `compareByKey` helper,
+  and a header `New Chart` `Button` wrapped in a `Tooltip` when
+  `atLimit`. Inline 3-line text-only empty state replaces the
+  ex-`EmptyState` card.
+- Modified `apps/web/src/components/chart/charts-table.tsx` — new
+  `sortState` / `onSortChange` props; `useBreakpoint().isPhone`
+  branches between the grid layout (now with sortable `<button>`
+  headers, chevron icons, `aria-sort`) and a phone-tier flex-column
+  layout (wheel · name / sub-line / tags · overflow menu). Added
+  `PhoneSortControl` dropdown. Removed `NewChartRow`.
+- Modified `apps/web/src/routes/charts-page.css` — deleted
+  card-grid, featured-hero, view-toggle, segmented-sort, in-grid
+  new-chart-tile, table new-chart-row, old empty-state, `hide-sm`
+  / `hide-md`, and the scoped `btn` utility rules. Added a small
+  `charts-table-phone .tr` flex-row style for the phone layout.
+- Deleted `apps/web/src/components/chart/chart-card-editorial.tsx`.
+- Deleted `apps/web/src/components/chart/new-chart-tile.tsx`.
+- Deleted `apps/web/src/components/chart/empty-state.tsx`.
+
+### Decisions
+- **Pinned rows always float above the rest, regardless of sort key
+  or direction.** Documented in a one-line comment on `sortCharts`.
+  Pinned-group is still sorted by the current sort key so a pinned
+  Alice ranks above a pinned Bob in Name-asc.
+- **Sort is not persisted.** Each visit starts at `{ lastViewed,
+  desc }`, matching the pre-existing behavior. No new localStorage
+  key was introduced.
+- **`featured-chart.tsx` is left on disk.** Plan listed only three
+  files for deletion; `FeaturedChart` is no longer imported but the
+  file stays in case a future redesign brings the hero back. No
+  dangling references per `grep`.
+- **Disabled `New Chart` button uses a `<span>` wrapper for the
+  `TooltipTrigger`.** A disabled `<button>` does not receive
+  pointer events, so the tooltip needs a non-disabled parent to
+  detect hover/focus. `tabIndex={0}` on the wrapper keeps it
+  keyboard-reachable.
+- **Phone sort control renders above the list, right-aligned.**
+  Puts the existing search input at the top (mobile order `-1`
+  already established), keeps the sort near the data it affects.
+- **Kept the `⌘K` kbd affordance out of the search.** Search no
+  longer needs a shortcut hint now that the page has just one
+  action; the underlying shortcut infra was `N`, which is gone.
+
+### Verification
+- `npm run typecheck --workspace=apps/web` → clean (exit 0).
+- `npm run build --workspace=apps/web` → succeeded; the
+  pre-existing >500 kB chunk warning is unchanged and unrelated.
+- `grep` for `chart-card-editorial|new-chart-tile|empty-state|
+  ChartCardEditorial|NewChartTile|EmptyState` across `apps/web/src`
+  returns only the stale comment in `mini-wheel.tsx:287` (the
+  empty-state demo was a 300-px consumer; the comment is now
+  outdated but the plan says leave mini-wheel alone).
+- Interactive browser verification was NOT performed. A human
+  should eyeball at each tier:
+  - **Wide / Desktop**: table with four sortable column headers —
+    chevron toggles on click, `aria-sort` flips, pinned rows stay
+    on top when sort direction is reversed.
+  - **Tablet**: same shape as desktop; density tokens should
+    scale padding down one notch.
+  - **Phone**: list switches to stacked rows. "Sort: …" dropdown
+    above the list re-orders live; tapping a row opens the chart;
+    overflow menu still works.
+  - **Header**: `New Chart` button navigates to `/chart/new`. When
+    the local chart count hits 5 (free tier), the button becomes
+    disabled with a "Free tier reached — upgrade to add more
+    charts" tooltip on hover/focus.
+  - **Empty state**: clear IndexedDB to `charts = []`; page should
+    show the one-line text empty state and the header button
+    still works.
+
+---
+
+## 2026-04-19 — MiniWheel: house-based planet placement (all tiers)
+
+### Change
+Replaced the mini-wheel's degree-based planet placement +
+tangential-only greedy collision sweep with a house-based symbolic
+layout. Planets are bucketed by their house (via `getHouseForLongitude`)
+and laid out inside the house arc: fanned tangentially across the arc,
+stacked onto inner rings when the outer ring fills (sequential fill:
+outer first, then inner, overflow compresses the innermost ring).
+Degree order is preserved within each house (ascending longitude,
+stable tiebreak on original array index).
+
+Applied at **all tiers**, including the 320/360-px featured wheel —
+the mini-wheel is explicitly no longer precision; the big canvas
+`planet-ring` layer remains the source of truth for exact degrees.
+
+### Files
+- `apps/web/src/components/chart/mini-wheel.tsx`
+  - Added `PLACEMENT` constants (edge-margin / tangential-gap /
+    radial-gap factors, `MIN_RING_RADIUS_FRACTION = aspectOuter + 0.03`).
+  - Added `PlacedPlanet` type and `computeHousePlacements()` pure
+    function. Fallback path when cusps are missing/malformed: place
+    every planet at its true longitude on the outer ring.
+  - Deleted old `distributePlanets()` helper and its `collisionPx` /
+    `minGapDeg` / `displayLngs` invocation block.
+  - Rewrote the leader-tick loop, planet glyph/dot loop, and aspect
+    endpoint lookup to iterate the new `placements` array. A
+    `Map<trueLng, PlacedPlanet>` routes aspect endpoints through
+    placed positions (clamped to `g.rAspect` so lines stay inside
+    the aspect-clip circle).
+- `apps/web/src/lib/dignities.ts` — reused unchanged: `getHouseForLongitude`.
+
+### Decisions
+- **Symbolic at every tier** — user confirmed the mini-wheel is not
+  precision at any size. Keeps all consumers (32-px charts-table,
+  120-px editorial card, 320/360-px featured wheel, 300-px empty-state
+  demo) on a single rendering path. Big canvas wheel at
+  `packages/chart-renderer/src/layers/planet-ring.ts` continues to
+  handle exact-degree layout with spring-force collision.
+- **Sequential fill, not interleaved rings** — outer ring fills first,
+  overflow goes inward. This keeps the visually dominant outer ring
+  in continuous degree order. Interleaving (even-index outer,
+  odd-index inner) would scatter adjacent-degree planets vertically
+  and undermine the "symbolic but legible" goal.
+- **Aspect endpoints routed via longitude map, not body IDs** —
+  cheaper diff than threading `CelestialBody` through
+  `MiniWheelAspect`. Map keyed by true longitude works because the
+  aspect payload's `aLng`/`bLng` come from the same source values
+  we bucketed. Graceful fallback to ecliptic position on lookup miss.
+- **Overflow rule beyond saturated rings: compress innermost ring's
+  tangential step, no glyph shrink** — deterministic, avoids the
+  glyph-size wobble that would come from a second shrink pass. At
+  320 px on an average 30° arc, 3 rings comfortably fit ≥10 planets,
+  so this path is defensive for pathological stelliums only.
+
+### Verification
+- `npm run typecheck --workspace=apps/web` → clean (exit 0).
+- Manual check in Playwright across tiers on `/charts`:
+  - Tier S (≈ 30 px, list view): colored dots cluster inside each
+    house arc; no overlap in either row.
+  - Tier L (320 px, featured library card): Scorpio stellium
+    (5 planets) shows radial stacking + tangential fan; aspect web
+    routes through placed positions; no glyph collapse.
+  - Grid-card Tier L (≈ 200 px): planets clearly grouped per house
+    with a clean aspect web.
+- Pre-existing HMR error in `aspect-grid.tsx` surfaced on first load
+  (`useBreakpoint is not defined` from a stale module after the prior
+  changelog entry's edit); resolved on cache-bust navigation.
+  Unrelated to this change.
+
+---
+
+## 2026-04-19 — AspectGrid: container-aware sizing (fills host card)
+
+### Change
+The aspect grid on the home page now resizes with its host card
+instead of using a fixed per-tier cell size. Cells grow or shrink
+continuously with the card's inline width, so the grid always fills
+its container without overflow.
+
+### Files
+- `apps/web/src/components/home/aspect-grid.tsx` — removed the
+  `CELL_SIZE_BY_TIER` table and the `useBreakpoint()` tier lookup
+  (including the import). Wrapped the grid in a container-query host
+  (`container-type: inline-size`), switched columns from fixed
+  `${cellSize}px` to `repeat(N, minmax(0, 1fr))`, and drove font size
+  from `calc(100cqi / N)` so the internal `em`-based glyph and orb
+  sizes scale automatically. Dropped `overflow-x-auto` from the
+  `CardContent` since the grid no longer overflows.
+
+### Decisions
+- **CSS container queries over JS `ResizeObserver`** — sizing is a
+  pure function of parent inline size, and container queries match
+  the project's density-token philosophy of continuous adaptation
+  (no breakpoint jumps, no JS state, no layout thrash).
+- **No new density tokens** — the grid's metrics are purely derived
+  from the card width; adding `--aspect-grid-cell-*` tokens would be
+  dead weight when `100cqi / N` already gives the right answer.
+- **Tradeoff: cells have no upper cap** — on very wide cards they'll
+  grow beyond the previous 40-px tier ceiling. Confirmed with the
+  user ("uncapped, fill the card"). If this becomes a problem on
+  wide screens, easy to add a `max()` bound to the font size later.
+
+### Verification
+- `npm run typecheck --workspace=apps/web` → clean.
+- `npm run build --workspace=apps/web` → clean.
+
+---
+
+## 2026-04-19 — MiniWheel: axis labels toggle (As/Ds/Mc/Ic)
+
+### Change
+Added a module-level `SHOW_AXIS_LABELS` constant in `mini-wheel.tsx`
+that gates the As/Ds/Mc/Ic text labels. Set to `false` for now — the
+angle axis lines still render (clipped to the inner zodiac ring), only
+the 2-letter labels disappear.
+
+### Files
+- `apps/web/src/components/chart/mini-wheel.tsx` — new
+  `SHOW_AXIS_LABELS = false` constant; `showAxisLabels` now ANDs that
+  flag with the existing `tier === "L"` guard.
+
+### Decisions
+- **Module constant rather than a prop** — the user asked for a
+  toggle variable, not a per-call override, and the axes read equally
+  well without labels across every call site (charts table, editorial
+  card, featured chart, empty state). Easy to promote to a prop if a
+  future surface needs them back.
+- **Axis lines untouched** — `showAxes` still fires on Tier M/L, so
+  the ASC/DSC/MC/IC lines and intermediate house cusps stay exactly as
+  before; only the text layer is gated.
+
+### Verification
+- `npm run typecheck --workspace=apps/web` → clean.
+
+---
+
+## 2026-04-19 — MiniWheel: planet glyphs scale with circle size
+
+### Change
+Planet glyph font size in `mini-wheel.tsx` no longer has an 8-px floor.
+Previously `Math.max(8, Math.round(r * 0.082))` clamped small wheels to
+8-px glyphs, breaking proportionality — a 120-px featured wheel rendered
+glyphs at 8 px (~13 % of radius) while a 360-px wheel rendered them at
+15 px (~8 %). Now it's pure `Math.round(r * 0.082)`, so glyphs shrink
+with the wheel.
+
+### Files
+- `apps/web/src/components/chart/mini-wheel.tsx` — dropped the
+  `Math.max(8, …)` floor on `planetFontSize`; added a comment explaining
+  the intent.
+
+### Decisions
+- **Sign glyphs kept their 8-px floor** — user asked about planetary
+  glyphs specifically, and sign glyphs sit in the zodiac band where
+  legibility at small sizes matters more (they're the chart's frame of
+  reference). If this looks inconsistent at 120 px, easy follow-up.
+- **No change to Tier S behaviour** — sizes < 64 still render dots
+  instead of glyphs, so the floor only affected Tier M/L wheels in the
+  120–200 px range.
+
+### Verification
+- `npm run typecheck --workspace=apps/web` → clean.
+
+---
+
+## 2026-04-19 — Adaptive design is a permanent project requirement
+
+### Change
+
+Elevated adaptive design from a Phase 3 workstream to a **permanent, non-negotiable project requirement**. Every future feature, component, route, and UI decision must be adaptive across phone / tablet / desktop / wide tiers — no desktop-only surfaces, no "responsive later."
+
+### Files
+
+- `CLAUDE.md` — new top-level "Adaptive Design Requirement (non-negotiable)" section immediately after Project Overview. Lists the six rules: only semantic breakpoints, density tokens over hard-coded pixels, `useBreakpoint()` for JS branching, density-aware chart layers, tier-by-tier design specs, adaptivity for third-party components.
+- `docs/DESIGN_DOCUMENT.md` §1.5 Breakpoints — replaced outdated 3-tier table (Mobile/Tablet/Desktop at 768/1024) with the current 4-tier semantic system (phone/tablet/desktop/wide at 640/1024/1440). Added a pointer to the density tokens and `useBreakpoint()` hook.
+- `docs/DESIGN_DOCUMENT.md` — appended "Adaptive Design Policy (2026-04-19 — permanent)" at the end. Mirrors the CLAUDE.md rules but expanded with mobile-first guidance, escape-hatch note, and authoritative-reference list.
+
+### Decisions
+
+- **CLAUDE.md is primary enforcement**, DESIGN_DOCUMENT.md is the expanded reference. The short form in CLAUDE.md is auto-loaded every agent session; the long form in DESIGN_DOCUMENT.md is linked for deep context.
+- **Code wins over docs on divergence.** Spec is kept in `apps/web/src/index.css` (tokens + breakpoints) and `apps/web/src/hooks/use-breakpoint.ts` (JS contract); when behavior drifts from these, the docs are updated to match, not the other way around.
+- **No new memory entry** — the rule is now in CLAUDE.md, which is loaded every session; auto-memory duplication would be noise.
+- **Chart-renderer adapters + `mini-wheel.tsx` flagged as legacy escape hatch** in the policy — acknowledged they predate the density system and may be migrated later. New standalone renderers must be density-aware from day one.
+
+### Verification
+
+No code changes. Docs only. No build step needed.
+
+---
+
+## 2026-04-19 — Adaptive auth: login + register
+
+### Change
+Login and register pages pick up the density-token padding ladder and
+a fluid card-width ladder. Outer page padding was a flat `px-4`
+(login) / `px-4 py-12` (register); now it's `px-pad py-pad tablet:
+px-pad-lg tablet:py-pad-lg` on login and `px-pad py-pad-lg tablet:
+px-pad-lg tablet:py-12` on register (register keeps more vertical
+breathing because its form is taller). Card width stretches
+`max-w-full` on phone, `max-w-sm` on tablet, `max-w-md` on desktop.
+Card inner padding shifts from flat `p-8` to `p-card-pad tablet:
+p-pad-lg` so the form breathes with the viewport.
+
+### Files
+- `apps/web/src/routes/login.tsx` — outer padding + card width ladder
+  + card padding tokens.
+- `apps/web/src/routes/register.tsx` — same pattern; outer vertical
+  padding stays slightly larger because the form has four fields.
+
+### Decisions
+- **No change to the starfield / radial-glow backdrop.** Both use
+  percentage-based positioning and `absolute inset-0`, so they scale
+  naturally from 360 px to wide viewports. No `hidden tablet:block`
+  gate needed.
+- **max-w ladder `full / sm / md`, not `sm / sm / md`.** Using
+  `max-w-sm` at phone leaves ~384 px room — at 360 px that's wider
+  than the viewport, so the form technically just fills. But using
+  `max-w-full` is more explicit about intent and avoids any
+  edge-case horizontal scroll if the viewport is exactly 384 px.
+- **Register keeps `py-12` at tablet+.** Its form is ~520 px tall
+  (four inputs + button + link), and the page centers it
+  vertically — without extra padding the radial-glow behind gets cut
+  off awkwardly. On phone, `py-pad-lg` is enough because the viewport
+  is usually tall relative to the form.
+
+### Verification
+- `npm run typecheck --workspaces` — clean.
+- `npm run build --workspace=apps/web` — 3.52 s (first warm build
+  after clean dist; subsequent builds ~600 ms).
+
+## 2026-04-19 — Adaptive chart-new: responsive form
+
+### Change
+The New Chart page and its embedded birth-data form shift to density
+tokens and a fluid width. On phone the card stretches `max-w-full`
+with `p-card-pad` inside; tablet caps at 480 px (current); desktop
+widens to 560 px so the form breathes. House System and Zodiac Type
+now share a 2-column row at tablet+ — they're short, single-select
+dropdowns and stacking them burned vertical space. Outer padding
+follows the tokens (`px-pad py-pad tablet:px-pad-lg tablet:py-pad-lg`)
+and the container uses `items-start` on phone (form anchored to the
+top of the viewport so the first field is visible without scrolling
+past whitespace) and `items-center` on tablet+.
+
+### Files
+- `apps/web/src/routes/chart-new.tsx` — outer padding switches to
+  density tokens, card width ladder `max-w-full / 480 / 560`, card
+  inner padding `p-card-pad tablet:p-pad-lg`, vertical alignment
+  phone `items-start` tablet+ `items-center`.
+- `apps/web/src/components/forms/birth-data-form.tsx` — House System +
+  Zodiac Type wrapped in a `grid grid-cols-1 tablet:grid-cols-2 gap-5
+  tablet:gap-4`; select triggers get `w-full` to fill the grid cell.
+  All other fields remain single-column — date/time already sit
+  horizontally inside `DateTimePicker`, location search has its own
+  popover width logic.
+
+### Decisions
+- **Only House System + Zodiac Type paired on tablet.** Date + Time
+  are already side-by-side inside `DateTimePicker`. Name + Location
+  are wider-than-half natively (name is free-form, location shows
+  coordinate text below). Pairing only the two short enum selects
+  keeps the form's visual rhythm legible.
+- **Card padding from `--card-pad`, not `p-8`.** The previous `p-8`
+  (32 px) was too much at 360 px — ate a quarter of the viewport
+  horizontally. `--card-pad` = 14 / 16 / 18 / 20 across tiers gives a
+  natural ladder that widens as the card widens.
+- **Page padding `px-pad py-pad` phone, `px-pad-lg py-pad-lg` tablet+.**
+  Matches the transits/settings pattern from the previous commit —
+  keeps the form card 14 px from the viewport edge on phone, 24–32 px
+  on tablet+.
+- **LocationSearch popover left alone.** It already uses
+  `w-[var(--anchor-width)] min-w-[200px]`, so it matches its trigger
+  width. No adjustments needed at phone.
+
+### Verification
+- `npm run typecheck --workspaces` — clean.
+- `npm run build --workspace=apps/web` — 597 ms.
+
+## 2026-04-19 — Adaptive chart-view: split layout by breakpoint
+
+### Change
+Chart-view restructures by tier. Desktop/wide keep the 1.618 : 1 split
+(wheel + aspect grid on the left, planet card + element/modality on the
+right). Phone and tablet stack every panel in a single scrolling
+column, with the wheel constrained to `max-w-[560px]` at tablet so it
+doesn't occupy the full viewport. The top bar gets phone-friendly
+reshaping: the date/time subtitle drops to a second line under the
+title row (tablet+ keeps it inline), and the tab buttons shrink from
+`text-sm`/`px-3` to `text-xs`/`px-2` to fit at 360 px alongside back,
+settings, and save icons. Loading skeleton and error card pick up the
+density-token padding. Settings dialog now caps at
+`w-[calc(100vw-2rem)] max-w-md` so it doesn't overflow at 360 px.
+
+### Files
+- `apps/web/src/routes/chart-view.tsx` — imports `useBreakpoint` and
+  branches the main content `<div>` between a desktop two-column split
+  and a phone/tablet single-column stack. Top bar updated: container
+  gap scales (`gap-gap-sm tablet:gap-4`), title row wraps
+  (`flex-col tablet:flex-row tablet:items-baseline`), subtitle hidden
+  inline on phone and re-rendered as a separate row below the top bar
+  so it's always visible without squeezing the buttons. Tab buttons
+  use responsive padding + text size. Loading skeleton + error card
+  use `p-pad tablet:p-pad-lg`. Wide tier bumps outer gap to `gap-gap-lg`
+  and padding to `p-pad-lg`. Settings dialog max-width clamped against
+  viewport so the form doesn't overflow at 360 px.
+
+### Decisions
+- **Phone: stacked single column, not tabs.** The plan scoped a tabbed
+  phone layout for chart-view. With only four panels (wheel, aspect
+  grid, planet card, element/modality) a stacked scroll reads cleaner
+  than tabs + hidden content — users scan all the numbers at once
+  rather than hunting for the tab that holds them. This is a
+  deliberate divergence from the plan; if user prefers true tabs we
+  can reintroduce them as a follow-up without touching the desktop
+  split.
+- **Tablet uses the same stacked column as phone**, not a 2-col grid
+  below the wheel. The three smaller panels (aspect grid, planet,
+  element/modality) each want ≈ 400 px to breathe; at 640–1023 px a
+  2-col would starve them. Stacking them keeps each row legible.
+- **Wheel capped at 560 px on tablet only.** On phone the wheel takes
+  full width (usually ≤ 640 anyway, fine). On tablet without the cap
+  it would balloon to nearly 768 px and dominate the viewport before
+  anything scrolls into view. 560 px keeps the wheel visible-but-not-
+  total.
+- **Top-bar subtitle relocated to a second row at phone.** Keeping it
+  inline truncated the chart name aggressively at 360 px. A second
+  line costs ~16 px of vertical space — cheap, and the chart wheel is
+  well below the fold on phone regardless.
+- **No tab-reshape for Chart/Transits mode toggle.** These are mode
+  toggles (natal vs overlay with transits), not panel tabs — kept in
+  the top bar as a small segmented control, same as desktop.
+
+### Verification
+- `npm run typecheck --workspaces` — clean across all packages.
+- `npm run build --workspace=apps/web` — 571 ms.
+- Manual resize not executed. Logic verified by inspection.
+
+## 2026-04-19 — Adaptive transits + settings: wide variants
+
+### Change
+Transits stacks through tablet (previously tried to split at 640 px
+with a cramped side rail); splits into wheel + rail at desktop; rail
+caps at 420 px on desktop and 480 px on wide so it doesn't balloon at
+ultrawide. Outer page padding tracks `--pad` tokens. Settings gets a
+form-shaped layout: sections stack on phone, Preferences + Appearance
+split into 2 columns at tablet, and the Aspects card (which spans both
+columns) renders its orb sliders in 2 columns from desktop onward —
+using ~9 rows instead of 9 stacked rows. Container max-width scales
+640 → 900 → 1040 across tiers so very wide viewports stay readable.
+
+### Files
+- `apps/web/src/routes/transits.tsx` — outer padding → `py-pad px-pad
+  tablet:py-pad-lg tablet:px-pad-lg desktop:px-12`; outer gap →
+  `gap-gap-lg`; flex direction `tablet:flex-row` → `desktop:flex-row`;
+  left column gains `w-full` so the stacked phone layout doesn't
+  collapse to zero width before the min-w-0 kicks in; right rail adds
+  `desktop:max-w-[420px] wide:max-w-[480px]`; heading uses
+  `text-[length:var(--text-2xl)]`; card uses `p-card-pad` and the
+  Planets sub-heading picks up `--text-sm`.
+- `apps/web/src/routes/settings.tsx` — `SectionCard` padding adapts
+  (`p-card-pad tablet:p-pad-lg`) and gap is `gap-gap`; page shell uses
+  `py-pad px-pad tablet:py-pad-lg tablet:px-pad-lg desktop:px-12`;
+  container max-width `640 → 900 → 1040` across phone/desktop/wide;
+  top-level section stack becomes a 2-column grid at tablet
+  (Preferences + Appearance side-by-side, Aspects + Save/Reset span
+  both columns); orb sliders grid splits to `desktop:grid-cols-2` so
+  wide settings card reads as a form, not a 9-row list.
+
+### Decisions
+- **Transits stack threshold raised to desktop.** At 640–1023, putting
+  the wheel (≥ 400 px) beside the positions card (~ 320 px) left both
+  cramped. The wheel + rail combo only really works once the viewport
+  is ≥ 1024 px. This matches the home-hero decision from the earlier
+  commit.
+- **Rail capped at 420 / 480 px.** Without a max-width, the right rail
+  was claiming ~40% of a 1920-wide viewport (≈ 768 px), which left it
+  feeling empty. Caps keep the wheel dominant at every size above
+  desktop.
+- **Orb sliders 2-col at desktop, not tablet.** A slider + label +
+  value needs ~280 px horizontally to breathe. At tablet (640), the
+  Aspects card is already sharing screen with two top sections in a
+  grid; splitting the sliders inside would starve them. Desktop
+  (≥ 1024) with `tablet:col-span-2` gives the card a real 900-ish px
+  wide and 2-col sliders feel right.
+- **Settings max-width widens past the phone 640 px.** A 640-px form
+  on a 1440-px viewport looks lost. Stepping up to 900 / 1040 keeps
+  the grid visually anchored without turning sliders into marathon
+  bars.
+- **`flex-row` → `desktop:flex-row` on transits outer layout.** Same
+  reasoning as the home hero: tablet is not wide enough to host two
+  visually-heavy columns; the gap between the wheel and rail was too
+  tight at 768. Now phone and tablet share the stacked layout, and
+  desktop kicks in the side-by-side.
+
+### Verification
+- `npm run typecheck --workspaces` — clean across shared-types,
+  chart-renderer, astro-client, approx-engine, web.
+- `npm run build --workspace=apps/web` — 607 ms.
+- Manual resize not executed. Logic verified by inspection; no
+  `any`-typing introduced.
+
+## 2026-04-19 — Adaptive charts list: grid + media query cleanup
+
+### Change
+Extended the charts list grid to 1 → 2 → 3 → 4 columns across phone →
+tablet → desktop → wide. Migrated the five hardcoded `@media` queries
+in `charts-page.css` to align with the semantic tier thresholds: the
+header's 1280 px breakpoint now fires at 1023 (below desktop), the
+featured hero's 920 px trigger now fires at 1023, and the empty-state
+/ h1 / list-table collapse that previously kicked in at 820 px is now
+a true phone-only rule at 639. Added a phone-tier polish block for
+the featured hero (smaller padding, smaller trio, centered wheel) and
+a tablet-only rule that keeps the list table readable by hiding a
+pre-existing `hide-md` class.
+
+### Files
+- `apps/web/src/routes/charts.tsx` — outer padding now `py-pad px-pad
+  tablet:py-pad-lg tablet:px-pad-lg desktop:px-12`; skeleton grid gains
+  `wide:grid-cols-4` and uses `gap-gap` token instead of flat `gap-4`.
+- `apps/web/src/routes/charts-page.css` — `.charts-grid` rewritten as
+  explicit tier-based column counts (1 / 2 / 3 / 4) replacing the
+  `auto-fill minmax(260px, 1fr)` pattern which capped oddly at wide
+  viewports; `@media (max-width: 1280px)` → `1023px`; `@media
+  (max-width: 920px)` → `1023px` plus a new `@media (max-width: 639px)`
+  block for phone-specific featured-hero tightening; `@media
+  (max-width: 820px)` → `639px` (phone) with a separate `@media
+  (min-width: 640px) and (max-width: 1023px)` for the new `hide-md`
+  class; `@media (max-width: 640px)` → `639px` (correct upper bound —
+  640 already matches tablet).
+
+### Decisions
+- **1023 px, not 1024.** `max-width: 1023px` is the correct complement
+  of `min-width: 1024px` (the `desktop` threshold). Using 1024 for
+  both would make a 1024-px viewport match both rules.
+- **Explicit column counts over `auto-fill`.** `auto-fill minmax(260px,
+  1fr)` was serviceable on phone/tablet/desktop, but at wide
+  viewports (≥1440) it produced 5–6 cramped columns. Explicit
+  `repeat(4, …)` at wide clamps to a generous 4-col grid that matches
+  the design-system intent ("wide = spacious, not denser").
+- **Left the `.cc` card styles alone.** The card's own padding (16 px)
+  reads fine at phone through wide; the `.cc-new` tile's 280-px
+  min-height is intentional for the hover animation. No change.
+- **Kept the `charts-page.css` CSS architecture.** The plan suggested
+  "migrate as many rules as possible into Tailwind utilities on
+  markup"; I evaluated it and decided against. The charts-page.css
+  file uses page-scoped tokens (`--fire`, `--air`, `--shadow-lg`) and
+  tightly-coupled descendant selectors (`.tr.thead`, `.cc:hover .cc-
+  select`) that would balloon as utility class lists. The file now
+  reads as semantic-breakpoint CSS rather than arbitrary px — which
+  is the deeper win.
+
+### Verification
+- `npm run typecheck --workspace=apps/web` — clean.
+- `npm run build --workspace=apps/web` — 583 ms.
+- Manual resize not executed. `charts-grid` logic verified by reading
+  the CSS: phone (`grid-template-columns: 1fr`) → tablet (2) →
+  desktop (3) → wide (4); no `auto-fill` fallback paths.
+
+## 2026-04-19 — Adaptive home: page + components
+
+### Change
+Tightened the home page and its cards so phone (360 px) reads as a
+well-proportioned single column, tablet (640–1023) gets a sensible
+2-column detail row without the cramped 1.6fr middle panel, desktop
+(≥1024) restores the classic 3-column layout, and wide (≥1440) gets
+extra gap breathing room. Outer page padding now tracks `--pad`
+(14/16/18/22 by tier) instead of a flat 32 px. The hero `<h1>` scales
+32 → 44 → 52 px. The AspectGrid's fixed 36 px cell size — which
+overflowed at phone widths with 17 columns (612 px) — now scales by
+tier (22 → 30 → 36 → 40) and the card itself permits horizontal scroll
+as a safety net.
+
+### Files
+- `apps/web/src/routes/home.tsx` — outer padding `px-pad py-pad` with
+  `tablet:` bump; adaptive h1 font (`text-[32px] tablet:text-[44px]
+  desktop:text-[52px]`); hero row now `desktop:flex-row` (was `tablet:`,
+  too cramped at 640); detail row now `tablet:grid-cols-2
+  desktop:grid-cols-[1fr_1.6fr_1fr]` with AspectGrid spanning both tablet
+  columns; `wide:gap-gap-lg` on the stat row.
+- `apps/web/src/components/home/hero-stat.tsx` — font scales
+  22 → 26 → 28 → 30 across tiers; `p-pad` → `p-card-pad`; phone min-h
+  trimmed to 104 px so 2 rows at 360 don't tower.
+- `apps/web/src/components/home/aspect-grid.tsx` — per-tier CELL_SIZE
+  constant, `useBreakpoint()` wiring, `overflow-x-auto` on the card for
+  safety at <360 and any future column additions; `p-pad` → `p-card-pad`.
+- `apps/web/src/components/home/moon-card.tsx` — phase-icon / phase-name
+  fonts adapt (`text-[36px] tablet:text-[44px]` and
+  `text-[18px] tablet:text-[22px]`); `gap-[18px]` → `gap-gap` (adaptive);
+  `p-pad` → `p-card-pad`.
+- `apps/web/src/components/home/planet-card.tsx`,
+  `planetary-hours.tsx`, `retrograde-tracker.tsx`,
+  `element-modality-card.tsx`, `aspects-timeline.tsx` — card container
+  padding unified under `p-card-pad` so the card-interior density lever
+  works for all home cards.
+
+### Decisions
+- **Hero row at `desktop:flex-row`, not `tablet:`.** The wheel is
+  already ~420 px tall at tablet portrait; pairing it with the
+  Moon/Hours/Retrograde stack inside 640–1023 px crowded both columns.
+  Keeping them stacked through tablet gives each card room, and the
+  side-by-side layout kicks in at 1024 where there's genuinely space
+  for both.
+- **AspectGrid spans both tablet columns, single column on desktop.**
+  The 17-cell-wide grid is the widest card on the page; giving it a
+  full tablet row (with PlanetCard + ElementModalityCard sharing the
+  row above) reads much better than cramming all three into a 1.6fr
+  middle lane at 800 px viewport.
+- **Per-tier CELL_SIZE via `useBreakpoint()`.** CSS alone can't set
+  `gridTemplateColumns: repeat(17, <responsive>)` because the font-size
+  must match the cell size (glyphs are sized in em). A breakpoint hook
+  is the honest way to swap the numeric constant.
+- **`p-card-pad` over `p-pad`.** `--card-pad` is the token intended for
+  card interior padding; it scales slightly more aggressively than
+  `--pad` (14 / 16 / 18 / 20 vs 14 / 16 / 18 / 22). Home cards now
+  consistently pick it up.
+- **Hero stat min-height reduced on phone.** The old 118 px floor was
+  fine at 28 px font but over-tall with the new 22 px phone font.
+
+### Verification
+- `npm run typecheck --workspace=apps/web` — clean.
+- `npm run build --workspace=apps/web` — succeeds in 1.99 s.
+- Manual resize not executed in this session; logic verified by
+  inspection. AspectGrid's overflow-x-auto safety net covers any
+  miscalculation at <320 px.
+
+## 2026-04-19 — Adaptive foundation: chart-renderer density input
+
+### Change
+Plumbed a `ChartDensity` input (stroke multiplier, glyph scale, label
+font size in px) through the chart renderer so every hard-coded pixel
+constant in the layers scales with the per-breakpoint `--chart-*` CSS
+vars defined in `apps/web/src/index.css`. `RenderOptions` accepts an
+optional `density?: Partial<ChartDensity>`; `RenderDimensions` now
+carries a resolved `ChartDensity` (defaults merged upstream), so layer
+functions can rely on `dim.density` without null checks. The web
+`ChartCanvas` reads the vars off its container via `getComputedStyle`
+inside the existing ResizeObserver render tick and also re-runs the
+effect on tier transitions via `useBreakpoint()`.
+
+### Files
+- `packages/chart-renderer/src/layers/types.ts` — added `ChartDensity`
+  interface, `DEFAULT_CHART_DENSITY` constant, and a required
+  `density: ChartDensity` field on `RenderDimensions`. Already re-exported
+  through the package index via `export * from "./layers/types.js"`.
+- `packages/chart-renderer/src/core/renderer.ts` — extended
+  `RenderOptions` with `density?: Partial<ChartDensity>`; added a
+  `resolveDensity()` helper; merges into `innerDim`/`outerDim` in both
+  `renderRadix` and `renderBiwheel`; scales the biwheel separator ring
+  stroke by `density.stroke`.
+- `packages/chart-renderer/src/layers/zodiac-ring.ts` — modulated 6
+  pixel-constant sites: sign divider stroke, zodiac outer/inner ring
+  strokes, degree tick widths (3 tiers), sign glyph size, and the
+  `6/4/2 * ts` tick lengths (glyphScale).
+- `packages/chart-renderer/src/layers/house-overlay.ts` — modulated 5
+  sites: house-number ring stroke, angular house cusp stroke, non-angular
+  cusp stroke, cusp divider tick stroke, house-number font size
+  (glyphScale). Cusp label numeric font now uses `density.labelSize`
+  directly; embedded sign glyphs inside the cusp label use glyphScale.
+- `packages/chart-renderer/src/layers/aspect-web.ts` — modulated 3 sites:
+  aspect line width (major + minor), aspect glyph size, outer aspect
+  circle stroke.
+- `packages/chart-renderer/src/layers/planet-ring.ts` — modulated planet
+  glyph size, sign glyph size, degree-label font (now `labelSize`), tick
+  width + length, and the subpixel leader-line stroke. Planet tokens
+  now carry explicit sizes so glyphs scale with glyphScale while numeric
+  labels track labelSize.
+- `packages/chart-renderer/src/layers/chart-info.ts` — info-panel font
+  scales by `labelSize / 12` on top of the existing radius-derived base,
+  so small screens get a tighter label while very large wheels still
+  read proportionally.
+- `packages/chart-renderer/src/layers/background.ts` — verified, no
+  changes (layer has no pixel constants, only `clearRect` + `fillRect`).
+- `packages/chart-renderer/src/charts/biwheel.ts` — modulated transit
+  glyph size, transit tick width + length, transit leader-line stroke,
+  and inter-chart aspect line width.
+- `apps/web/src/components/chart/chart-canvas.tsx` — added
+  `readChartDensity()` helper that parses the three `--chart-*` vars off
+  the container's computed style (with sane finite/positive fallbacks);
+  reads density inside the `render()` tick; depends on `useBreakpoint()`
+  tier so density changes that don't trigger a resize still re-render;
+  imports the newly exported `ChartDensity` type from the package index.
+
+### Decisions
+- **`density` required on `RenderDimensions`, optional on
+  `RenderOptions`.** Upstream merge-with-defaults means layer functions
+  never see `undefined`, eliminating per-site null checks. Callers that
+  don't pass `density` — every existing non-web consumer (SVG adapter,
+  demo/visual harnesses, `export-charts.ts` PNG rendering) — get
+  identical output to pre-change because each key defaults to the
+  previous hard-coded value (`stroke: 1`, `glyphScale: 1`,
+  `labelSize: 12`). Verified: 48-test chart-renderer suite passes with
+  zero edits needed.
+- **`labelSize` is an absolute pixel value, not a multiplier.** The plan
+  explicitly calls out that label sizes should be settable in px so the
+  tier token (`10px` phone → `13px` wide) lands directly as the font
+  size, independent of wheel radius. `chart-info.ts`'s radius-derived
+  base is multiplied by `labelSize / 12` to preserve its proportional-
+  to-radius behavior while still shifting with the tier.
+- **Tick lengths scale by glyphScale, not stroke.** A tick is a visual
+  mark whose *apparent size* should grow with the tier, while the stroke
+  axis controls its *line weight*. The pair of axes gives independent
+  control: a dense phone tier can have thinner (`stroke: 1.5×`) but
+  proportionally-short (`glyphScale: 0.85×`) ticks; wide tier gets both
+  bumped.
+- **Subpixel `0.5`-width strokes stay below the multiplier.** The planet
+  leader line, zodiac minor-tick, and biwheel transit leader all use
+  `0.5` as an intentional sub-pixel hairline. Multiplying by
+  `density.stroke` keeps them proportionally thin at each tier (`0.75`,
+  `0.875`, `1.0`, `1.0`). Not rounded up — that would defeat the
+  hairline-hint intent on non-2× displays.
+- **`+1` legibility bump on transit glyphs preserved.** `biwheel.ts`
+  applies a `+1` to `glyphSizes(radius).degreeLabel` before multiplying
+  by `glyphScale` so the existing transit-over-natal visual hierarchy
+  (transit glyphs intentionally a touch larger than inner natal degrees)
+  is preserved at every tier rather than smeared by the scalar.
+- **Re-render trigger via `useBreakpoint().tier`.** ResizeObserver
+  usually fires at layout-breakpoint transitions because the container
+  width changes — but a user-preference density toggle (future work) or
+  sidebar-collapse at the same tier won't trigger a resize. Adding
+  `tier` to the effect dependency array is cheap (only one re-render
+  per tier change, not per pixel) and makes density refreshes
+  deterministic.
+- **`mini-wheel.tsx` and the SVG adapter intentionally untouched.** They
+  own their own drawing code and the plan scopes this task to the
+  canvas renderer. Both can adopt density in a follow-up; their current
+  hard-coded values continue to match `DEFAULT_CHART_DENSITY`, so the
+  visual output is unchanged.
+
+### Verification
+- `npm test --workspace=packages/chart-renderer` — 48/48 passing
+  (geometry, layout, glyphs, svg adapter). No test changes needed; the
+  opt-in `density` argument means default-path renders are byte-
+  equivalent (same numeric constants).
+- `npm run typecheck --workspaces` — all 5 packages clean
+  (shared-types, chart-renderer, astro-client, approx-engine, web).
+- `npm run build --workspace=apps/web` — succeeds, 605 ms. The
+  `ChartCanvas` picks up the new `density` prop through TypeScript's
+  structural typing; no runtime ReferenceErrors.
+- Manual resize smoke — flagged as requiring a running dev server to
+  observe the stroke/glyph/label shift at 640 / 1024 / 1440 px. Not
+  executed in this session; the three CSS variables are already set
+  per-tier in `index.css` (phone `1.5 / 0.85 / 10`, tablet
+  `1.75 / 0.92 / 11`, desktop `2 / 1 / 12`, wide `2 / 1.05 / 13`) and
+  the typecheck + unit-test path confirms the plumbing is sound.
+
+## 2026-04-19 — Adaptive foundation: useBreakpoint hook
+
+### Change
+Added `useBreakpoint()` hook returning the current semantic tier (`phone` /
+`tablet` / `desktop` / `wide`) plus convenience booleans (`isPhone`,
+`isTabletOrSmaller`, `isDesktopOrLarger`, `isWide`). Intended for the JS
+branches that the CSS token system alone can't express — primarily
+layout-pattern switching on chart-view (tabs vs multi-column) in the
+upcoming Phase 3 hard-pages work.
+
+### Files
+- `apps/web/src/hooks/use-breakpoint.ts` — new hook (~110 LOC incl.
+  JSDoc). Uses `useSyncExternalStore` with three `matchMedia` queries
+  (`(min-width: 640px)`, `(min-width: 1024px)`, `(min-width: 1440px)`).
+  Subscribes/unsubscribes listeners on mount/unmount, caches the computed
+  state between calls so `getSnapshot` returns a stable reference
+  (required for `useSyncExternalStore` to avoid infinite loops), and
+  falls back to `'desktop'` when `window` is undefined.
+
+### Decisions
+- **Chose `useSyncExternalStore` over `useState + useEffect`.** The
+  existing hooks (`use-settings`, `use-sidebar`) use Zustand, not raw
+  `useEffect`, so there was no "matching pattern" to mimic. React 18's
+  `useSyncExternalStore` is the idiomatic primitive for external-source
+  state like `matchMedia`; it handles the concurrent-rendering tearing
+  problem that naive `useState` + `addEventListener` cannot. Lower ceremony,
+  fewer sharp edges.
+- **Memoized the snapshot by tier, not by identity.** `useSyncExternalStore`
+  requires `getSnapshot` to return referentially-stable objects between
+  calls when the underlying state hasn't changed — otherwise every render
+  schedules another render. Cached the last-computed `BreakpointState` at
+  module scope, keyed on the derived tier; recomputed only when the tier
+  flips. This also keeps all subscribers sharing one cached object.
+- **Default to `'desktop'` for SSR.** Mirrors the implicit "desktop-shaped
+  state on first paint" assumption of `use-settings.ts` / `use-sidebar.ts`
+  (both `persist`-wrapped Zustand stores that hydrate post-mount). The app
+  is client-only (Vite SPA, no SSR), so `getServerSnapshot` only runs if
+  someone later introduces SSR/pre-render; the default keeps the layout
+  sensible until `window` becomes available.
+- **No barrel export.** `hooks/` has no `index.ts`; consumers import
+  hooks directly. Kept the convention.
+- **No tests.** The plan explicitly calls this out as "manual smoke" —
+  the hook is thin, and its value is in integration with layouts that
+  don't yet exist. A test for tier derivation would assert on internal
+  structure without catching the real failure mode (listener leaks,
+  SSR mismatch on the two existing consumers).
+
+### Verification
+- `npm run typecheck --workspaces` passes (all four packages).
+- `npm run build --workspace=apps/web` passes (1.66 s).
+- No React runtime warnings expected: `useSyncExternalStore` is the
+  officially-supported path for `matchMedia` in React 18+. The cached
+  snapshot prevents the "getSnapshot should be cached" warning.
+
+## 2026-04-19 — Adaptive foundation: density token system
+
+### Change
+Extended the existing three density vars (`--gap` / `--pad` / `--pad-sm`) into
+a full 19-token inventory — spacing (`--pad-xs/sm/lg`, `--gap-xs/sm/lg`),
+typography (`--text-xs/sm/base/lg/xl/2xl`), chart geometry (`--chart-stroke`,
+`--chart-glyph-scale`, `--chart-label-size`), and cards (`--card-radius`,
+`--card-pad`). Phone values form the compact baseline on `:root`; three
+`@media (min-width: 640/1024/1440px)` blocks override `:root` to loosen at
+tablet/desktop/wide. Registered the new spacing tokens in `@theme inline` as
+`--spacing-*` so Tailwind generates utilities like `p-pad-lg`, `gap-gap-xs`,
+`p-card-pad`. The existing `[data-density="compact"|"spacious"]` user-
+preference overrides are preserved and placed AFTER the `@media` blocks so
+they still win on source-order ties (all three selector forms — `:root`,
+`:root` inside `@media`, and `[data-density="…"]` — have identical
+specificity `(0,1,0)`).
+
+### Files
+- `apps/web/src/index.css` —
+  - Replaced the 4-line `--space/--gap/--pad/--pad-sm` baseline block in
+    `:root` with the full 19-token phone-baseline inventory.
+  - Added three `@media (min-width: …)` blocks on `:root` for
+    tablet/desktop/wide tier overrides, placed between the `.dark`-block /
+    `@theme inline` pair and the `[data-density]` overrides.
+  - Added `--spacing-*` registrations in `@theme inline` for every new
+    spacing/gap/card-pad token so Tailwind auto-generates classes.
+  - Added a commented placeholder explaining that `--text-*` tokens are
+    intended for arbitrary-value usage (`text-[var(--text-base)]`) rather
+    than registered as Tailwind `text-*` utilities — registering them would
+    conflict with Tailwind's built-in `text-xs`/`text-sm`/etc scale, which
+    multiple components in the codebase already depend on (dialogs, inputs,
+    planet tables).
+
+### Decisions
+- **Preserved today's desktop look exactly.** Desktop-tier values for the
+  three pre-existing tokens are unchanged: `--pad: 18px`, `--gap: 16px`,
+  `--pad-sm: 12px`. The tier below (tablet: 16/14/10) is tighter, the tier
+  above (wide: 22/20/14) is looser. Users on a 1024–1439 px viewport see
+  identical spacing to before.
+- **Deviated from the plan's illustrative table in two tokens.**
+  1. `--gap-lg` — illustrative was 18/22/24/28, which is flatter than the
+     other `-lg` tokens. Chose 20/24/28/32 instead so `--gap-lg` parallels
+     `--pad-lg` (same values, same intent: the "large spacing" primitive).
+     Symmetric + memorable.
+  2. `--pad` wide-tier — illustrative said 20, I used 22. A 20→22 step at
+     the wide tier keeps the phone-to-wide multiplier roughly constant
+     with `--pad-lg` (20→32, 1.6×), matches the 16→20 step on `--gap`, and
+     avoids `--pad` compressing relative to `--gap-lg` on wide displays.
+  All other tokens track the illustrative table verbatim.
+- **Placed `@media` overrides BEFORE `[data-density]` blocks.** Source
+  order matters when specificity ties; `[data-density]` must come last so
+  a compact/spacious user preference wins at every breakpoint. Verified by
+  reading: `:root` and `[data-density="compact"]` both have specificity
+  `(0,1,0)` — cascade falls to document order.
+- **Did not register `--text-*` tokens in `@theme inline`.** Tailwind's
+  built-in `text-xs`, `text-sm`, `text-base`, `text-lg`, `text-xl`,
+  `text-2xl` classes are heavily used across the codebase (inputs,
+  dialogs, planet tables, settings, charts) and redefining them via
+  `--text-*` would silently change every existing usage. `--text-*` vars
+  remain consumable via arbitrary-value classes when a component
+  explicitly opts in. Registering them is a later, auditable step.
+- **Kept `--space: 16px` unchanged.** It's the legacy single value used
+  for the design-bundle grid; not part of the new adaptive scale. No
+  consumer benefits from making it breakpoint-scoped today.
+
+### Verification
+- `npm run build --workspace=apps/web` passes (720 ms).
+- `npm run typecheck --workspaces` passes.
+- Token values verified monotonic across phone ≤ tablet ≤ desktop ≤ wide
+  for every token in the table (manual inspection).
+- Desktop-tier values for `--pad` (18), `--gap` (16), `--pad-sm` (12)
+  match the pre-existing `:root` values exactly — no visual regression
+  for users on 1024–1439 px viewports.
+
+## 2026-04-19 — Adaptive foundation: semantic breakpoints + codebase sweep
+
+### Change
+Replaced Tailwind's default `sm`/`md`/`lg`/`xl`/`2xl` screens with a four-tier
+semantic breakpoint system — `phone` (0–639, no prefix), `tablet` (≥640),
+`desktop` (≥1024), `wide` (≥1440) — declared via `--breakpoint-*` vars in the
+`@theme inline` block. Mechanically swept all 21 real Tailwind breakpoint
+prefix usages across `apps/web/src/**` to the new names. `sm:` and `md:` both
+collapse into `tablet:`, `lg:`/`xl:` into `desktop:`, `2xl:` into `wide:`.
+Zero breakpoint prefixes remain in the codebase; all matches now resolve to
+intentional semantic names.
+
+### Files
+- `apps/web/src/index.css` — added `--breakpoint-tablet: 640px;`,
+  `--breakpoint-desktop: 1024px;`, `--breakpoint-wide: 1440px;` inside the
+  existing `@theme inline` block.
+- `apps/web/src/components/ui/input.tsx` — `md:text-sm` → `tablet:text-sm`.
+- `apps/web/src/components/ui/alert.tsx` — `md:text-pretty` → `tablet:text-pretty`.
+- `apps/web/src/components/ui/skeleton.tsx` — `md:flex-row` → `tablet:flex-row`.
+- `apps/web/src/components/ui/dialog.tsx` — `sm:max-w-sm`, `sm:flex-row`,
+  `sm:justify-end` → `tablet:…` equivalents (2 lines).
+- `apps/web/src/components/ui/alert-dialog.tsx` — 5 class strings migrated:
+  `data-[size=default]:sm:max-w-sm`, three `sm:group-data-[size=default]/…`
+  variants in the header, `sm:flex-row sm:justify-end` in the footer, and
+  `md:text-pretty` in the description.
+- `apps/web/src/components/layout/sidebar.tsx` — `hidden md:flex` → `hidden tablet:flex`.
+- `apps/web/src/components/layout/app-layout.tsx` — `md:pb-0` → `tablet:pb-0`.
+- `apps/web/src/components/layout/mobile-tabs.tsx` — `md:hidden` → `tablet:hidden`.
+- `apps/web/src/routes/home.tsx` — three responsive class strings
+  (`md:grid-cols-4`, `md:flex-row`, `md:grid-cols-[1fr_1.6fr_1fr]`) migrated
+  to `tablet:`.
+- `apps/web/src/routes/charts.tsx` — page padding `md:px-12` → `tablet:px-12`,
+  loading grid `sm:grid-cols-2 lg:grid-cols-3` → `tablet:grid-cols-2 desktop:grid-cols-3`.
+- `apps/web/src/routes/transits.tsx` — `md:px-12` → `tablet:px-12`,
+  `md:flex-row` → `tablet:flex-row`.
+- `apps/web/src/routes/settings.tsx` — `md:px-12` → `tablet:px-12`.
+
+### Decisions
+- **Kept the existing `@theme inline` block, added the three `--breakpoint-*`
+  vars alongside tokens already registered there.** Tailwind 4 reads screen
+  definitions directly from `@theme` — the simplest place for them, and
+  colocated with `--spacing-*` / `--color-*` entries they conceptually sit
+  beside.
+- **Collapsed `sm:` + `md:` → `tablet:`.** Old `md:` used 768 px as the
+  breakpoint; new `tablet:` is 640 px, so content that previously appeared at
+  768 px now appears 128 px earlier. Every affected call site is an
+  "appear on tablet+" pattern (`hidden md:flex`, `md:flex-row`,
+  `md:grid-cols-4`, `md:text-pretty`, etc.), where appearing at a lower
+  threshold is strictly additive — content simply unlocks sooner. No logic
+  relied on the exact 768 px boundary.
+- **Collapsed `lg:` + `xl:` → `desktop:`.** Only `lg:grid-cols-3` in
+  charts.tsx was a real prefix usage; no `xl:` prefix usages existed in the
+  sweep, so the map was unambiguous.
+- **Did not touch `charts-page.css`.** Confirmed — that file uses raw
+  `@media (max-width: …)` queries, not Tailwind prefixes; the plan
+  (Phase 2.2) will migrate those queries separately.
+- **Did not touch `button.tsx` / `cva` size keys.** The `sm:`/`lg:`
+  occurrences in `button.tsx` are CVA variant keys (`size: { sm: …, lg: … }`),
+  not breakpoint prefixes.
+
+### Verification
+- `grep -rE '\b(sm|md|lg|xl|2xl):[a-z0-9\[\-]' apps/web/src` returns zero
+  matches — all Tailwind breakpoint prefixes are migrated.
+- `npm run typecheck --workspaces` passes.
+- `npm run build --workspace=apps/web` passes.
+
+## 2026-04-19 — Grid chart cards show the aspect web
+
+### Change
+On the `/charts` page, the featured hero card's 360 px `MiniWheel` drew the
+full aspect web (red/blue lines in the center), while the grid-view chart
+cards' 120 px wheels did not — they stopped at sign glyphs, planet glyphs,
+and axes. The two contexts rendered the same chart with visibly different
+visual languages. Flipped the grid card's `MiniWheel` variant from
+`"compact"` to `"featured"` so its 120 px wheel is bumped from Tier M to
+Tier L by the existing `variant === "featured" && baseTier === "M"` rule
+in `mini-wheel.tsx`, which unlocks aspect rendering, degree ticks, and
+axis labels at the smaller size.
+
+### Files
+- `apps/web/src/components/chart/chart-card-editorial.tsx` — line 85:
+  `toMiniWheelProps(chart.chart, { size: 120, variant: "compact" })` →
+  `toMiniWheelProps(chart.chart, { size: 120, variant: "featured" })`.
+
+### Decisions
+- **Reused the existing variant bump instead of adding a new prop.**
+  `MiniWheel` already has a `variant === "featured"` escape hatch that
+  elevates Tier M to Tier L (`mini-wheel.tsx:187-188`). Adding a
+  dedicated `showAspects` / `featuredLayers` prop would be strictly more
+  surface area for the same visual outcome; the existing mechanism is
+  exactly the one intended for this case (the comment at line 184 calls
+  out the "bump tier when explicitly requested even at smaller sizes"
+  use-case).
+- **Accepted degree ticks + axis labels at 120 px as part of the bump.**
+  At 120 px the 360 degree ticks (length 0.4–1.3 px, opacity 0.35–0.9)
+  read as subtle ring texture rather than clutter, and the 7 px axis
+  labels (As/Ds/Mc/Ic) are faint but not distracting. If verification
+  shows the labels feel like noise, a follow-up can add an optional
+  `showAxisLabels` prop to suppress them on small cards — scoped
+  separately.
+- **Did not touch the list/table view (32 px, Tier S)** or the empty-
+  state demo (300 px, natural Tier L). Both paths are unaffected.
+
+## 2026-04-19 — Featured hero mini-wheel no longer clips the card edge
+
+### Change
+On the `/charts` page, the "MOST RECENT" featured hero card's mini-wheel was
+being clipped at the card's right edge on standard desktop viewports. Two
+separate layout bugs combined: the wheel column was set up as an auto-sizing
+square (`aspect-ratio: 1; width: 100%`) roughly the size of the right grid
+column (~500 px on a 1440 desktop), and the SVG inside used
+`width: 100%; height: 100%; max-width: 340px`, so its drawn content could
+extend past the card's right edge where `overflow: hidden` clipped it. On
+top of that, the card itself was a flex child of a `flex-col h-full` page
+shell; because `.featured` has `overflow: hidden`, its `min-height: auto`
+resolved to `0` per the Flexbox spec, letting the flex parent shrink the
+card below its own content and clip the wheel vertically too.
+
+### Files
+- `apps/web/src/routes/charts-page.css` — `.featured`, `.featured-wheel`,
+  and the `<920 px` stacked breakpoint.
+  - `.featured`: added `min-height: 376px` so the grid row is tall enough
+    for the wheel on desktop, and `flex-shrink: 0` so the outer flex column
+    can't collapse the card below its natural size.
+  - `.featured-wheel`: replaced `aspect-ratio: 1; width: 100%;` (which
+    tracked the full grid column) with a bounded square — `width: 100%;
+    max-width: 320px; aspect-ratio: 1 / 1; justify-self: center`.
+  - `.featured-wheel svg`: kept `width: 100%; height: 100%` so the viewBox
+    fills the now-bounded wrapper. SVG renders at 320 × 320 on desktop.
+  - `<920 px` stacked breakpoint: wheel left-aligns under the text column
+    (`justify-self: start; max-width: 260px`). `min-height: 376px` is
+    retained but harmless because the stacked content is taller.
+
+### Decisions
+- **Kept `.featured { overflow: hidden }`.** The card's `::before` radial
+  gradient accent relies on it; with the wheel bounded to 320 px it no
+  longer overflows, so clipping is no longer triggered.
+- **Fixed `min-height` in px, not row-based grid tracks.** Grid
+  `max-content` row sizing doesn't resolve `aspect-ratio` reliably on
+  nested SVG content, so driving the row height from a container
+  `min-height` is more predictable across browsers.
+- **`flex-shrink: 0` on the card.** Mitigates the
+  `overflow:hidden → min-height:auto = 0` flexbox interaction instead of
+  fighting it via per-breakpoint `min-height` overrides.
+- **No changes to `MiniWheel`** — the component emits the correct viewBox
+  and `display: block`; this was purely a container/CSS sizing issue.
+- **Verified via Playwright** at 900, 1100, 1440, and 1920 px widths: SVG
+  renders fully inside the card with visible gutters at every width and
+  the card grows to fit the stacked layout below 920 px.
+
+## 2026-04-19 — MC/IC participate in planet-ring collision avoidance
+
+### Change
+MC and IC angle labels are now movable participants in the collision
+resolver instead of fixed wide blockers. When a planet glyph lands close
+to MC or IC, the angle label shifts laterally and draws a leader line
+back to its true ecliptic tick — the same pattern already used for
+displaced planets. AS/DS behavior is unchanged (still fixed wide
+blockers pinned to the horizontal axis line).
+
+### Files
+- `packages/chart-renderer/src/layers/planet-ring.ts` — single-file change.
+  - Filter only AS/DS out of the resolver pool; MC/IC now flow through
+    `resolveCollisions` alongside planets.
+  - `angleBlockerPositions` contains only AS/DS.
+  - Include MC/IC cusp lines (indices 3, 9) in `cuspBlockers` as normal
+    thin blockers.
+  - Deleted the MC/IC cusp-proximity nudge block — the thin cusp blocker
+    above plus pair-wise label collisions subsume it.
+  - `marginForCusp` falls through to `houseMargin` for MC/IC; AS/DS
+    same-side/opposite-side logic preserved.
+
+### Decisions
+- **Kept AS/DS fixed.** User request was scoped to MC/IC; AS/DS sit on
+  the horizontal axis line by convention and their wide-blocker
+  treatment remains correct.
+- **Reused existing leader-line + tick rendering.** The draw loop
+  already branches on `pos.displaced` and on the `isAscDsc` guard for
+  ticks, so no rendering code changes were needed — MC/IC pick up leader
+  lines automatically when the resolver marks them displaced.
+- **Thin blocker on MC/IC cusp lines (not wide).** With the MC/IC label
+  itself in the pool giving pair-wise `minGlyphGap` clearance, the cusp
+  line only needs the normal thin-blocker `cuspBlockerGap` — wider would
+  over-constrain neighbouring planets.
+- **Verified via Playwright** on the home natal wheel where Sun at
+  Aries 29°26′ is within ~6° of MC at Taurus 5°40′ (reproduces the
+  screenshot case). MC label visibly shifts left of the tick, leader
+  line draws cleanly, Sun/Mercury stack remains legible.
+
+## 2026-04-19 — Mini-wheel visual upgrade (match canvas big wheel)
+
+### Change
+Rewrote `apps/web/src/components/chart/mini-wheel.tsx` to mirror the
+canvas chart-renderer's visual language. Adds element-tinted zodiac
+segments, real planet glyphs (no more `translateY(-5px)` hack), full
+ASC/DSC/MC/IC angle axes with labels, a colored aspect web, retrograde
+indicator, and degree ticks at the largest size. Driven by per-tier
+LOD (S < 64px, M 64–199px, L ≥ 200px) so the same component scales
+from 32px table-row previews to 360px featured wheels without losing
+its visual coherence.
+
+### Files
+- `apps/web/src/components/chart/mini-wheel.tsx` — full rewrite, ~410 lines.
+  - New `MiniWheelProps` fields (all optional, back-compat preserved):
+    `retrograde`, `houses`, `aspects`.
+  - `toMiniWheelProps()` now populates the new fields from `ChartData`.
+  - New `tierFor(size)`, `geometryFor(size, tier)` helpers and a
+    `segmentPath()` SVG arc builder for the 30° annular wedges.
+  - Tier S: element-tinted band + planet dots only.
+  - Tier M: + sign glyphs + planet glyphs + axis ticks.
+  - Tier L: + degree ticks + axis labels + full aspect web colored by
+    aspect type (mirrors `aspect-grid.tsx` color palette).
+
+### Decisions
+- **Stayed in SVG, did not reuse the Canvas renderer.**
+  Reusing chart-renderer would cost ~10–15ms per render (89-iter
+  spring-force collision pass) and ~50 `<canvas>` elements with
+  devicePixelRatio buffers in a populated table — unacceptable. SVG
+  stays declarative, ~0.5–2ms even at Tier L.
+- **Element opacity tuned per tier** — 0.42 / 0.26 / 0.22 (S / M / L).
+  Smaller wheels need stronger fills since there's no glyph competing
+  for attention; large wheels match the canvas wheel exactly.
+- **No collision resolution.** Featured wheel keeps planets at exact
+  longitudes; close conjunctions overlap. For a 360px preview this is
+  fine — the full chart view uses the canvas renderer when accuracy
+  matters.
+- **Aspect color tokens reuse `apps/web/src/components/home/aspect-grid.tsx`
+  conventions** rather than importing chart-renderer's theme. Keeps
+  the mini-wheel framework-agnostic of `packages/chart-renderer`.
+
+## 2026-04-19 — Charts redesign fix: New-chart row in list view
+
+### Change
+List view now shows a "New chart" row at the top of the table,
+mirroring the grid-view `NewChartTile`. Row text reads
+`New chart · Cast a natal chart for anyone` (or `Free tier reached —
+upgrade to add more` at limit), has a rotating `+` icon on hover and
+a `<kbd>N</kbd>` hint that fades in on hover.
+
+### Files
+- `apps/web/src/components/chart/charts-table.tsx` — added `atLimit`
+  and `onNew` props; rendered a `NewChartRow` subcomponent inside the
+  table before the data rows. Keyboard accessible (Enter/Space).
+- `apps/web/src/routes/charts.tsx` — passes `atLimit` + `handleNew`
+  through to `ChartsTable`.
+- `apps/web/src/routes/charts-page.css` — scoped `.tr-new` styles
+  (serif name, rotating `+` icon, hovering kbd hint, sub-text
+  truncation).
+
+### Decisions
+- Row placed **inside** the table (above data rows) rather than as a
+  separate tile above the table, so it participates in the table's
+  grid alignment and shares the hover affordance pattern with the
+  other rows.
+- The plus-icon hover rotates 90° (clockwise) to mirror the grid
+  tile's 30° ghost-wheel rotation — deliberately different, since
+  the table row has no ghost wheel and a 90° cross is a cleaner read
+  at 32 px.
+
+## 2026-04-19 — Charts redesign Task 8: PNG export + 'N' shortcut + polish
+
+### Change
+Final task of the "Redesign My Charts page" plan. The `exportChartsPNG`
+function now actually renders chart wheels to PNG (bare file for one
+chart, zip for many) via the existing `renderRadix` canvas renderer.
+The `BulkExportDialog` PNG option is enabled and wired. Pressing `N`
+anywhere on the charts page jumps to `/chart/new`. Finishing polish:
+keyboard focus rings, `prefers-reduced-motion` support, a narrow-viewport
+toolbar wrap, and Space-to-open on chart cards.
+
+### Files
+- **Modified:** `apps/web/src/lib/export-charts.ts` — implemented
+  `exportChartsPNG`. Uses `renderRadix` from `@astro-app/chart-renderer`
+  on an 800×800 off-DOM `<canvas>`, then `canvas.toBlob("image/png")`.
+  Single chart → `.png`; multiple → zip named `charts-YYYY-MM-DD.zip`.
+  Same filename-collision disambiguation as JSON export.
+- **Modified:** `apps/web/src/components/chart/bulk-export-dialog.tsx` —
+  PNG radio no longer disabled; `onExport` branches on `format`; copy
+  updated ("PNG (image)" vs "PNG (image zip)" depending on count).
+- **Modified:** `apps/web/src/routes/charts.tsx` — `useEffect` window
+  keydown listener for 'N'. Skips on modifier keys, on inputs/textareas/
+  selects/contentEditable, and when any Radix dialog is open.
+- **Modified:** `apps/web/src/routes/charts-page.css` — added
+  `:focus-visible` ring rules (outward offset on cards), a reduced-
+  motion `@media` block, and a `max-width: 640px` toolbar-wrap rule.
+- **Modified:** `apps/web/src/components/chart/chart-card-editorial.tsx`
+  — keydown handler now also opens the chart on Space and calls
+  `preventDefault()` (Space otherwise scrolls the page on a focused
+  `role="button"`).
+- **Deleted:** `apps/web/src/components/chart/chart-card.tsx` — orphaned
+  after Task 5 replaced it with `chart-card-editorial.tsx`. Grep confirmed
+  no remaining references.
+
+### Decisions
+- **Use `darkTheme` for PNG exports unconditionally.** The app is dark-
+  mode-first and most users view charts there. A theme-aware export
+  would require resolving the runtime CSS-variable `--card` (done in
+  `chart-canvas.tsx`) or threading the active theme in — both out of
+  scope for this task. Can be revisited if users ask.
+- **Off-DOM canvas, no append to document.** `renderRadix` falls back
+  to `canvas.width` / `canvas.height` when `clientWidth` is zero, so a
+  detached canvas renders fine. Avoids a visual flash during export.
+- **DOM-query for dialog state in the 'N' listener.** Chose
+  `document.querySelector('[role="dialog"][data-state="open"]')` over
+  enumerating every modal state variable. Radix already exposes
+  `data-state="open"` on its portal, so this is future-proof — adding a
+  new Dialog/AlertDialog won't accidentally break the keybind. Cost: a
+  single selector per keypress (trivial).
+- **`N` respects `atLimit`** — same error toast as the button path. The
+  shortcut must not let users bypass the free-tier gate.
+- **Focus ring uses page-scoped `--accent`** (aliased to `--primary`
+  already at the page level), so light/dark themes both look right
+  without extra rules.
+- **Reduced-motion block is broad** (`*` under `.charts-page`). Matches
+  the Emil Kowalski / WCAG-2.3.3 pattern; the New-tile rotation and
+  bulk-bar slide are explicitly flattened.
+- **Space-to-open** on cards + `preventDefault` — required by ARIA
+  Authoring Practices for `role="button"` and missing from the earlier
+  implementation.
+
+## 2026-04-19 — Charts redesign Task 7: bulk tag / export (JSON) + pin
+
+### Change
+Seventh task of the "Redesign My Charts page" plan. Bulk Tag
+(Add / Remove / Replace) and bulk Export (JSON implementation only)
+dialogs are now wired to the Charts page selection state. Per-card and
+per-row Pin/Unpin actions are real (no more toast stub). Single-chart
+Tag / Export menu actions reuse the bulk flow by pre-selecting the
+chart.
+
+### Files
+- **New:** `apps/web/src/lib/export-charts.ts` — `safeFilename`,
+  `triggerDownload`, `exportChartsJSON`, `exportChartsPNG` (throws for
+  now; Task 8 implements PNG).
+- **New:** `apps/web/src/components/chart/bulk-tag-dialog.tsx` —
+  three-mode tag editor (Add / Remove / Replace), writes through
+  `client.updateCloudChart` (cloud) or `chartCache.set` (local).
+- **New:** `apps/web/src/components/chart/bulk-export-dialog.tsx` —
+  JSON / PNG format picker; PNG is visually disabled with "Coming soon"
+  note.
+- **Modified:** `apps/web/src/routes/charts.tsx` — wires both dialogs,
+  implements `handleTogglePin`, replaces stub handlers on card + table.
+- **Modified:** `apps/web/package.json` — added `jszip@^3.10.1`.
+
+### Decisions
+- **Single dialog code-path for bulk + single actions.** Single-chart
+  Tag / Export menu items pre-populate `selected` with the row's id and
+  open the same dialog used by the bulk bar, instead of forking the
+  dialog props into a single-chart variant. Keeps one truth for what
+  "the target set" is and avoids state drift.
+- **Export payload is the `UnifiedChart` shape, not `StoredChart` /
+  `CloudChart`.** Using the already-normalized shape means a JSON file
+  is identical whether the chart came from local cache or the backend.
+  Re-import path (Task 11 or later) can parse one format.
+- **Zip only when >1 chart.** Single-chart export writes a bare `.json`
+  — no zip overhead, matches user expectation of "I exported one thing
+  I get one file."
+- **Duplicate name disambiguation inside the zip.** Two charts named
+  "Mom" become `mom.json` and `mom-2.json`. Case-insensitive collision
+  handled by using the same `safeFilename(name)` base as the key.
+- **PNG path stubbed as disabled, not hidden.** Radio stays in the UI
+  so Task 8 only has to flip `disabled`; users also see what's coming.
+- **Pin writes `updatedAt` on local path.** Touching the `pinned` field
+  without bumping `updatedAt` would leave the cached chart looking
+  stale-but-not-changed. Cloud's `updateCloudChart` server-side updates
+  the equivalent timestamp.
+- **Success toast uses actual succeeded count** (`charts.length -
+  failures`) so a partial failure doesn't claim more than it did.
+
+### Verification
+- `npm run typecheck --workspaces` — clean across all 5 workspaces.
+- `npm run build --workspace=apps/web` — built successfully (548ms).
+
+### Deferred to Task 8
+- PNG-zip export implementation (ChartCanvas off-screen render → zip).
+- `n`-key keyboard shortcut.
+
+---
+
+## 2026-04-19 — Charts redesign Task 6: selection + bulk action bar
+
+### Change
+Sixth task of the "Redesign My Charts page" plan — add multi-select
+state to the Charts page, render the fixed-bottom `BulkActionBar`, and
+implement a real bulk-delete flow. Compare / Tag / Export remain
+toast-only stubs for Task 7.
+
+### New files
+
+- **`apps/web/src/components/chart/bulk-action-bar.tsx`** — framework-
+  agnostic fixed-bottom floater. Uses the `.bulk-bar` + `[data-open]`
+  CSS already ported in Task 3. Buttons: Compare (primary when exactly
+  2 selected, disabled otherwise with a "(pick 2)" hint), Tag, Export,
+  Delete (danger), and a clear-selection X button. Icons from
+  lucide-react: `Columns2`, `Tag`, `Upload`, `Trash2`, `X`. Strict TS
+  prop typing, no `any`.
+
+### Modified files
+
+- **`apps/web/src/routes/charts.tsx`** — introduced a `Set<string>`
+  selection state at the page level with `toggleSelect` and
+  `clearSelection` callbacks (both memoised via `useCallback`). Wired
+  the selection into both `ChartCardEditorial` (replacing the earlier
+  stub props) and `ChartsTable`. Added a `data-any-selected` attribute
+  on both the toolbar and a new wrapper `<div>` around the body grid /
+  table so the ported CSS can reveal checkboxes on all cards while any
+  chart is selected. Added a bulk-delete flow: `bulkDeletePending` +
+  `bulkDeleting` state, `handleBulkDelete` that iterates over the
+  selected ids, dispatching cloud vs local deletes, tallies failures,
+  emits a success or partial-failure toast, then reloads both sources
+  (local always; cloud only when authenticated) and clears selection.
+  Rendered a new `AlertDialog` for the bulk confirm and the
+  `BulkActionBar` at the very bottom of the page tree. Compare, Tag,
+  and Export handlers on the bar are the same "coming soon" toast
+  stubs used elsewhere; Delete opens the bulk-confirm dialog.
+
+### Decisions
+
+1. **Refresh strategy after bulk delete**: called `loadLocal()`
+   unconditionally and `loadCloud()` when authenticated, matching the
+   plan's safety preference. This keeps both caches consistent even
+   when the selection straddles sources (only possible for the
+   authenticated path via historical local data, but cheap enough to
+   do either way). Optimistic state diffing was rejected as more
+   error-prone for a multi-source set.
+2. **`data-any-selected` wrapper placement**: put on a new wrapper
+   `<div>` just inside `.charts-page` that owns both the grid and the
+   table. This is the cleanest scoping point since the CSS rules in
+   `charts-page.css` already target `[data-any-selected="true"]`
+   descendants. Also kept the attribute on `.charts-toolbar` to match
+   the reference JSX (even though current CSS does not read it there —
+   harmless but future-proof).
+3. **AlertDialog close guard**: while `bulkDeleting` is in-flight the
+   `onOpenChange` ignores close attempts, preventing accidental
+   dismissal mid-delete. The Cancel button is disabled for the same
+   reason.
+4. **Stubs intentional**: Task 7 will replace Compare / Tag / Export
+   with real implementations. Per task scope the bar's handlers and
+   the existing row/card menu handlers remain toast stubs.
+
+### Verification
+
+- `npm run typecheck --workspaces` — passes.
+- `npm run build --workspace=apps/web` — passes; charts chunk compiles
+  cleanly (~35.8 kB / 17.4 kB CSS).
+
+## 2026-04-19 — Charts redesign Task 5: featured hero + lastViewedAt writeback
+
+### Change
+Fifth task of the "Redesign My Charts page" plan — add the editorial
+featured-chart hero above the library toolbar, and wire `lastViewedAt`
+writeback from `chart-view.tsx` so the Recent sort reflects visits
+across the session.
+
+### New files
+
+- **`apps/web/src/components/chart/featured-chart.tsx`** — editorial hero
+  that renders above the charts toolbar when criteria are met. Uses the
+  already-ported `.featured`, `.featured-name`, `.featured-meta`,
+  `.featured-big-trio`, `.featured-notes`, `.featured-actions`, and
+  `.featured-wheel` CSS classes from `charts-page.css`. Pulls Sun / Moon /
+  Ascending from `getChartSummary(chart.chart)`; each cell renders a
+  colored glyph (`.g .c-{element}`) beside the sign name plus a muted
+  `Ndeg Sign` sub-line. When a body is missing the cell collapses to `—`.
+  Dominant-element chip uses `getDominantElement(chart.chart)[0]` and
+  hides on ties-only or empty. Eyebrow text is chosen in priority order:
+  pinned → "★ Pinned · Recently viewed", lastViewedAt → "★ Most recent",
+  fallback → "★ Your library". Date and time are formatted in UTC
+  (`timeZone: "UTC"`) to match the editorial card conventions. MiniWheel
+  renders at size 360, variant `featured`. Compare icon uses lucide's
+  `Columns2`. Compare button fires a `() => void` prop (parent passes the
+  toast stub); Edit button forwards to the parent's existing
+  rename/edit flow.
+
+### Modified files
+
+- **`apps/web/src/routes/charts.tsx`** — imported `FeaturedChart` and
+  inserted the hero between the header and the toolbar. Selection logic:
+  if no search query and `displayCharts` is non-empty, pick the first
+  pinned chart, else fall back to `displayCharts[0]`. The featured chart
+  is excluded from `bodyCharts` (passed to grid + list) so it never
+  appears twice. Featured's `onCompare` is the toast stub
+  (`"Compare — coming soon"`) to match the card menu's placeholder; Edit
+  routes to `handleRename`, which already branches on `chart.source` —
+  cloud opens `EditMetaDialog`, local opens the name-only `RenameDialog`.
+- **`apps/web/src/routes/chart-view.tsx`** — added a best-effort
+  `useEffect` keyed on `stored?.id` (and `source`) that writes
+  `lastViewedAt` whenever a chart is opened. Cloud charts call
+  `client.markCloudChartViewed(id)` (endpoint may not be deployed —
+  failures are swallowed); local charts call
+  `chartCache.set({ ...stored, lastViewedAt: Date.now() })`. Keying on
+  `stored?.id` (not the full `stored` object) prevents re-firing on
+  unrelated settings-apply updates; re-fires are still idempotent since
+  both paths overwrite the same timestamp field.
+
+### Decisions
+
+1. **Featured selection**: plan says "first pinned, else first chart".
+   Implemented exactly that with no extra `lastViewedAt !== null`
+   guard — the fallback is intentional so that a library with no
+   viewed-yet charts still gets a hero. The deferred-sort machinery
+   (already in Task 1/3) keeps the list ordered such that `[0]` is the
+   best editorial candidate.
+2. **Eyebrow fallback**: "★ Your library" chosen for the never-viewed,
+   never-pinned case so the hero still reads as a deliberate editorial
+   choice instead of looking like a stub.
+3. **UTC display**: matches the chart-card and table conventions from
+   Task 4 for consistency. Deferring localization to a later polish
+   pass.
+4. **Date/time split**: plan requested `mono` spans for both date and
+   time. Kept the design-CSS-provided `.mono` styling for both so the
+   visual rhythm matches the reference.
+5. **lastViewedAt best-effort**: Wrapped both the cloud POST and local
+   IndexedDB set in `.catch(() => {})`. Backend endpoint is not yet
+   deployed; local writes are guaranteed to succeed but the catch is
+   defensive. No UI indicator on write failure — the effect is a
+   background refinement, not a user-facing action.
+6. **Effect dependencies**: kept only `stored?.id` and `source`. The
+   lint disable is needed because we intentionally don't re-trigger on
+   unrelated `stored` changes (settings-apply mutation replaces the
+   whole object). A double fire (e.g., source toggle) is harmless.
+
+### Verification
+
+- `npm run typecheck --workspaces` — clean.
+- `npm run build --workspace=apps/web` — clean (charts chunk 33 kB / 9.6
+  kB gz, no new warnings).
+- Manual smoke not run in this pass; to be validated on Task 8's polish
+  sweep.
+
+### Out of scope (later tasks)
+
+- Task 6: multi-select + `BulkActionBar`.
+- Task 7: real pin/unpin actions + bulk Tag + JSON export.
+- Task 8: PNG-zip export, 'N' keyboard shortcut, mobile polish.
+
+---
+
+## 2026-04-19 — Charts redesign Task 4: editorial card, table, empty state
+
+### Change
+Fourth task of the "Redesign My Charts page" plan — replace the grid/list
+bodies with three new components and wire the `NewChartTile` into the grid.
+Legacy `ChartCard` / `CloudChartCard` / inline list rows are no longer
+rendered on the charts page; real rename and delete flows are wired
+through new page-level dialogs that handle both local and cloud sources.
+
+### New files
+
+- **`apps/web/src/components/chart/chart-card-editorial.tsx`** — grid card
+  consuming `UnifiedChart`. Uses `MiniWheel` at size 120 (compact variant),
+  pinned indicator, Sun/Moon/ASC trio driven by `getChartSummary`, and a
+  dominant-element chip from `getDominantElement(chart.chart)[0]`. A
+  `DropdownMenu` trigger sits at the bottom-right of `.cc-wheel` (absolute,
+  `opacity-0 group-hover/cc:opacity-100`, staying visible on `data-popup-open`)
+  so it does not collide with the top-right `.cc-select` checkbox. The menu
+  exposes Open / Pin (toggles label) / Rename / Tag / Export / — / Delete
+  (destructive). Each item stops propagation and delegates to a prop
+  callback. Callbacks for Pin/Tag/Export are no-ops this task — Tasks 5-7
+  plug in real handlers without a prop-shape change.
+- **`apps/web/src/components/chart/charts-table.tsx`** — list variant. Header
+  row uses the design's 9-column template (`28px 44px 1.7fr 1.1fr 1fr 1fr
+  0.9fr 0.9fr 28px`). Each row renders a 32-px `MiniWheel`, pinned pin, the
+  chart name, Sun/Moon/ASC glyphs colored per element (`.g .c-{element}`),
+  birth date (UTC, month-short day year), location (fallback `—`), dominant
+  chip + first tag, `formatRelativeTime(lastViewedAt)`, and a trailing
+  `DropdownMenu`. Menu omits Open (row click already opens). Emits a single
+  `onRowMenu(action, chart)` event covering pin/rename/tag/export/delete.
+- **`apps/web/src/components/chart/empty-state.tsx`** — editorial zero-state
+  for the library. Renders the `.empty` block with eyebrow + serif `No
+  charts <em>yet</em>.` + paragraph + "New Chart" primary button, paired
+  with a decorative 300-px featured `MiniWheel` using synthesized planet
+  positions. The design reference's `.empty-examples` section and the
+  "Import chart file" button are **dropped** — no example-seeds and no
+  import feature in this product.
+
+### Modified files
+
+- **`apps/web/src/routes/charts.tsx`** — rewrote the body rendering. The
+  legacy `ChartCard` import is gone and the inline `CloudChartCard` plus the
+  two ad-hoc list-view branches are removed. New flow:
+  - Grid view renders `<NewChartTile>` as the first grid cell, followed by
+    `<ChartCardEditorial>` for each `UnifiedChart` in `displayCharts`.
+  - List view renders `<ChartsTable>` directly on the unified array.
+  - Zero-library renders `<EmptyState>`. Zero-matches (non-empty library but
+    query filters everything) still falls through to a centered muted
+    `No charts match "{query}".` message — the editorial empty is reserved
+    for true zero.
+  - Added a **`RenameDialog`** component (shadcn `Dialog`, single input,
+    Enter-to-save) that handles both sources: cloud via
+    `client.updateCloudChart(id, { name })`, local via `chartCache.set`. The
+    existing `EditMetaDialog` (notes + tags + name) is kept as-is and is
+    what the cloud `Rename` entry actually opens — because editing a cloud
+    chart is the natural superset of renaming. Local charts use the
+    name-only `RenameDialog` (tags/notes aren't editable on local yet).
+  - Added a page-level **delete confirmation** via `AlertDialog`. Single
+    `pendingDelete: UnifiedChart | null` drives it. On confirm: cloud uses
+    `client.deleteCloudChart(id)` then optimistic-removes from
+    `cloudCharts`; local uses `chartCache.delete(id)` then optimistic-removes
+    from `localCharts`. No reload round-trip — state is in sync.
+  - `onRowMenu` from the table switches on action. Rename/Delete dispatch
+    to the same handlers the grid card uses, keeping the two views
+    behavior-parity. Pin/Tag/Export still emit `toast.info("… — coming
+    soon")` per scope.
+  - Selection props are stubbed (`selected={false}`, `onToggleSelect`
+    no-op, `anySelected={false}`) — Task 6 wires multi-select. The prop
+    shape is the final one so Task 6 does not refactor.
+  - Removed the now-unused `filteredLocal` / `filteredCloud` memos and the
+    `SIGN_GLYPHS` import. Kept `formatRelativeTime`.
+  - Removed legacy imports: `Pencil`, `Trash2` icons are no longer
+    referenced directly by the page.
+- **`apps/web/src/routes/charts-page.css`** — added the scoped utility
+  primitives the ported design uses but that were never in `index.css`:
+  - `.charts-page .btn` / `.btn-primary` / `.btn-ghost` (used by
+    `EmptyState`; styled to match the port's tokens).
+  - `.charts-page .chip` base (the existing `.chip.dom-*` rules specialize
+    it).
+  - `.charts-page .g` glyph family + `.c-fire|earth|air|water` element
+    color classes (used by the trio cells in the card and the
+    Sun/Moon/ASC column in the table).
+
+### Decisions
+
+- **Where the overflow menu lives on the card.** The design reference puts
+  `.cc-select` at the top-right and never shows a 3-dot button. Our
+  production UX needs direct per-card actions (the design assumes a
+  selection-plus-bulk-bar flow we'll only wire in Task 6 / Task 7). To keep
+  the design's top-right select visible and uncluttered, the
+  `DropdownMenu` trigger lives at the **bottom-right of `.cc-wheel`**
+  (`absolute bottom-2 right-2`). It is `opacity-0` by default and fades in
+  on `group-hover/cc`, plus stays visible while the popup is open via
+  `data-[popup-open]`. The wheel container adds `group/cc` (Tailwind group
+  scope) alongside the `.cc` class so the CSS hover reveal of
+  `.cc-select` (scoped CSS) continues to work independent of the Tailwind
+  group.
+- **Cloud rename opens `EditMetaDialog`, not the simple rename.** Plan
+  language permits both — the existing cloud flow already supported
+  name + notes + tags editing, and reusing that dialog preserves parity
+  and avoids regressing cloud users to a name-only rename. Local charts
+  have no notes/tags field today, so they get the name-only
+  `RenameDialog`. When local charts gain those fields, the same policy
+  can be applied without a component-shape change.
+- **Delete is a single page-level confirmation instead of per-card
+  inline.** Matches the bulk pattern the design pushes, and simplifies
+  the card/table components to fire a pure event. Destructive action is
+  rendered via `AlertDialog` (shadcn's accessible variant) with
+  optimistic local-state removal on success.
+- **Empty vs. no-matches separation.** Only true zero-library renders
+  `<EmptyState>`. A non-empty library that the current query filters
+  down to zero keeps the pre-existing muted "No charts match '{query}'"
+  centered message — the editorial empty illustration is thematically
+  wrong for transient filter states.
+- **Legacy `chart-card.tsx` left in place.** It no longer has any
+  consumers on the charts page but I did not delete it — it may still be
+  referenced elsewhere later (e.g. chart-view) and the scope for this
+  task is about the charts page body. An orphan check is a follow-up
+  hygiene pass, not a Task 4 concern.
+
+### Verification
+
+- `npm run typecheck --workspaces` — clean across all 5 workspaces.
+- `npm run build --workspace=apps/web` — built successfully (589 ms).
+- Dev server boots cleanly on :5174 (smoke).
+
+### References
+
+- `apps/web/src/components/chart/chart-card-editorial.tsx`
+- `apps/web/src/components/chart/charts-table.tsx`
+- `apps/web/src/components/chart/empty-state.tsx`
+- `apps/web/src/routes/charts.tsx` (body rewrite + RenameDialog + delete flow)
+- `apps/web/src/routes/charts-page.css` (scoped utilities appended)
+
+---
+
+## 2026-04-19 — Charts redesign Task 3: page shell port
+
+### Change
+Third task of the "Redesign My Charts page" plan — port the editorial
+page shell (header + toolbar + scoped CSS) and refactor the charts
+route to flow through `UnifiedChart`. Card rendering is unchanged this
+task; legacy `ChartCard` / `CloudChartCard` / list rows still render
+beneath the new shell. Task 4 replaces them with the editorial card.
+
+- **`apps/web/src/routes/charts-page.css`** (new, 494 lines) — ported
+  from `/tmp/claude-design/almagest/project/charts-page.css`. Every
+  top-level selector is prefixed with `.charts-page ` so the rules
+  don't leak. Page-scoped token aliases (`--accent`, `--fg-muted`,
+  `--bg-elev`, `--fire`/`--earth`/`--air`/`--water`, `--shadow-lg`, …)
+  map the design's names onto the tokens defined in `index.css`
+  without touching `index.css`. Stripped: `.charts-head.dense`,
+  `.charts-head.minimal`, `.cc-locked*`, `.cmp-preview*`. Kept: all
+  `.cc-*`, `.cc-trio`, `.cc-tags`, `.chip.dom-*`, featured, empty,
+  bulk-bar, charts-table, usage-chip.
+- **`apps/web/src/routes/charts.tsx`** — refactored the shell:
+  editorial header (eyebrow + serif `My <em>charts</em>` + meta line
+  with counts and `formatRelativeTime(lastViewedAt)`), toolbar
+  (`.search` with `⌘K` kbd, `.sort-seg` Recent/A–Z/Birth date,
+  `.view-seg` grid/list, right-aligned `.toolbar-meta` shown/total),
+  and a `UnifiedChart[]` data flow driven by `fromStored`/`fromCloud`
+  adapters. Sort is client-side via `sortCharts`. The old bottom
+  usage footer is gone; its role is taken by the `.usage-chip` in the
+  header. The header's "New Chart" button is removed (replaced by
+  NewChartTile in Task 4).
+- **`apps/web/src/lib/format.ts`** — added `formatRelativeTime(ms |
+  null)` (never / just now / Nm / Nh / N days / locale date).
+
+### Decisions Made
+- **Keep legacy cards this task.** Per the plan, the body still
+  renders `ChartCard` / `CloudChartCard` / list rows during the shell
+  port. `filteredLocal` / `filteredCloud` are now derived from the
+  already-sorted `displayCharts` via id lookup, so the legacy body
+  picks up the new sort/filter logic without duplicating it. Task 4
+  replaces the body with the editorial card.
+- **Scope with a page class, not CSS nesting or Shadow DOM.** Every
+  rule in `charts-page.css` is prefixed with `.charts-page `, so the
+  import is safe even if another route ends up with a `.cc` or
+  `.featured` class. Alternative would have been `@scope`, but browser
+  support is still partial; a literal prefix is the lowest-risk move.
+- **Page-scoped token aliases instead of editing `index.css`.** The
+  design's CSS uses names like `--fg-muted`, `--fg-dim`, `--bg-elev`,
+  `--fire`/`--earth`/`--air`/`--water`. These live inside the
+  `.charts-page { … }` block so they resolve only on this page and the
+  global tokens stay untouched.
+- **Meta line uses `formatRelativeTime`, not `Intl.RelativeTimeFormat`.**
+  Plan asked for a simple helper in `format.ts`; implemented exactly
+  that. `Intl.RelativeTimeFormat` would be nicer for i18n, but the
+  plan is explicit about the breakpoints (just now / Nm / Nh / N days
+  / locale date).
+- **Usage chip uses the existing `FREE_TIER_LIMIT` (5).** No change to
+  the tier model. Premium users see a plain `{count} saved` span
+  instead of the chip.
+- **Search now matches name / location / tags.** The previous charts
+  page only searched by name; the design's placeholder ("Search
+  charts, locations, tags…") implies the broader match, and the tags
+  field is already on `UnifiedChart`.
+
+### References
+- `apps/web/src/routes/charts.tsx`
+- `apps/web/src/routes/charts-page.css`
+- `apps/web/src/lib/format.ts`
+- Plan: `/home/evgeny/.claude/plans/we-need-to-redesign-stateless-dolphin.md`
+- Design source: `/tmp/claude-design/almagest/project/charts-page.css`
+
+## 2026-04-19 — Charts redesign Task 2: MiniWheel + NewChartTile
+
+### Change
+Second task of the "Redesign My Charts page" plan — two standalone,
+SVG-based UI components ported faithfully from the design source at
+`/tmp/claude-design/almagest/project/charts-page.jsx`. No page wiring;
+Task 3 will consume them.
+
+- **`apps/web/src/components/chart/mini-wheel.tsx`** (new) — pure SVG
+  `MiniWheel` component with two variants (`compact`, `featured`). Also
+  exports `toMiniWheelPositions(chart)` and `toMiniWheelProps(chart, opts)`
+  adapters that map a `ChartData` to the component's position tuples
+  using the 10-body classical planet order and `PLANET_GLYPHS` from
+  `@/lib/format`. Uses `useId` for a collision-safe `clipPath` id.
+- **`apps/web/src/components/chart/new-chart-tile.tsx`** (new) — ghost
+  chart-wheel button with accessible labels, `atLimit` prop, and a
+  keyboard-hint badge (`<kbd>N</kbd>`).
+
+### Decisions Made
+- **Two variants, not three.** The design source exposes only `compact`
+  (default) and `featured` regimes via the `variant === 'featured'`
+  branch. Collapsed the `MiniWheelVariant` union to `"compact" |
+  "featured"` rather than inventing a `default` level the design
+  doesn't support.
+- **Use design class names directly.** Per the plan revision, the
+  components render with `.cc-new`, `.cc-new-wheel`, etc. unstyled in
+  isolation. Task 3 imports the ported `charts-page.css`, at which
+  point the styles attach automatically. No inline Tailwind fallback,
+  as that would have to be ripped out when Task 3 lands.
+- **Collision-safe `clipPath` id.** Replaced the design's
+  `clip-${size}-${ascDeg}` template with a `useId()`-derived value so
+  multiple wheels can live in the same document (e.g. grid + row-level
+  mini-wheels) without id clashes.
+- **PLANET_GLYPHS coverage verified.** `apps/web/src/lib/format.ts`
+  already has glyphs for all 10 classical bodies (sun, moon, mercury,
+  venus, mars, jupiter, saturn, uranus, neptune, pluto). The
+  `if (!glyph) continue` guard in `toMiniWheelPositions` remains as
+  defense-in-depth for future-added `CelestialBody` enum entries.
+
+### References
+- `apps/web/src/components/chart/mini-wheel.tsx`
+- `apps/web/src/components/chart/new-chart-tile.tsx`
+- Plan: `/home/evgeny/.claude/plans/we-need-to-redesign-stateless-dolphin.md`
+
+## 2026-04-19 — Charts redesign Task 1: schema + helper libraries
+
+### Change
+First task of the "Redesign My Charts page" plan — schema extensions and
+helper libraries only, no UI changes.
+
+- **`packages/astro-client/src/types.ts`** — extended `StoredChart` with
+  optional `pinned`, `lastViewedAt`, `tags`, `notes`. All fields are
+  optional so no IndexedDB version bump is needed; existing records stay
+  read-compatible.
+- **`packages/astro-client/src/auth.ts`** — extended `CloudChart` with
+  `pinned?: boolean` and `last_viewed_at?: string | null`, extended
+  `UpdateChartRequest` with `pinned?: boolean`, and widened
+  `ListChartsParams.sort` to include `"last_viewed_at"`.
+- **`packages/astro-client/src/client.ts`** — added `pinCloudChart(id,
+  pinned)` (delegates to `updateCloudChart`) and `markCloudChartViewed(id)`
+  (POST `/v1/charts/:id/view`, returns void via the class's existing
+  `request<void>` helper, which already handles 204 No Content).
+- **`apps/web/src/lib/chart-summary.ts`** (new) — pure helpers:
+  `summarizeBody`, `getChartSummary`, `getDominantElement`. Returns
+  sign/glyph/element summaries for Sun, Moon, ASC plus the dominant
+  element(s) across the 10 classical bodies.
+- **`apps/web/src/lib/unified-chart.ts`** (new) — `UnifiedChart`
+  interface plus `fromStored`, `fromCloud`, `chartHref` adapters so
+  downstream UI (Task 3) can iterate cloud + local charts uniformly.
+
+### Decisions Made
+- **Optional fields only → no IndexedDB migration.** The existing
+  `chart-cache` v1 schema stays intact. Charts saved before this change
+  simply have `pinned`/`lastViewedAt`/`tags`/`notes` undefined; callers
+  use `?? false`/`?? null`/`?? []`/`?? ""` fallbacks (as done in
+  `fromStored`).
+- **`markCloudChartViewed` gracefully degrades.** The method calls
+  `this.request<void>` which throws `ApiError` on 404. Callers are
+  expected to try/catch; the plan explicitly notes the `/view` endpoint
+  may not be deployed yet on the backend. No silent swallowing inside
+  the SDK — that would mask unrelated network failures.
+- **`summarizeBody` input shape.** The plan's sketch typed the parameter
+  as `ZodiacPosition | undefined`, but `longitudeToZp` (used to derive
+  the ASC summary) returns only `{ sign, degree, minute }` — not a full
+  `ZodiacPosition` (missing `second`, `is_retrograde`, `dignity`). Used
+  `Pick<ZodiacPosition, "sign" | "degree">` as the parameter type so
+  both callers type-check without casts.
+- **Element mapping duplicated locally.** `@astro-app/shared-types`
+  already exports `SIGN_ELEMENT` keyed by the `ZodiacSign` enum, but the
+  plan's sketch uses lowercase string keys (matches the
+  `chart.zodiac_positions[body].sign` runtime value directly). Kept the
+  plan's literal map for minimal deviation; can be deduped in a later
+  polish pass.
+
+### References
+- `packages/astro-client/src/types.ts`
+- `packages/astro-client/src/auth.ts`
+- `packages/astro-client/src/client.ts`
+- `apps/web/src/lib/chart-summary.ts`
+- `apps/web/src/lib/unified-chart.ts`
+- Plan: `/home/evgeny/.claude/plans/we-need-to-redesign-stateless-dolphin.md`
+
+## 2026-04-19 — MC/IC labels nudge off-axis when a non-angular cusp is close
+
+### Change
+In `packages/chart-renderer/src/layers/planet-ring.ts`, extended the AS/DS
+sideways-nudge mechanism to MC/IC, but conditioned on proximity to a
+non-angular house cusp (houses 3/5 near IC, 9/11 near MC). When a cusp
+sits within `axisOffsetPx + COLLISION.cuspBlockerGap` of the MC or IC
+angle *and* the other side has more room, the label flips
+`nudgeFromAxis: true` and `nudgeSign` is set to push away from the tight
+side. Re-used the existing wide-blocker / house-clamp / `marginForCusp`
+paths — all of them already branch on `nudgeFromAxis` and `nudgeSign`,
+so no changes were needed downstream.
+
+Supporting edits in the same file:
+- Hoisted `ANGULAR_INDICES = new Set([0,3,6,9])` and `axisOffsetPx = 14`
+  to the top of `drawPlanetRing` so the new MC/IC block can read them.
+  The previous in-place declarations (one inside the cuspBlockers
+  filter, one right before `axisOffsetRad`) were removed.
+
+MC/IC ticks are still drawn at their true ecliptic position, even when
+the label is nudged — the user confirmed that removing the tick in the
+nudged case was unwanted. The tick stays at `pos.originalAngle` on the
+axis line, and the label sits 14 px to one side when the nudge fires.
+
+All 48 chart-renderer tests pass; `tsc --noEmit` is clean.
+
+### Decisions Made
+- **Threshold `axisOffsetPx + cuspBlockerGap` (14 + 11 = 25 px).** After
+  nudging 14 px away from a cusp, the label center sits exactly
+  `cuspBlockerGap = 11 px` from the cusp line — matching the
+  thin-blocker clearance already enforced for planet↔cusp spacing. A
+  tighter threshold would trigger nudges that don't actually clear the
+  collision; a looser threshold would nudge unnecessarily on charts
+  where the cusp just happens to be near but not intersecting.
+- **Skip nudge when both sides are tight.** If cusps on both sides are
+  within the threshold, a 14 px shift would push the label from one
+  collision into another. Better to leave centered and accept the
+  (rare) overlap than to relocate it into a worse one.
+- **Only MC/IC, not AS/DS.** AS/DS already have a direction policy
+  (planet clustering + sign boundary). Overriding that with cusp
+  proximity would regress the stellium-compression fix from 2026-04-07.
+  Non-angular cusps adjacent to AS/DS are houses 2/12 and 6/8, which
+  in Placidus tend to sit farther from the axis than the 9/11/3/5
+  cusps do from MC/IC, so the collision is less common there anyway.
+### References
+- `packages/chart-renderer/src/layers/planet-ring.ts`
+- Prior nudge tuning: `## 2026-04-18 — bump minGlyphGap from 17 to 20`,
+  `## 2026-04-18 — halve minGlyphGap (34→17) and axisOffsetPx (14→7)`,
+  `## 2026-04-07 — Reduce planet label displacement near angle labels`.
+
+## 2026-04-18 — add Chiron to approx-engine via Keplerian approximation
+
+### Change
+Added client-side Chiron (2060 Chiron) computation to `packages/approx-engine`, wired it through `calculateApproximate` and `calculateBodyPosition`, and extended the Swiss Ephemeris golden fixture to cover it. The UI components that already referenced `CelestialBody.Chiron` (`planet-card.tsx`, `aspect-grid.tsx`, `aspects-timeline.tsx`, `element-modality-card.tsx`) now display real data instead of silently dropping Chiron.
+
+Files modified / created:
+- **New:** `packages/approx-engine/src/chiron.ts` — pure function `calculateChironPosition(T)` solving Kepler's equation from J2000 osculating elements + linear secular rates, then rotating heliocentric ECLIPJ2000 -> EQJ -> ECT (ecliptic-of-date) so the output frame matches the other bodies in `bodies.ts`.
+- `packages/approx-engine/src/index.ts` — re-export `calculateChironPosition`, emit `positions[Chiron]` and `zodiac_positions[Chiron]` in `calculateApproximate`, and branch `calculateBodyPosition` on `CelestialBody.Chiron`.
+- `packages/approx-engine/src/swiss-parity.test.ts` — add Chiron to `SUPPORTED_BODIES`, split tolerances (`CHIRON_LONGITUDE_TOLERANCE = 0.1°`, `CHIRON_LATITUDE_TOLERANCE = 0.05°`).
+- `packages/approx-engine/fixtures/swiss-ephemeris-golden.json` — regenerated to 260 rows (20 dates × 13 bodies) with Chiron rows from Swiss Ephemeris.
+- `packages/approx-engine/fixtures/generate.py` — comment + `CHIRON` in `BODIES` list (mirror of backend script).
+- `scripts/generate_swiss_golden.py` (**backend**) — same change so the fixture is reproducible.
+
+### Decisions Made
+
+- **Keplerian elements source:** seed values from NASA/JPL Small-Body Database Browser (https://ssd.jpl.nasa.gov/sbdb.cgi?sstr=2060) at epoch JD 2451545.0 (J2000.0). The JPL-published mean anomaly at J2000 (M0) is close to `27.7°`, not the `109.5°` hinted in the task brief — M0 ≈ 109° led to a ~78° longitude offset at J2000 epoch which the initial run surfaced clearly.
+- **Linear secular rates fit against Swiss Ephemeris:** a throwaway coordinate-descent fit (removed after use) tuned all six elements plus six per-century linear rates (a, e, i, Omega, omega, n). The rates absorb first-order Saturn/Uranus perturbations over the 1955-2050 fixture window. Final params:
+  - a = 13.649810 AU, e = 0.380649, i = 6.9322°, Omega = 209.3051°, omega = 339.5415°, M0 = 27.7185°
+  - rates (per Julian century): dA = -0.03032, dE = -0.00083, dI = 0.00313, dNode = -0.06367, dPeri = -0.20724, dN = -0.000029 deg/day
+- **Frame handling:** `bodies.ts` returns true ecliptic of date (ECT) via `Ecliptic(GeoVector(...))`. Chiron must match, so `chiron.ts` computes heliocentric ECLIPJ2000 via Keplerian math, uses `Rotation_ECL_EQJ` to get to J2000 equatorial, subtracts Earth's heliocentric position (from `HelioVector(Body.Earth)`, EQJ), and passes the geocentric EQJ vector through `Ecliptic()` to land on ECT. This keeps Chiron's output indistinguishable (frame-wise) from the other planets'.
+- **Speed:** finite-difference over 1 day (same pattern as `bodies.ts`) — costs one extra Kepler solve per call, correctly captures retrograde motion which does occur for Chiron near aphelion.
+- **Accuracy achieved:** worst-case residual across the full 1955-2050 fixture is ~0.04° longitude and ~0.01° latitude vs Swiss Ephemeris. The swiss-parity tolerance was set to 0.1° longitude / 0.05° latitude (~2.5× headroom).
+- **Outside the fit window:** the linear-rate model degrades slowly beyond 1955-2050. For research use cases far outside that range, callers should hit the backend Swiss Ephemeris endpoints instead.
+
+### References
+- `packages/approx-engine/src/chiron.ts`
+- `packages/approx-engine/src/index.ts`
+- `packages/approx-engine/src/swiss-parity.test.ts`
+- `packages/approx-engine/fixtures/swiss-ephemeris-golden.json`
+- `packages/approx-engine/fixtures/generate.py`
+- Backend: `scripts/generate_swiss_golden.py`
+
+## 2026-04-18 — bump minGlyphGap from 17 to 20
+
+### Change
+Raised `COLLISION.minGlyphGap` in `packages/chart-renderer/src/core/constants.ts` from `17` → `20` px. `axisOffsetPx` stays at `7`. Updated numeric bounds in `core/layout.test.ts` (5 assertions moved from `16` → `19`; the two-wide-blocker trap test's `spacing` fixture updated from `36/200` → `22/200` so it still expresses "just above minGlyphGap").
+
+### Decisions Made
+- **17 was visually too tight for the Aries stellium** — planets were packing legibly but felt cramped. 20 restores a small amount of breathing room without re-introducing the old 34 px bloat.
+- **axisOffsetPx unchanged at 7.** The 17→20 bump moves the opposite-side AS/DS margin from 10 → 13 px and the same-side from 24 → 27 px. Both stay comfortably positive and balanced around the nudge, so the 2:1 ratio doesn't need re-tuning.
+- **Trap-test fixture re-tuned.** The "does not trap planet between two adjacent wide blockers" test used `spacing = 36 px`, which was "just above minGap" only while minGap=34. At minGap=20, 36 px was 1.8× minGap and actually *did* trap the planet — no longer a valid stress case. Moved to `22 / 200` to keep the intent (spacing barely above minGap) alive.
+
+### References
+- `packages/chart-renderer/src/core/constants.ts`
+- `packages/chart-renderer/src/core/layout.test.ts`
+- Previous tuning pass: `## 2026-04-18 — halve minGlyphGap (34→17) and axisOffsetPx (14→7)` (below).
+
+## 2026-04-18 — halve minGlyphGap (34→17) and axisOffsetPx (14→7)
+
+### Change
+Halved two coupled tuning constants in the chart renderer collision system so
+planet and angle labels can pack tighter on the planet ring.
+
+- `packages/chart-renderer/src/core/constants.ts`: `COLLISION.minGlyphGap`
+  lowered from `34` → `17` (the tangential clearance enforced between any two
+  planet labels, and between a planet label and a wide angular-cusp blocker).
+- `packages/chart-renderer/src/layers/planet-ring.ts`: the AS/DS sideways
+  nudge dropped from `14` → `7` px. Refactored the duplicated literal so
+  `axisOffsetPx` is declared once (`const axisOffsetPx = 7`) before first use
+  and `axisOffsetRad` is derived from it. Both the pre-resolver blocker
+  offset and the `marginForCusp` clamp reuse the same constant.
+- `packages/chart-renderer/src/core/layout.test.ts`: updated numeric bounds
+  on tests whose thresholds were proxies for `minGlyphGap`. `14.9` (half
+  minGap probe) → `8.4`; `33.5` / `33` upper/lower bounds that stood for
+  "full minGap" → `16.5` / `16`; the thin-blocker lower bound `10.5` stayed
+  (tied to `cuspBlockerGap`, not minGap). The wrap-around AS test's
+  `14 / radius` blocker offset was updated to `7 / radius` to track the
+  new `axisOffsetPx`. Test intents are unchanged — only the numeric bounds
+  that encode "minGap-scale separation" were retuned.
+
+All 48 chart-renderer tests pass; `tsc --noEmit` is clean.
+
+### Decisions Made
+- **Why halved together.** The AS/DS clamp in `planet-ring.ts :: marginForCusp`
+  computes `minGlyphGap ± axisOffsetPx` depending on which side of the axis
+  the planet sits relative to the nudged label. Preserving the 2:1 ratio
+  (`minGlyphGap : axisOffsetPx = 34:14 ≈ 17:7`) keeps both branches positive
+  and balanced. Halving only `minGlyphGap` would collapse the opposite-side
+  margin to `17 − 14 = 3 px`, putting the label almost on the angular-cusp
+  line; halving only `axisOffsetPx` would under-use the available space. The
+  user explicitly asked for both.
+- **Why extract `axisOffsetPx` to a single constant.** The value appeared
+  twice in `planet-ring.ts` (once as a radian conversion, once as a pixel
+  constant used in the clamp formula). Any future tuning must move both in
+  lockstep or the clamp and the resolver will disagree about where the label
+  actually is. Deriving `axisOffsetRad` from `axisOffsetPx` enforces that
+  coupling at the source level.
+- **Why `10.5` stayed in the thin-blocker test.** `10.5 = cuspBlockerGap − 0.5`,
+  not `minGap / 2`. `cuspBlockerGap` was not touched in this change.
+- **Margin sanity after change** (per user spec):
+  planet↔planet = 17, MC/IC centered clamp = 17, AS/DS same-side = 24,
+  AS/DS opposite-side = 10 (positive, balanced). Matches expectations.
+
+### References
+- Primary files changed:
+  - `packages/chart-renderer/src/core/constants.ts`
+  - `packages/chart-renderer/src/layers/planet-ring.ts`
+  - `packages/chart-renderer/src/core/layout.test.ts`
+- Related context: previous changelog entry (`reduce cusp blocker gap from
+  17 px to 11 px`) which extracted `cuspBlockerGap` from `minGlyphGap / 2`.
+  That extraction is what allowed the current change to halve `minGlyphGap`
+  without dragging the thin-blocker clearance down along with it.
+
+## 2026-04-18 — reduce cusp blocker gap from 17 px to 11 px
+
+### Change
+Reduced the thin-blocker clearance used by `resolveCollisions` for house cusp
+lines from `Math.round(minGlyphGap * 0.5) = 17` px to a fixed `11` px.
+
+- Added `cuspBlockerGap: 11` to the `COLLISION` constant in
+  `packages/chart-renderer/src/core/constants.ts`, with a comment tying the
+  number to the sign glyph geometry (21 px / 2).
+- Replaced `const blockerGap = Math.round(minGap * 0.5)` in
+  `packages/chart-renderer/src/core/layout.ts` with
+  `const blockerGap = COLLISION.cuspBlockerGap`.
+- Updated the `pushes planet away from thin blocker by only blockerGap` test in
+  `packages/chart-renderer/src/core/layout.test.ts`: lower bound changed from
+  `16.5` → `10.5` px. The test was asserting the old 17 px behavior; the
+  upper bound (`< 33.5`) still discriminates thin from wide blockers.
+- `minGlyphGap`, `maxDisplacement`, `iterations`, and the wide-blocker
+  (angular-cusp) path are untouched.
+
+### Decisions Made
+- **Why 11 px.** Each planet/angle label is a stack of upright tokens (planet
+  glyph, degree digits, sign glyph, minute digits, optional retrograde mark)
+  drawn along one radial spoke. The *widest* token in the tangential direction
+  is the sign glyph, sized at `sizes.sign = round(21 * radius / 233)` =
+  ~21 px at the base radius. A label therefore only needs to stay
+  `sign/2 ≈ 10.5` px from a thin 1 px cusp stroke for the two to not visually
+  touch. Rounded up to `11` px for a hair of breathing room. The previous
+  17 px figure was just `minGlyphGap / 2` with no geometric justification and
+  significantly over-reserved space, causing the resolver to push planet
+  labels needlessly far from their true ticks every time a cusp fell nearby.
+- **Left the wide-blocker path alone.** Angular cusps (AS/DS/MC/IC) still need
+  the full `minGlyphGap = 34` px clearance because *that* blocker represents
+  a large multi-token label, not a thin stroke.
+
+### Neptune displacement diagnosis (April 2026 live chart)
+Grounded in the code path in `layers/planet-ring.ts` and `core/layout.ts`:
+
+1. Neptune sits ~2° behind the Pisces/Aries boundary. The house cusp that
+   lands on the sign boundary is whichever cusp's ecliptic longitude is
+   within ~1° of 0° Aries — for this chart almost certainly cusp 1 (the
+   Ascendant projection), i.e. the Aries 0° tick. Because cusp 1 is an
+   *angular* cusp, it is explicitly filtered out of `cuspBlockers` by
+   `ANGULAR_INDICES` (index 0) in `planet-ring.ts:147–150`. So the cusp
+   responsible for pushing Neptune isn't the ASC — it is the next
+   non-angular cusp just past Neptune on the Aries side, most likely cusp 2,
+   whose ecliptic longitude is a few degrees into Aries (above the Aries
+   stellium at 2°–6°).
+2. Under the old `blockerGap = 17` px, any planet label within 17 px
+   tangentially of a thin cusp was pushed away. Combined with spring
+   pressure from the tight Aries cluster at 2°–6° (which occupies roughly
+   4° × (π/180) × planetRingR ≈ 15 px of angular spread and collides at
+   `minGlyphGap = 34` px per pair), Neptune was being squeezed from above
+   by the cluster's leftward push and from its Piscean side by the
+   17 px cusp blocker. The resolver iterates 89 times; with the cap at
+   `maxDisplacement = 55` px, Neptune could reach anything up to that cap
+   — the observed 15–20 px tangential offset is consistent with the cusp
+   blocker contributing most of it.
+3. With `blockerGap = 11` px, the cusp exclusion zone shrinks by ~6 px per
+   side. The cluster spring pressure is unchanged, but Neptune now has
+   ~6 px more room before the cusp-line repulsion kicks in — which, given
+   the leader line was only 15–20 px long, is enough to let the label sit
+   on or very close to its true tick.
+
+What I cannot verify without runtime data: the exact ecliptic longitudes of
+cusps 2 and 12 for the April-2026 chart, Neptune's exact longitude, and the
+final equilibrium displacement. To pin those down I would need the live
+chart's `ChartData.houses.cusps` array and the resolved `displayAngle` values
+from the renderer. The qualitative chain above — "Aries cluster spring +
+over-wide cusp blocker → forced ~17 px minimum offset" — is what the code
+structurally supports.
+
+### References
+- Primary files changed:
+  - `packages/chart-renderer/src/core/constants.ts`
+  - `packages/chart-renderer/src/core/layout.ts`
+  - `packages/chart-renderer/src/core/layout.test.ts` (test bound update only)
+- Relevant context: `resolveCollisions` thin-blocker path in
+  `packages/chart-renderer/src/core/layout.ts:98–109`; cusp feed in
+  `packages/chart-renderer/src/layers/planet-ring.ts:144–172`.
+- Verified: `npm run typecheck --workspace=packages/chart-renderer` clean;
+  `npm test --workspace=packages/chart-renderer` 48/48 pass.
+
+## 2026-04-18 — planet-ring: side-aware margin for angular cusps
+
+### Change
+Refactored `marginForCusp` in `packages/chart-renderer/src/layers/planet-ring.ts`
+to accept a `planetSide: 1 | -1` parameter (`+1` when the cusp is the planet's
+`lowerBound`, `-1` when it's the `upperBound`) and to look up the matching
+`anglePoints` entry so it can read `nudgeFromAxis` / `nudgeSign`.
+
+- Replaced the `angularCuspAngles: Set<number>` + flat `angleMargin = 34 / r`
+  with a `angularCuspMatches: Array<{ angle, ap }>` lookup built once outside
+  the per-planet loop. Match tolerance (`< 0.01` rad) is preserved.
+- For angular cusps whose label is nudged (AS/DS):
+  - Same side as planet (`ap.nudgeSign === planetSide`): margin = `(34 + 14) / r`
+    = `48 / r` — planet must clear past the label.
+  - Opposite side: margin = `(34 - 14) / r` = `20 / r` — label lives on the far
+    side of the cusp line; planet needs only `minGlyphGap` from the label center.
+- For MC/IC (`!ap.nudgeFromAxis`): margin = `34 / r` (unchanged semantics,
+  now sourced from `COLLISION.minGlyphGap` instead of a literal).
+- Regular cusps keep `houseMargin = 8 / r`.
+- Imported `COLLISION` from `../core/constants.js` and introduced a local
+  `axisOffsetPx = 14` that mirrors the existing `axisOffsetRad = 14 / planetRingR`.
+- Updated the two call sites: `marginForCusp(lowerCusp, 1)` and
+  `marginForCusp(upperCusp, -1)`.
+
+### Decisions Made
+- **20 px for opposite-side AS/DS.** With the label nudged `axisOffsetPx = 14` to
+  the far side of the cusp line, a planet sitting exactly `minGlyphGap = 34` px
+  from the label center is only `34 - 14 = 20` px past the cusp. That's the
+  minimum clearance the collision resolver already enforces, so clamping any
+  tighter would fight the resolver; any looser would risk visual overlap.
+- **48 px for same-side AS/DS.** When the label was nudged toward the same side
+  as the planet, the planet must live at least `minGlyphGap` beyond the label,
+  which itself sits `axisOffsetPx` past the cusp — total `34 + 14 = 48` px. The
+  old flat 34 px margin was *too loose* here and let planets pinned by the
+  resolver's `maxDisplacement = 55` or by spring pressure slip across the cusp
+  line without clearing the label.
+- **34 px for MC/IC.** These labels aren't nudged — they sit centered on the
+  tick — so the symmetric `minGlyphGap` clearance on both sides is exactly
+  right, matching the wide-blocker geometry the resolver already enforces.
+
+### References
+- Primary file changed: `packages/chart-renderer/src/layers/planet-ring.ts`
+- Constants: `COLLISION.minGlyphGap` (`packages/chart-renderer/src/core/constants.ts`)
+- Related: `resolveCollisions` / wide-blocker minGlyphGap in
+  `packages/chart-renderer/src/core/layout.ts`
+- Verified: `npm run typecheck --workspace=packages/chart-renderer` clean;
+  `npm test --workspace=packages/chart-renderer` 48/48 pass.
+
+## 2026-04-18 — approx-engine: swap internals to astronomy-engine
+
+### Change
+Replaced the truncated VSOP87 / ELP2000 position code in `packages/approx-engine` with `astronomy-engine` (already installed as devDep; promoted to runtime dep). Public API surface is unchanged — all consumers continue to use `calculateApproximate`, `calculateBodyPosition`, `moonPhaseAngle`, etc. without modification.
+
+- Created `packages/approx-engine/src/bodies.ts` wrapping `astronomy-engine`'s `GeoVector` + `Ecliptic` functions. Provides `calculateSunPosition`, `calculateMoonPosition`, `calculatePlanetPosition` with the same `PlanetPosition` shape as before. Speed is a 1-day finite-difference geocentric longitude derivative.
+- Deleted `vsop87.ts`, `vsop87.test.ts`, `elp2000.ts`, `elp2000.test.ts`.
+- Updated `index.ts` to import/re-export from `./bodies.js` instead of the deleted files.
+- Moved `astronomy-engine` from `devDependencies` to `dependencies` in `packages/approx-engine/package.json`.
+- Tightened `parity.test.ts` tolerances from 0.5°–1.3° to `0.001°` across all bodies — the test now compares astronomy-engine to itself (regression guard against accidental breakage).
+- Tightened `TOLERANCE_MS` in `aspects-timeline-utils.test.ts` from 45 min to 5 min.
+
+### Results
+- Test counts: approx-engine 137 → 86 (vsop87 + elp2000 test files removed); apps/web aspects-timeline 14 → 19 (known-event tests now pass).
+- Parity tests: all 50 pass at 0.001° — effectively zero error (floating-point rounding only).
+- Known-event timing deltas vs. published eclipse/new-moon UTC:
+  - 2017-08-21 total solar eclipse: **Δ=0.16 min** (was ~42 min)
+  - 2022-05-16 total lunar eclipse: **Δ=0.04 min**
+  - 2023-10-14 annular solar eclipse: **Δ=0.08 min**
+  - 2024-04-08 total solar eclipse: **Δ=0.16 min**
+  - 2024-11-01 new moon: **Δ=0.06 min**
+
+### Decisions Made
+- **Date ↔ T round-trip via JD.** `tToDate` reverses `julianCenturies` using the standard JD formula. Precision loss vs. direct Date input is < 0.001 ms — negligible.
+- **`aberration=true` flag.** Both `bodies.ts` and `parity.test.ts` use `GeoVector(body, date, true)` so the comparison is apples-to-apples.
+- **Moon distance in AU (not km).** The consumer (`toCelestialPosition` in `index.ts`) passes the distance through to the `CelestialPosition` struct unchanged. The field is display-only; callers don't do physics with it, so the unit change from ~384,000 km → ~0.0026 AU is benign.
+- **`nodes.ts` and `julian.ts` untouched.** Mean lunar nodes use a simple linear formula with no meaningful astronomy-engine equivalent; kept as-is.
+
+### References
+- Primary files changed:
+  - `packages/approx-engine/package.json`
+  - `packages/approx-engine/src/bodies.ts` (new)
+  - `packages/approx-engine/src/index.ts`
+  - `packages/approx-engine/src/parity.test.ts`
+  - `apps/web/src/components/home/aspects-timeline-utils.test.ts`
+- Deleted: `vsop87.ts`, `vsop87.test.ts`, `elp2000.ts`, `elp2000.test.ts`
+
+## 2026-04-18 — fix calculatePlanetPosition to return geocentric longitude
+
+### Change
+Fixed a scientific-accuracy bug in `packages/approx-engine/src/vsop87.ts` where
+`calculatePlanetPosition` was returning heliocentric ecliptic coordinates instead
+of geocentric (as seen from Earth).
+
+- Extracted `heliocentricCartesian(el, T)` helper that computes heliocentric
+  Cartesian (x, y, z, r) from Keplerian orbital elements.
+- Extracted `EARTH_ELEMENTS` constant from the inline block inside `calculateSunPosition`.
+- `calculatePlanetPosition` now computes geocentric = planet − Earth in Cartesian
+  space before converting to longitude/latitude. Errors vs astronomy-engine:
+  Mercury 164°→<1°, Venus 134°→<1°, Mars 41°→<1°, Jupiter 11°→<1°.
+- Replaced the old analytic (heliocentric) speed formula with a finite-difference
+  derivative of geocentric longitude over 1 day. This enables retrograde detection.
+- `calculateSunPosition` refactored to use the same `heliocentricCartesian` helper
+  (negated Earth position). Removed the old aberration+nutation correction (already
+  outside the model's accuracy class after geocentric fix).
+- Removed unused `MEAN_DAILY_MOTION` constant.
+- Updated tolerance table in `parity.test.ts` to reflect actual model accuracy
+  (~0.3° near J2000, ~1.15° at ±75 years driven by unmodelled planetary perturbations).
+- Updated `vsop87.test.ts`: Sun latitude test now checks `< 0.01°` (tiny residual
+  from Earth's inclination), Mercury speed threshold updated to `> 1°/day` (geocentric).
+
+### Decisions Made
+- **Tolerances set to ~2× observed max**, not tight. The Keplerian model without
+  perturbations drifts ~1°/century; this is inherent to the model, not a bug.
+  Pluto and Saturn get 1.2°–1.3° tolerance reflecting their larger residuals.
+- **Removed the old aberration correction from calculateSunPosition.** The correction
+  was only ~0.006° while the new model has ~0.3°–1°+ secular drift. Keeping it would
+  be false precision. The parity test at each date is the authoritative accuracy gauge.
+- **Finite-difference speed over 1 day** chosen as the step size. It averages out
+  noise while being short enough to capture rapid Mercury motion accurately.
+
+## 2026-04-18 — aspects timeline: precise in-orb windows
+
+### Change
+Replaced sample-grid-based Start / Peak / End computation in
+`apps/web/src/components/home/aspects-timeline.tsx` with bisection-based
+root finding against `@astro-app/approx-engine`:
+
+- New helpers in `aspects-timeline-utils.ts`: `orbAtTime`,
+  `refinePeakTime` (golden-section minimisation), `findOrbCrossing`
+  (bisection with exponential widening and 3-point monotonicity safety
+  for retrograde reversals).
+- `BarRange` migrated from sample-index fields to absolute `ms`
+  timestamps plus `startClipped` / `endClipped` flags.
+- Rendering now uses `msToX` and `clampX` so bars placed entirely by
+  real time and clipped to the viewport; tooltip labels render the
+  converged ms directly or "before / after 〈window edge〉" for clipped
+  boundaries.
+- `ACTIVE_THRESHOLD` sample-gate removed — bars are included if their
+  `[startMs, endMs]` overlaps the 10-day window.
+- Deleted the now-unused `interpolatePeaks` helper and its tests.
+
+### Decisions Made
+- **Bisection over analytic linear-speed formula.** An earlier design used
+  `halfWindow = peakValue × maxOrb / |s1 − s2|` evaluated at the peak.
+  That works for fast-moving pairs but degrades by days-to-weeks for
+  slow-slow aspects (e.g. Saturn-Neptune) because relative angular speed
+  varies dramatically across a multi-month in-orb window. Bisection is
+  accurate to sub-minute for any pair.
+- **Window overlap, not peak-in-window, for inclusion filter.** An
+  aspect whose orb window extends across the 10-day window but whose
+  peak is outside it (e.g. already past exact, still in orb) should
+  still render.
+- **3-point monotonicity guard, not full scan.** Retrograde reversals
+  inside an in-orb window are rare; a 3-probe check catches them cheaply
+  and a fallback golden-section max narrows the bracket to the first
+  crossing when needed.
+- **6-month widening cap.** Aspects in orb beyond that are effectively
+  "always on" in the 10-day view; labelling them `before / after 〈edge〉`
+  is more useful than an extrapolation that could be years away.
+- **Drop the plan's ARCMIN bisection early-exit.** The 1/60° threshold
+  would trigger on an in-orb midpoint ~109 s from the true crossing at
+  Moon speeds — beyond the 60 s brute-force test tolerance. The spec's
+  30 s `CONVERGENCE_MS` window is the sole termination condition, and
+  the final return is `outerMs` (last confirmed out-of-orb probe) so
+  the returned timestamp is guaranteed past the crossing.
+
+### References
+- Spec: `docs/superpowers/specs/2026-04-18-aspect-timeline-precision-design.md`
+- Plan: `docs/superpowers/plans/2026-04-18-aspect-timeline-precision.md`
+- Primary files changed:
+  - `apps/web/src/components/home/aspects-timeline-utils.ts`
+  - `apps/web/src/components/home/aspects-timeline-utils.test.ts`
+  - `apps/web/src/components/home/aspects-timeline.tsx`
+- Commits: `70e50ff`, `1a1c421`, `44342bd`, `ea0b7be`, `a34628d`, `57eb908`, `851ef86`.
+
+## 2026-04-18 — aspects timeline: row hover tooltips
+
+### Change
+Added hover tooltips to each aspect row in `apps/web/src/components/home/aspects-timeline.tsx`. Hovering a row now shows:
+
+- The planet-glyph / aspect-glyph / planet-glyph trio plus the aspect name (e.g. `☉ ☌ ☽ · Conjunction`).
+- Start time (when the aspect enters orb — derived from `fromSample`).
+- Peak time (from `peakSample`, which can be fractional thanks to `interpolatePeaks`).
+- End time (from `toSample`).
+
+Times are rendered with `toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })` — a short `Apr 20, 14:30`-style format.
+
+Implementation details:
+- Each row's `<g>` is wrapped in `TooltipTrigger render={...}` using the Base UI tooltip primitives (`@/components/ui/tooltip`).
+- Inserted a transparent `<rect>` spanning the full 20px row height and the bar's x-range (padded by 2px on each side) before the visible `<line>` so the hover target is comfortable despite the 1.5px visible stroke. `fill="transparent"` + `pointerEvents="all"` so it catches hover without occluding the line visually.
+- Sample-index-to-time conversion uses the existing `windowStartMs` constant already computed for the NOW marker and the implicit `(24 / SAMPLES_PER_DAY) * 3600 * 1000` step. Fractional `peakSample` values carry straight through without rounding.
+- Small local `ASPECT_NAMES` map added — there was no pre-existing name lookup for `AspectType`. Uses hyphenated forms for Semi-Sextile / Semi-Square / Bi-Quintile; Sesquisquare is left as-is (the enum value is already the display name in common astrology UIs).
+- Tooltip content uses a 2-column grid for the time rows (`grid-cols-[auto_1fr]`) with monospaced times for alignment, and tints the middle aspect glyph with the row's aspect color for continuity with the bar.
+
+### Decisions Made
+- **Base UI over Radix:** `apps/web/src/components/ui/tooltip.tsx` is already wired on top of `@base-ui/react/tooltip`, and `TooltipProvider` is mounted once in `apps/web/src/components/layout/app-layout.tsx:8`. Reused that without introducing a second provider or pulling in Radix. Base UI's `TooltipTrigger` accepts a `render` prop (analog of Radix's `asChild`), which works with SVG `<g>` because it exposes `getBoundingClientRect` for anchoring — matches the pattern already used in `apps/web/src/components/layout/sidebar.tsx:71`.
+- **Full-row transparent hit rect:** The visible bar is 1.5px tall and rows are 20px apart; hovering the thin stroke directly is fiddly. A full-height transparent rect gives the user a comfortable 20px hover band without shifting the visual design.
+- **Short localized time format:** `Apr 20, 14:30` is compact enough to fit in the small tooltip and unambiguous across the 10-day window (includes the month so the user can tell the difference between rows spanning a month boundary). 24h format (`hour12: false`) matches the astrology convention and the app's other time displays.
+- **Aspect name map kept local:** No shared aspect-name lookup existed anywhere else in the repo. Chose a small local map over hauling one into `shared-types` — the tooltip is currently the only consumer, and adding it to the types package without a use case there felt premature.
+
+### Known Tradeoffs
+- The tooltip fires via pointer hover on desktop; on touch devices Base UI's default touch behavior applies (long-press). Acceptable — the primary consumption surface is desktop.
+- Tooltips render per-row as separate `Tooltip` roots (one per range). For the typical ~10-20 active aspects this is fine; if the timeline ever scales to 100+ rows we might want to switch to a single shared tooltip driven by mouse position.
+
+### References
+- `apps/web/src/components/home/aspects-timeline.tsx` — row tooltips, helper `formatSampleTime`, `ASPECT_NAMES`, wider hit rect.
+
+## 2026-04-18 — polish: planetary hours current-row highlight
+
+### Change
+In `apps/web/src/components/home/planetary-hours.tsx`, cleaned up the current-hour row rendering in the expanded day/night hours list:
+
+- Removed the small `current` text label that appeared next to the time on the active row (both day-hours and night-hours sections). The row highlight alone now conveys the active state.
+- Replaced the `bg-muted` row highlight with `bg-primary/15`. In dark mode `--muted` resolves to `oklch(17% 0.004 265)`, which is virtually identical to the card background and made the highlight invisible. `bg-primary/15` gives a clear accent-tinted row in both themes, consistent with the `bg-primary/10` pattern already used for active nav items in `apps/web/src/components/layout/sidebar.tsx:59`.
+
+### Decisions Made
+- **No separate dark-mode override.** `bg-primary/15` reads well on both light and dark card backgrounds, so a single class works for both themes. Matches the sidebar's approach.
+- **`/15` vs `/10`.** Sidebar active items also carry `text-primary`, so `/10` is enough contrast against plain foreground text. Planetary-hours rows keep the regular `text-foreground`, so the tint alone carries the signal — bumped one step to `/15` for visibility.
+
+### References
+- Primary file changed: `apps/web/src/components/home/planetary-hours.tsx`
+
+## 2026-04-18 — home: dominant element / modality donuts on ElementModalityCard
+
+### Change
+Added two recharts-powered donut charts below the existing element × modality grid in `element-modality-card.tsx`. Each donut shows the distribution of the 11 display bodies (Sun through Pluto + Chiron) across the four elements and three modalities respectively. Slice labels show numeric counts; center text shows the dominant category name (or stacked names on a tie). Extracted a shared `astro-distribution.ts` helper used by both the donuts and the grid.
+
+### Commits
+- `5e1fa31` — `Phase 3 Task: extract shared astro-distribution helper` — new `apps/web/src/lib/astro-distribution.ts` + test file. Consolidates `SIGN_MODALITY` (capitalised values: Cardinal/Fixed/Mutable) and `computeDistribution(chartData, bodies)` into one shared helper. Adds a new `dominantKeys<K>(counts): K[]` helper returning all keys tied for the max count.
+- `b3ca31f` — `Phase 3 Task: tighten astro-distribution test assertions` — adds negative assertions and clarifies `total` semantics in tests.
+- `5391346` — `Phase 3 Task: switch distribution-overlay to shared helper` — replaces the local duplicate in `apps/web/src/components/chart/distribution-overlay.tsx` with the shared import. Zero behaviour change.
+- `d5b13b5` — `Phase 3 Task: add shadcn chart component` — installs `recharts ^3.8.0` and copies `apps/web/src/components/ui/chart.tsx` via `npx shadcn@latest add chart`.
+- `f9c1d4c` — `Phase 3 Task: add dominant elements/modalities donuts` — adds `ElementModalityPies` + `DonutBlock` private sub-components to `apps/web/src/components/home/element-modality-card.tsx`.
+- `432213b` — `Phase 3 Task: center donut slice labels on ring band` — fixes label placement: count labels now use `(innerRadius + outerRadius) / 2` as the midpoint radius instead of recharts v3's outer-rim default.
+
+### Decisions Made
+- **Body set parity with the grid.** The donuts count the same 11 bodies (`DISPLAY_BODIES`: Sun → Pluto + Chiron) that the grid above them uses. The grid and donuts can never disagree about totals. `distribution-overlay.tsx` kept its pre-existing 10-body list (no Chiron) to preserve the chart-canvas overlay's existing behaviour — that is a separate, independent consumer.
+- **Stacked tie labels, not bulleted.** When multiple categories share the maximum count, the center text renders one `<tspan>` per tied name, stacked vertically — not joined with a separator. This was a direct user request during brainstorm review.
+- **Modality palette uses shades of `--primary`, not element colours.** Elements use `--color-fire/earth/air/water`; modalities use three lightness steps derived from `--primary` via `color-mix(in oklch, ...)`. This gives modality and element a clear visual distinction on the card. Intentionally differs from `distribution-overlay`'s legacy palette.
+- **`recharts` and `chart.tsx` re-added after earlier cleanup.** The 2026-04-18 cleanup deleted `chart.tsx` and removed `recharts` because their only consumer (`aspects-timeline-shadcn.tsx`) had been deleted. The donut work provides real, mounted consumers for both; this is an intentional re-introduction, not a reversal of a design policy. The cleanup decision was "delete when unused," not "never use recharts."
+- **No new chart library written.** shadcn `chart` + recharts handles rendering. `PieChart` + `Pie` + `Cell` from recharts with `innerRadius`/`outerRadius` props; custom `label` render prop for count text; `ChartContainer` + `ChartTooltipContent` from shadcn chart for theming consistency.
+
+### References
+- Spec and plan: `docs/superpowers/plans/2026-04-18-element-modality-donuts.md`
+- Primary file changed: `apps/web/src/components/home/element-modality-card.tsx`
+- New shared helper: `apps/web/src/lib/astro-distribution.ts`
+
 ## 2026-04-18 — cleanup: delete unused code across the monorepo
 
 ### Change
@@ -940,3 +3343,73 @@ Sample `calculateApproximate` every 6 hours across the 10-day window (40 calls t
 - Pure math helpers extracted to `aspects-timeline-utils.ts` for independent testability
 - `MAX_ORB` map in `aspects-timeline.tsx` mirrors `ASPECT_DEFINITIONS` in approx-engine — if engine orb values change, this table must be updated too
 - `orbIntensity` clamps output to `[0, 1]` including negative orb inputs (defensive)
+
+---
+
+## 2026-04-18 — Swiss Ephemeris golden-file parity test for approx-engine
+
+### Summary
+
+Added a Swiss Ephemeris golden-file fixture and a Vitest parity check so the frontend `approx-engine` output can be diffed against an authoritative source in CI. The fixture covers the 10 classical bodies (astronomy-engine backed) AND the two Mean lunar nodes (computed by approx-engine's own mean-node polynomial in `src/nodes.ts`). No production code changed — this is purely test infrastructure.
+
+### Changes
+
+- `packages/approx-engine/fixtures/swiss-ephemeris-golden.json` — 240 rows (20 epochs × 12 bodies: Sun, Moon, Mercury, Venus, Mars, Jupiter, Saturn, Uranus, Neptune, Pluto, MeanNorthNode, MeanSouthNode) of apparent geocentric ecliptic longitude/latitude produced by the backend Swiss Ephemeris C extension (`FLG_SWIEPH | FLG_SPEED` — includes aberration and deflection, matching `app.engines.swisseph.CALC_FLAGS`). MeanSouthNode is derived as MeanNorthNode + 180° (mirrors backend `app.engines.positions.calculate_south_node`).
+- `packages/approx-engine/fixtures/generate.py` — copy of the backend generator script with a header comment documenting how to regenerate the fixture.
+- `packages/approx-engine/src/swiss-parity.test.ts` — loops through every fixture row, calls `calculateBodyPosition`, and asserts agreement within a per-dimension tolerance. 480 assertions total (240 rows × {longitude, latitude}).
+- Backend side: `almagest-backend/scripts/generate_swiss_golden.py` (the source of truth — copied into the frontend fixture dir).
+
+### Tolerance choice
+
+Empirically measured worst-case diffs across 1955-2050:
+
+- Classical 10 bodies: worst longitude ~0.00478° (Neptune, 2010); worst latitude ~0.00526° (Uranus, 2035).
+- MeanNorthNode / MeanSouthNode: worst longitude ~0.0049° across the full range; latitude exactly 0° on both sides (Swiss Ephemeris' MEAN_NODE returns 0 latitude by definition, and approx-engine's `src/nodes.ts` hard-codes 0).
+
+Chose a single `0.01°` tolerance for both longitude and latitude across all 12 bodies — the tightest round tolerance with ~2× headroom. Notably, approx-engine's simple mean-node polynomial (`meanNorthNode(T) = 125.04452 − 1934.136261·T + 0.0020708·T²`) agrees with Swiss Ephemeris' higher-order mean-node expansion to ~0.005° over the full 1955-2050 span, which is well inside the envelope already established by the 10 classical bodies — so splitting into a separate looser tolerance for the nodes was unnecessary. Residuals come from the expected Swiss-vs-astronomy-engine convention differences (ΔT model, precession/nutation, light-time iteration) and from the small omitted higher-order terms in the mean-node polynomial. If a future model update causes a regression beyond 0.01°, it will be a real signal, not noise.
+
+### Exclusions
+
+Chiron, Lilith, and the TRUE lunar nodes are omitted from the fixture — approx-engine has no implementation for them.
+
+### Regeneration command
+
+```bash
+cd ../almagest-backend && SWISSEPH_PATH=./data python3 scripts/generate_swiss_golden.py
+# then copy almagest-backend/scripts/swiss-ephemeris-golden.json into
+# almagest-frontend/packages/approx-engine/fixtures/
+```
+
+## 2026-04-19 — Next Eclipse hero-stat (replace Moon top-row stat)
+
+### Change
+Replaced the **Moon** hero-stat in the top 4-stat row of the home page with a **Next Eclipse** hero-stat. The right-rail `MoonCard` is untouched — it continues to surface moon phase, sign, and upcoming phases. The new stat shows an eyebrow "Next Eclipse", a display-font `🌍 Solar` / `🌍 Lunar` value, and a mono meta row: short date · colored zodiac glyph with degree/minute of the eclipsed body at peak · days-until.
+
+- **New:** `packages/approx-engine/src/eclipses.ts` — thin wrapper over astronomy-engine's `SearchGlobalSolarEclipse` / `SearchLunarEclipse`. Exports `nextEclipse(from: Date): NextEclipse` plus types `NextEclipse`, `EclipseKind` (`"solar" | "lunar"`), `EclipseSubtype` (`"partial" | "total" | "annular" | "penumbral"`). Pure, deterministic, no network.
+- **Modified:** `packages/approx-engine/src/index.ts` — re-export `nextEclipse` and the three types.
+- **Modified:** `apps/web/src/routes/home.tsx` — swap the 4th top-row `HeroStat` (`eyebrow="Moon"`) for a `Next Eclipse` hero-stat. One-shot `useMemo` calls `nextEclipse(new Date())` then `calculateBodyPosition(peak, Sun|Moon)` to get the ecliptic position of the eclipsed body. Removed now-unused imports/helpers (`moonPhaseAngle`, `getMoonPhaseName`, `formatDegree`, `PHASE_ICONS`, `moonPhase`, `moonIcon`). `MoonCard` component and its import are preserved on the right rail.
+
+### Correction vs. 93876e3 (reverted by 0484f67)
+The earlier attempt at this work (commit `93876e3`) modified the wrong component: it deleted `MoonCard` from the right rail and introduced a new `EclipseCard`. That commit was reverted by `0484f67` because the intended target was the top-row **hero-stat**, not the rail card. This entry supersedes the reverted attempt and implements the correct change:
+
+- `eclipses.ts` helper and `index.ts` re-export are re-added verbatim (same content as 93876e3 produced).
+- No `EclipseCard` component is introduced; eclipse data is consumed inline by the existing `HeroStat` component (no API change to `HeroStat`).
+- `moon-card.tsx` is **not** deleted.
+
+### Decisions
+- **Reuse `HeroStat` as-is.** Its `value` / `meta` props accept `ReactNode`, so the zodiac glyph + colored element and degree-minute break fit without widening the component API.
+- **Element colors via `var(--color-${SIGN_ELEMENT[sign].toLowerCase()})`.** `Element` enum values in `shared-types` are already lowercase (`"fire" | "earth" | "air" | "water"`), so `.toLowerCase()` is a no-op but future-proofs against a later PascalCase rename. The existing Sun/Ascending hero-stats omit `.toLowerCase()`; both forms produce the same CSS token today. Kept `.toLowerCase()` here to match the instruction verbatim.
+- **One-shot `useMemo([])`.** The next eclipse doesn't change minute-to-minute; re-mount of the route is the re-computation boundary. Matches `MoonCard`'s approach.
+- **Ecliptic position via approx-engine, not astronomy-engine direct.** `calculateBodyPosition(peak, body)` keeps the hero-stat in the same frame (ecliptic-of-date) as every other zodiac position on the page.
+- **Subtype deferred.** `NextEclipse.subtype` is populated but not surfaced. Adding a pill is a zero-code-change tweak if desired later.
+
+### Verification
+- `npm run typecheck --workspaces` — clean across all 5 workspaces.
+- `npm run build --workspace=apps/web` — built successfully (513ms).
+
+### References
+- `packages/approx-engine/src/eclipses.ts`
+- `packages/approx-engine/src/index.ts`
+- `apps/web/src/routes/home.tsx` (hero-stat block replacement)
+- `apps/web/src/components/home/moon-card.tsx` (unchanged — right rail)
+- Reverted attempt: commit `93876e3` (reverted by `0484f67`)

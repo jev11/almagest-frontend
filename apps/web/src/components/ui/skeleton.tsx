@@ -10,7 +10,7 @@ function Skeleton({ className }: { className?: string }) {
 export function ChartSkeleton({ compact = false }: { compact?: boolean }) {
   const wheelSize = compact ? "w-[120px] h-[120px]" : "w-[280px] h-[280px]";
   return (
-    <div className="flex flex-col md:flex-row gap-6">
+    <div className="flex flex-col tablet:flex-row gap-6">
       <Skeleton className={cn("rounded-full shrink-0", wheelSize)} />
       <div className="flex-1 flex flex-col gap-2 justify-center">
         {Array.from({ length: compact ? 5 : 11 }).map((_, i) => (

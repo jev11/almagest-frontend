@@ -238,4 +238,12 @@ export class AstroClient {
   async updateCloudChart(id: string, req: UpdateChartRequest): Promise<CloudChart> {
     return this.request<CloudChart>("PATCH", `/v1/charts/${id}`, req);
   }
+
+  async pinCloudChart(id: string, pinned: boolean): Promise<CloudChart> {
+    return this.updateCloudChart(id, { pinned });
+  }
+
+  async markCloudChartViewed(id: string): Promise<void> {
+    return this.request<void>("POST", `/v1/charts/${id}/view`);
+  }
 }

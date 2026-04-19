@@ -43,7 +43,7 @@ export function PlanetaryHours({ lat, lon }: PlanetaryHoursProps) {
   if (!result) {
     return (
       <Card className="py-0">
-        <CardContent className="p-pad">
+        <CardContent className="p-card-pad">
         <div className="card-title mb-3.5">Planetary Hours</div>
         <p className="text-muted-foreground text-[13px]">
           Planetary hours unavailable at this latitude.
@@ -67,7 +67,7 @@ export function PlanetaryHours({ lat, lon }: PlanetaryHoursProps) {
       className="card-hover cursor-pointer py-0"
       onClick={() => setExpanded((v) => !v)}
     >
-      <CardContent className="p-pad">
+      <CardContent className="p-card-pad">
         <div className="flex items-baseline justify-between mb-3.5">
           <div className="card-title">Planetary Hours</div>
           <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-muted/60 border border-border text-[11px] text-muted-foreground">
@@ -135,7 +135,7 @@ export function PlanetaryHours({ lat, lon }: PlanetaryHoursProps) {
                     <div
                       key={`day-${hour.hourNumber}`}
                       className={`flex items-center gap-2 py-1 px-1 rounded text-[13px] ${
-                        isCurrent ? "bg-muted" : ""
+                        isCurrent ? "bg-primary/15" : ""
                       }`}
                     >
                       <span className="text-muted-foreground text-[11px] w-4 text-right shrink-0">
@@ -151,9 +151,6 @@ export function PlanetaryHours({ lat, lon }: PlanetaryHoursProps) {
                         {formatTime(hour.start, timeFormat)} –{" "}
                         {formatTime(hour.end, timeFormat)}
                       </span>
-                      {isCurrent && (
-                        <span className="text-primary text-[11px] ml-1">current</span>
-                      )}
                     </div>
                   );
                 })}
@@ -178,7 +175,7 @@ export function PlanetaryHours({ lat, lon }: PlanetaryHoursProps) {
                     <div
                       key={`night-${hour.hourNumber}`}
                       className={`flex items-center gap-2 py-1 px-1 rounded text-[13px] ${
-                        isCurrent ? "bg-muted" : ""
+                        isCurrent ? "bg-primary/15" : ""
                       }`}
                     >
                       <span className="text-muted-foreground text-[11px] w-4 text-right shrink-0">
@@ -194,9 +191,6 @@ export function PlanetaryHours({ lat, lon }: PlanetaryHoursProps) {
                         {formatTime(hour.start, timeFormat)} –{" "}
                         {formatTime(hour.end, timeFormat)}
                       </span>
-                      {isCurrent && (
-                        <span className="text-primary text-[11px] ml-1">current</span>
-                      )}
                     </div>
                   );
                 })}

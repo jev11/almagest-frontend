@@ -120,6 +120,16 @@ export function filterNodeType(data: ChartData, nodeType: "mean" | "true"): Char
   return { ...data, positions, zodiac_positions: zodiacPositions, aspects };
 }
 
+export function formatRelativeTime(ms: number | null): string {
+  if (ms === null) return "never";
+  const diff = Date.now() - ms;
+  if (diff < 60_000) return "just now";
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
+  if (diff < 7 * 86_400_000) return `${Math.floor(diff / 86_400_000)} days ago`;
+  return new Date(ms).toLocaleDateString();
+}
+
 export function getMoonPhaseName(elongation: number): string {
   const e = ((elongation % 360) + 360) % 360;
   if (e < 22.5 || e >= 337.5) return "New Moon";

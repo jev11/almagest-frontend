@@ -13,7 +13,7 @@ export function drawZodiacRing(
   theme: ChartTheme,
   dim: RenderDimensions,
 ): void {
-  const { cx, cy, radius } = dim;
+  const { cx, cy, radius, density } = dim;
   const ascendant = data.houses.ascendant;
   const outerR = radius * RING_PROPORTIONS.zodiacOuter;
   const innerR = radius * RING_PROPORTIONS.zodiacInner;
@@ -57,7 +57,7 @@ export function drawZodiacRing(
     ctx.moveTo(divOuter.x, divOuter.y);
     ctx.lineTo(divInner.x, divInner.y);
     ctx.strokeStyle = theme.signDividerStroke;
-    ctx.lineWidth = theme.signDividerWidth;
+    ctx.lineWidth = theme.signDividerWidth * density.stroke;
     ctx.stroke();
 
     // Sign glyph centered in the segment
@@ -71,7 +71,7 @@ export function drawZodiacRing(
       char,
       glyphPos.x,
       glyphPos.y,
-      glyphSizes(radius).sign,
+      glyphSizes(radius).sign * density.glyphScale,
       theme.signGlyphColor,
     );
   }
@@ -80,16 +80,20 @@ export function drawZodiacRing(
   ctx.beginPath();
   ctx.arc(cx, cy, outerR, 0, Math.PI * 2);
   ctx.strokeStyle = theme.ringStroke;
-  ctx.lineWidth = theme.ringStrokeWidth;
+  ctx.lineWidth = theme.ringStrokeWidth * density.stroke;
   ctx.stroke();
 
   ctx.beginPath();
   ctx.arc(cx, cy, innerR, 0, Math.PI * 2);
   ctx.strokeStyle = theme.ringStroke;
-  ctx.lineWidth = theme.ringStrokeWidth;
+  ctx.lineWidth = theme.ringStrokeWidth * density.stroke;
   ctx.stroke();
 
-  // Degree tick marks along the inner edge of the zodiac ring
+  // Degree tick marks along the inner edge of the zodiac ring.
+  // Tick length follows glyphScale (it's a visual size of the mark);
+  // tick width follows stroke (it's a line weight). The `0.5` base on the
+  // minor tick stays below the multiplier — a half-pixel line is intentional
+  // subpixel hinting that stays crisp on sub-2× displays once multiplied.
   for (let deg = 0; deg < 360; deg++) {
     const angle = longitudeToAngle(deg, ascendant);
     let tickLen: number;
@@ -97,14 +101,14 @@ export function drawZodiacRing(
 
     const ts = radius / 300;
     if (deg % 10 === 0) {
-      tickLen = 6 * ts;
-      tickW = 1;
+      tickLen = 6 * ts * density.glyphScale;
+      tickW = 1 * density.stroke;
     } else if (deg % 5 === 0) {
-      tickLen = 4 * ts;
-      tickW = 1;
+      tickLen = 4 * ts * density.glyphScale;
+      tickW = 1 * density.stroke;
     } else {
-      tickLen = 2 * ts;
-      tickW = 0.5;
+      tickLen = 2 * ts * density.glyphScale;
+      tickW = 0.5 * density.stroke;
     }
 
     const outerPt = polarToCartesian(cx, cy, angle, innerR);

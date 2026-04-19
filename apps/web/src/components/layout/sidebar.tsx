@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Home,
-  Plus,
   Sun,
   RefreshCw,
   Settings,
@@ -27,7 +26,6 @@ import { cn } from "@/lib/utils";
 
 const TOP_NAV = [
   { label: "Today", icon: Home, path: "/" },
-  { label: "New Chart", icon: Plus, path: "/chart/new" },
   { label: "My Charts", icon: Sun, path: "/charts" },
   { label: "Transits", icon: RefreshCw, path: "/transits" },
 ];
@@ -106,7 +104,7 @@ export function Sidebar() {
     <aside
       onDoubleClick={toggle}
       className={cn(
-        "hidden md:flex flex-col bg-background border-r border-border transition-all duration-200 ease-in-out shrink-0",
+        "hidden tablet:flex flex-col bg-background border-r border-border transition-all duration-200 ease-in-out shrink-0",
         collapsed ? "w-[64px]" : "w-[220px]",
       )}
     >
@@ -167,7 +165,6 @@ export function Sidebar() {
       <div className={cn("relative p-2 border-t border-border", collapsed && "flex justify-center px-0")}>
         <DropdownMenu>
           <DropdownMenuTrigger
-            nativeButton={false}
             render={
               <button
                 className={cn(
