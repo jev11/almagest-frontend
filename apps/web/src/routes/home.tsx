@@ -168,7 +168,7 @@ export function HomePage() {
           eyebrow="Next Eclipse"
           value={
             <>
-              <span className="mr-1" aria-hidden>🌍</span>
+              <span className="mr-1" aria-hidden>{eclipse.kind === "solar" ? "☀️" : "🌑"}</span>
               {eclipse.kind === "solar" ? "Solar" : "Lunar"}
             </>
           }
