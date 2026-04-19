@@ -1,5 +1,59 @@
 # Agent Changelog
 
+## 2026-04-19 — Adaptive foundation: useBreakpoint hook
+
+### Change
+Added `useBreakpoint()` hook returning the current semantic tier (`phone` /
+`tablet` / `desktop` / `wide`) plus convenience booleans (`isPhone`,
+`isTabletOrSmaller`, `isDesktopOrLarger`, `isWide`). Intended for the JS
+branches that the CSS token system alone can't express — primarily
+layout-pattern switching on chart-view (tabs vs multi-column) in the
+upcoming Phase 3 hard-pages work.
+
+### Files
+- `apps/web/src/hooks/use-breakpoint.ts` — new hook (~110 LOC incl.
+  JSDoc). Uses `useSyncExternalStore` with three `matchMedia` queries
+  (`(min-width: 640px)`, `(min-width: 1024px)`, `(min-width: 1440px)`).
+  Subscribes/unsubscribes listeners on mount/unmount, caches the computed
+  state between calls so `getSnapshot` returns a stable reference
+  (required for `useSyncExternalStore` to avoid infinite loops), and
+  falls back to `'desktop'` when `window` is undefined.
+
+### Decisions
+- **Chose `useSyncExternalStore` over `useState + useEffect`.** The
+  existing hooks (`use-settings`, `use-sidebar`) use Zustand, not raw
+  `useEffect`, so there was no "matching pattern" to mimic. React 18's
+  `useSyncExternalStore` is the idiomatic primitive for external-source
+  state like `matchMedia`; it handles the concurrent-rendering tearing
+  problem that naive `useState` + `addEventListener` cannot. Lower ceremony,
+  fewer sharp edges.
+- **Memoized the snapshot by tier, not by identity.** `useSyncExternalStore`
+  requires `getSnapshot` to return referentially-stable objects between
+  calls when the underlying state hasn't changed — otherwise every render
+  schedules another render. Cached the last-computed `BreakpointState` at
+  module scope, keyed on the derived tier; recomputed only when the tier
+  flips. This also keeps all subscribers sharing one cached object.
+- **Default to `'desktop'` for SSR.** Mirrors the implicit "desktop-shaped
+  state on first paint" assumption of `use-settings.ts` / `use-sidebar.ts`
+  (both `persist`-wrapped Zustand stores that hydrate post-mount). The app
+  is client-only (Vite SPA, no SSR), so `getServerSnapshot` only runs if
+  someone later introduces SSR/pre-render; the default keeps the layout
+  sensible until `window` becomes available.
+- **No barrel export.** `hooks/` has no `index.ts`; consumers import
+  hooks directly. Kept the convention.
+- **No tests.** The plan explicitly calls this out as "manual smoke" —
+  the hook is thin, and its value is in integration with layouts that
+  don't yet exist. A test for tier derivation would assert on internal
+  structure without catching the real failure mode (listener leaks,
+  SSR mismatch on the two existing consumers).
+
+### Verification
+- `npm run typecheck --workspaces` passes (all four packages).
+- `npm run build --workspace=apps/web` passes (1.66 s).
+- No React runtime warnings expected: `useSyncExternalStore` is the
+  officially-supported path for `matchMedia` in React 18+. The cached
+  snapshot prevents the "getSnapshot should be cached" warning.
+
 ## 2026-04-19 — Adaptive foundation: density token system
 
 ### Change
