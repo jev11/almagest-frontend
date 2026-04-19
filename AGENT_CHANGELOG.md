@@ -1,5 +1,97 @@
 # Agent Changelog
 
+## 2026-04-19 — Charts redesign Task 5: featured hero + lastViewedAt writeback
+
+### Change
+Fifth task of the "Redesign My Charts page" plan — add the editorial
+featured-chart hero above the library toolbar, and wire `lastViewedAt`
+writeback from `chart-view.tsx` so the Recent sort reflects visits
+across the session.
+
+### New files
+
+- **`apps/web/src/components/chart/featured-chart.tsx`** — editorial hero
+  that renders above the charts toolbar when criteria are met. Uses the
+  already-ported `.featured`, `.featured-name`, `.featured-meta`,
+  `.featured-big-trio`, `.featured-notes`, `.featured-actions`, and
+  `.featured-wheel` CSS classes from `charts-page.css`. Pulls Sun / Moon /
+  Ascending from `getChartSummary(chart.chart)`; each cell renders a
+  colored glyph (`.g .c-{element}`) beside the sign name plus a muted
+  `Ndeg Sign` sub-line. When a body is missing the cell collapses to `—`.
+  Dominant-element chip uses `getDominantElement(chart.chart)[0]` and
+  hides on ties-only or empty. Eyebrow text is chosen in priority order:
+  pinned → "★ Pinned · Recently viewed", lastViewedAt → "★ Most recent",
+  fallback → "★ Your library". Date and time are formatted in UTC
+  (`timeZone: "UTC"`) to match the editorial card conventions. MiniWheel
+  renders at size 360, variant `featured`. Compare icon uses lucide's
+  `Columns2`. Compare button fires a `() => void` prop (parent passes the
+  toast stub); Edit button forwards to the parent's existing
+  rename/edit flow.
+
+### Modified files
+
+- **`apps/web/src/routes/charts.tsx`** — imported `FeaturedChart` and
+  inserted the hero between the header and the toolbar. Selection logic:
+  if no search query and `displayCharts` is non-empty, pick the first
+  pinned chart, else fall back to `displayCharts[0]`. The featured chart
+  is excluded from `bodyCharts` (passed to grid + list) so it never
+  appears twice. Featured's `onCompare` is the toast stub
+  (`"Compare — coming soon"`) to match the card menu's placeholder; Edit
+  routes to `handleRename`, which already branches on `chart.source` —
+  cloud opens `EditMetaDialog`, local opens the name-only `RenameDialog`.
+- **`apps/web/src/routes/chart-view.tsx`** — added a best-effort
+  `useEffect` keyed on `stored?.id` (and `source`) that writes
+  `lastViewedAt` whenever a chart is opened. Cloud charts call
+  `client.markCloudChartViewed(id)` (endpoint may not be deployed —
+  failures are swallowed); local charts call
+  `chartCache.set({ ...stored, lastViewedAt: Date.now() })`. Keying on
+  `stored?.id` (not the full `stored` object) prevents re-firing on
+  unrelated settings-apply updates; re-fires are still idempotent since
+  both paths overwrite the same timestamp field.
+
+### Decisions
+
+1. **Featured selection**: plan says "first pinned, else first chart".
+   Implemented exactly that with no extra `lastViewedAt !== null`
+   guard — the fallback is intentional so that a library with no
+   viewed-yet charts still gets a hero. The deferred-sort machinery
+   (already in Task 1/3) keeps the list ordered such that `[0]` is the
+   best editorial candidate.
+2. **Eyebrow fallback**: "★ Your library" chosen for the never-viewed,
+   never-pinned case so the hero still reads as a deliberate editorial
+   choice instead of looking like a stub.
+3. **UTC display**: matches the chart-card and table conventions from
+   Task 4 for consistency. Deferring localization to a later polish
+   pass.
+4. **Date/time split**: plan requested `mono` spans for both date and
+   time. Kept the design-CSS-provided `.mono` styling for both so the
+   visual rhythm matches the reference.
+5. **lastViewedAt best-effort**: Wrapped both the cloud POST and local
+   IndexedDB set in `.catch(() => {})`. Backend endpoint is not yet
+   deployed; local writes are guaranteed to succeed but the catch is
+   defensive. No UI indicator on write failure — the effect is a
+   background refinement, not a user-facing action.
+6. **Effect dependencies**: kept only `stored?.id` and `source`. The
+   lint disable is needed because we intentionally don't re-trigger on
+   unrelated `stored` changes (settings-apply mutation replaces the
+   whole object). A double fire (e.g., source toggle) is harmless.
+
+### Verification
+
+- `npm run typecheck --workspaces` — clean.
+- `npm run build --workspace=apps/web` — clean (charts chunk 33 kB / 9.6
+  kB gz, no new warnings).
+- Manual smoke not run in this pass; to be validated on Task 8's polish
+  sweep.
+
+### Out of scope (later tasks)
+
+- Task 6: multi-select + `BulkActionBar`.
+- Task 7: real pin/unpin actions + bulk Tag + JSON export.
+- Task 8: PNG-zip export, 'N' keyboard shortcut, mobile polish.
+
+---
+
 ## 2026-04-19 — Charts redesign Task 4: editorial card, table, empty state
 
 ### Change

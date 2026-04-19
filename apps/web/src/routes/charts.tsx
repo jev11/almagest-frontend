@@ -8,6 +8,7 @@ import { ChartCardEditorial } from "@/components/chart/chart-card-editorial";
 import { ChartsTable } from "@/components/chart/charts-table";
 import type { ChartsTableAction } from "@/components/chart/charts-table";
 import { EmptyState } from "@/components/chart/empty-state";
+import { FeaturedChart } from "@/components/chart/featured-chart";
 import { NewChartTile } from "@/components/chart/new-chart-tile";
 import { formatRelativeTime } from "@/lib/format";
 import { CardSkeleton } from "@/components/ui/skeleton";
@@ -413,6 +414,15 @@ export function ChartsPage() {
   const isEmpty = chartCount === 0;
   const noMatches = !isEmpty && displayCharts.length === 0;
 
+  const featured: UnifiedChart | null =
+    !query.trim() && displayCharts.length > 0
+      ? (displayCharts.find((c) => c.pinned) ?? displayCharts[0])
+      : null;
+
+  const bodyCharts = featured
+    ? displayCharts.filter((c) => c.id !== featured.id)
+    : displayCharts;
+
   return (
     <div className="charts-page flex flex-col gap-6 py-8 px-6 md:px-12 h-full">
       {/* Editorial header */}
@@ -456,6 +466,16 @@ export function ChartsPage() {
           )}
         </div>
       </header>
+
+      {/* Featured hero */}
+      {featured && (
+        <FeaturedChart
+          chart={featured}
+          onOpen={(c) => navigate(chartHref(c))}
+          onCompare={() => toast.info("Compare — coming soon")}
+          onEdit={(c) => handleRename(c)}
+        />
+      )}
 
       {/* Toolbar */}
       <div className="charts-toolbar">
@@ -541,7 +561,7 @@ export function ChartsPage() {
       ) : viewMode === "cards" ? (
         <div className="charts-grid">
           <NewChartTile atLimit={atLimit} onClick={handleNew} />
-          {displayCharts.map((c) => (
+          {bodyCharts.map((c) => (
             <ChartCardEditorial
               key={c.id}
               chart={c}
@@ -561,7 +581,7 @@ export function ChartsPage() {
         </div>
       ) : (
         <ChartsTable
-          charts={displayCharts}
+          charts={bodyCharts}
           selected={new Set()}
           anySelected={false}
           onToggleSelect={() => {

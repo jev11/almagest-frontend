@@ -117,6 +117,27 @@ export function ChartViewPage() {
     }
   }, [id, source, client]);
 
+  // Write-back lastViewedAt so the charts page "Recent" sort reflects visits.
+  // Keyed on stored?.id only (not stored) to avoid re-firing on unrelated
+  // stored updates (e.g., settings-apply mutation). Best-effort — backend
+  // endpoint may not exist yet; degrade gracefully.
+  useEffect(() => {
+    if (!stored) return;
+    const now = Date.now();
+    if (source === "cloud") {
+      client.markCloudChartViewed(stored.id).catch(() => {
+        /* endpoint may not be deployed yet */
+      });
+    } else {
+      chartCache
+        .set({ ...stored, lastViewedAt: now })
+        .catch(() => {
+          /* best effort */
+        });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stored?.id, source]);
+
   // Sync pending settings from loaded chart — convert UTC to local time for display
   useEffect(() => {
     if (!stored) return;
