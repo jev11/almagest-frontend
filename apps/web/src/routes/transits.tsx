@@ -100,10 +100,10 @@ export function TransitsPage() {
   const isToday = dateStr === today;
 
   return (
-    <div className="flex flex-col h-full py-8 px-6 md:px-12 gap-6 overflow-hidden">
+    <div className="flex flex-col h-full py-8 px-6 tablet:px-12 gap-6 overflow-hidden">
       <h1 className="text-2xl font-semibold text-foreground shrink-0">Transits</h1>
 
-      <div className="flex flex-col md:flex-row gap-6 flex-1 min-h-0 overflow-y-auto items-start">
+      <div className="flex flex-col tablet:flex-row gap-6 flex-1 min-h-0 overflow-y-auto items-start">
         {/* Left: chart + date controls */}
         <div className="flex flex-col gap-4 min-w-0 items-center" style={{ flex: "1.618" }}>
           {/* Date navigation */}

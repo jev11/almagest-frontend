@@ -1,5 +1,71 @@
 # Agent Changelog
 
+## 2026-04-19 — Adaptive foundation: semantic breakpoints + codebase sweep
+
+### Change
+Replaced Tailwind's default `sm`/`md`/`lg`/`xl`/`2xl` screens with a four-tier
+semantic breakpoint system — `phone` (0–639, no prefix), `tablet` (≥640),
+`desktop` (≥1024), `wide` (≥1440) — declared via `--breakpoint-*` vars in the
+`@theme inline` block. Mechanically swept all 21 real Tailwind breakpoint
+prefix usages across `apps/web/src/**` to the new names. `sm:` and `md:` both
+collapse into `tablet:`, `lg:`/`xl:` into `desktop:`, `2xl:` into `wide:`.
+Zero breakpoint prefixes remain in the codebase; all matches now resolve to
+intentional semantic names.
+
+### Files
+- `apps/web/src/index.css` — added `--breakpoint-tablet: 640px;`,
+  `--breakpoint-desktop: 1024px;`, `--breakpoint-wide: 1440px;` inside the
+  existing `@theme inline` block.
+- `apps/web/src/components/ui/input.tsx` — `md:text-sm` → `tablet:text-sm`.
+- `apps/web/src/components/ui/alert.tsx` — `md:text-pretty` → `tablet:text-pretty`.
+- `apps/web/src/components/ui/skeleton.tsx` — `md:flex-row` → `tablet:flex-row`.
+- `apps/web/src/components/ui/dialog.tsx` — `sm:max-w-sm`, `sm:flex-row`,
+  `sm:justify-end` → `tablet:…` equivalents (2 lines).
+- `apps/web/src/components/ui/alert-dialog.tsx` — 5 class strings migrated:
+  `data-[size=default]:sm:max-w-sm`, three `sm:group-data-[size=default]/…`
+  variants in the header, `sm:flex-row sm:justify-end` in the footer, and
+  `md:text-pretty` in the description.
+- `apps/web/src/components/layout/sidebar.tsx` — `hidden md:flex` → `hidden tablet:flex`.
+- `apps/web/src/components/layout/app-layout.tsx` — `md:pb-0` → `tablet:pb-0`.
+- `apps/web/src/components/layout/mobile-tabs.tsx` — `md:hidden` → `tablet:hidden`.
+- `apps/web/src/routes/home.tsx` — three responsive class strings
+  (`md:grid-cols-4`, `md:flex-row`, `md:grid-cols-[1fr_1.6fr_1fr]`) migrated
+  to `tablet:`.
+- `apps/web/src/routes/charts.tsx` — page padding `md:px-12` → `tablet:px-12`,
+  loading grid `sm:grid-cols-2 lg:grid-cols-3` → `tablet:grid-cols-2 desktop:grid-cols-3`.
+- `apps/web/src/routes/transits.tsx` — `md:px-12` → `tablet:px-12`,
+  `md:flex-row` → `tablet:flex-row`.
+- `apps/web/src/routes/settings.tsx` — `md:px-12` → `tablet:px-12`.
+
+### Decisions
+- **Kept the existing `@theme inline` block, added the three `--breakpoint-*`
+  vars alongside tokens already registered there.** Tailwind 4 reads screen
+  definitions directly from `@theme` — the simplest place for them, and
+  colocated with `--spacing-*` / `--color-*` entries they conceptually sit
+  beside.
+- **Collapsed `sm:` + `md:` → `tablet:`.** Old `md:` used 768 px as the
+  breakpoint; new `tablet:` is 640 px, so content that previously appeared at
+  768 px now appears 128 px earlier. Every affected call site is an
+  "appear on tablet+" pattern (`hidden md:flex`, `md:flex-row`,
+  `md:grid-cols-4`, `md:text-pretty`, etc.), where appearing at a lower
+  threshold is strictly additive — content simply unlocks sooner. No logic
+  relied on the exact 768 px boundary.
+- **Collapsed `lg:` + `xl:` → `desktop:`.** Only `lg:grid-cols-3` in
+  charts.tsx was a real prefix usage; no `xl:` prefix usages existed in the
+  sweep, so the map was unambiguous.
+- **Did not touch `charts-page.css`.** Confirmed — that file uses raw
+  `@media (max-width: …)` queries, not Tailwind prefixes; the plan
+  (Phase 2.2) will migrate those queries separately.
+- **Did not touch `button.tsx` / `cva` size keys.** The `sm:`/`lg:`
+  occurrences in `button.tsx` are CVA variant keys (`size: { sm: …, lg: … }`),
+  not breakpoint prefixes.
+
+### Verification
+- `grep -rE '\b(sm|md|lg|xl|2xl):[a-z0-9\[\-]' apps/web/src` returns zero
+  matches — all Tailwind breakpoint prefixes are migrated.
+- `npm run typecheck --workspaces` passes.
+- `npm run build --workspace=apps/web` passes.
+
 ## 2026-04-19 — Grid chart cards show the aspect web
 
 ### Change

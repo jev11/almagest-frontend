@@ -156,6 +156,12 @@
   --font-display: 'Instrument Serif', 'Cormorant Garamond', 'Georgia', serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
+  /* Semantic four-tier breakpoints — replaces Tailwind's default sm/md/lg/xl/2xl.
+     Phone is 0–639 (no prefix). Use `tablet:`, `desktop:`, `wide:` for the rest. */
+  --breakpoint-tablet: 640px;
+  --breakpoint-desktop: 1024px;
+  --breakpoint-wide: 1440px;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);

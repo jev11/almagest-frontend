@@ -550,7 +550,7 @@ export function ChartsPage() {
     : displayCharts;
 
   return (
-    <div className="charts-page flex flex-col gap-6 py-8 px-6 md:px-12 h-full">
+    <div className="charts-page flex flex-col gap-6 py-8 px-6 tablet:px-12 h-full">
       {/* Editorial header */}
       <header className="charts-head">
         <div>
@@ -663,7 +663,7 @@ export function ChartsPage() {
 
       {/* Body */}
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 flex-1 content-start">
+        <div className="grid grid-cols-1 tablet:grid-cols-2 desktop:grid-cols-3 gap-4 flex-1 content-start">
           {Array.from({ length: 3 }).map((_, i) => (
             <CardSkeleton key={i} />
           ))}

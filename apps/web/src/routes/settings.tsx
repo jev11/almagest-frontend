@@ -147,7 +147,7 @@ export function SettingsPage() {
   }, [settings]);
 
   return (
-    <div className="py-8 px-6 md:px-12 overflow-y-auto">
+    <div className="py-8 px-6 tablet:px-12 overflow-y-auto">
       <div className="max-w-[640px]">
         <h1 className="text-2xl font-semibold text-foreground mb-6">Settings</h1>
 

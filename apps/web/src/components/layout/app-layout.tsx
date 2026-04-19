@@ -8,7 +8,7 @@ export function AppLayout() {
     <TooltipProvider>
       <div className="flex h-screen overflow-hidden bg-background">
         <Sidebar />
-        <main className="flex-1 overflow-y-auto pb-20 md:pb-0">
+        <main className="flex-1 overflow-y-auto pb-20 tablet:pb-0">
           <Outlet />
         </main>
         <MobileTabBar />

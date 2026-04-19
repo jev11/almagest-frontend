@@ -109,7 +109,7 @@ export function HomePage() {
       </header>
 
       {/* Stat row — 4 hero stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-gap">
+      <div className="grid grid-cols-2 tablet:grid-cols-4 gap-gap">
         <HeroStat
           eyebrow="Sun"
           value={
@@ -190,7 +190,7 @@ export function HomePage() {
       </div>
 
       {/* Hero row: chart wheel (1.3fr) + right rail (1fr) — stacks below 820px */}
-      <div className="flex flex-col md:flex-row gap-gap items-start">
+      <div className="flex flex-col tablet:flex-row gap-gap items-start">
         <div
           className="flex flex-col gap-gap min-w-0 w-full animate-fade-in"
           style={{ flex: "1.3", animationDelay: "0.05s" }}
@@ -208,7 +208,7 @@ export function HomePage() {
       </div>
 
       {/* Three-column detail row: Positions | Aspects | Element × Modality */}
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_1.6fr_1fr] gap-gap items-start animate-fade-in" style={{ animationDelay: "0.15s" }}>
+      <div className="grid grid-cols-1 tablet:grid-cols-[1fr_1.6fr_1fr] gap-gap items-start animate-fade-in" style={{ animationDelay: "0.15s" }}>
         <PlanetCard chartData={chart} apiError={sky.apiError} retry={sky.retry} />
         <AspectGrid chartData={chart} />
         <ElementModalityCard chartData={chart} />

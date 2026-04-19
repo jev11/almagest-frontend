@@ -104,7 +104,7 @@ export function Sidebar() {
     <aside
       onDoubleClick={toggle}
       className={cn(
-        "hidden md:flex flex-col bg-background border-r border-border transition-all duration-200 ease-in-out shrink-0",
+        "hidden tablet:flex flex-col bg-background border-r border-border transition-all duration-200 ease-in-out shrink-0",
         collapsed ? "w-[64px]" : "w-[220px]",
       )}
     >
