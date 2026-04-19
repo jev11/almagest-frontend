@@ -1,5 +1,141 @@
 # Agent Changelog
 
+## 2026-04-19 — Charts redesign Task 4: editorial card, table, empty state
+
+### Change
+Fourth task of the "Redesign My Charts page" plan — replace the grid/list
+bodies with three new components and wire the `NewChartTile` into the grid.
+Legacy `ChartCard` / `CloudChartCard` / inline list rows are no longer
+rendered on the charts page; real rename and delete flows are wired
+through new page-level dialogs that handle both local and cloud sources.
+
+### New files
+
+- **`apps/web/src/components/chart/chart-card-editorial.tsx`** — grid card
+  consuming `UnifiedChart`. Uses `MiniWheel` at size 120 (compact variant),
+  pinned indicator, Sun/Moon/ASC trio driven by `getChartSummary`, and a
+  dominant-element chip from `getDominantElement(chart.chart)[0]`. A
+  `DropdownMenu` trigger sits at the bottom-right of `.cc-wheel` (absolute,
+  `opacity-0 group-hover/cc:opacity-100`, staying visible on `data-popup-open`)
+  so it does not collide with the top-right `.cc-select` checkbox. The menu
+  exposes Open / Pin (toggles label) / Rename / Tag / Export / — / Delete
+  (destructive). Each item stops propagation and delegates to a prop
+  callback. Callbacks for Pin/Tag/Export are no-ops this task — Tasks 5-7
+  plug in real handlers without a prop-shape change.
+- **`apps/web/src/components/chart/charts-table.tsx`** — list variant. Header
+  row uses the design's 9-column template (`28px 44px 1.7fr 1.1fr 1fr 1fr
+  0.9fr 0.9fr 28px`). Each row renders a 32-px `MiniWheel`, pinned pin, the
+  chart name, Sun/Moon/ASC glyphs colored per element (`.g .c-{element}`),
+  birth date (UTC, month-short day year), location (fallback `—`), dominant
+  chip + first tag, `formatRelativeTime(lastViewedAt)`, and a trailing
+  `DropdownMenu`. Menu omits Open (row click already opens). Emits a single
+  `onRowMenu(action, chart)` event covering pin/rename/tag/export/delete.
+- **`apps/web/src/components/chart/empty-state.tsx`** — editorial zero-state
+  for the library. Renders the `.empty` block with eyebrow + serif `No
+  charts <em>yet</em>.` + paragraph + "New Chart" primary button, paired
+  with a decorative 300-px featured `MiniWheel` using synthesized planet
+  positions. The design reference's `.empty-examples` section and the
+  "Import chart file" button are **dropped** — no example-seeds and no
+  import feature in this product.
+
+### Modified files
+
+- **`apps/web/src/routes/charts.tsx`** — rewrote the body rendering. The
+  legacy `ChartCard` import is gone and the inline `CloudChartCard` plus the
+  two ad-hoc list-view branches are removed. New flow:
+  - Grid view renders `<NewChartTile>` as the first grid cell, followed by
+    `<ChartCardEditorial>` for each `UnifiedChart` in `displayCharts`.
+  - List view renders `<ChartsTable>` directly on the unified array.
+  - Zero-library renders `<EmptyState>`. Zero-matches (non-empty library but
+    query filters everything) still falls through to a centered muted
+    `No charts match "{query}".` message — the editorial empty is reserved
+    for true zero.
+  - Added a **`RenameDialog`** component (shadcn `Dialog`, single input,
+    Enter-to-save) that handles both sources: cloud via
+    `client.updateCloudChart(id, { name })`, local via `chartCache.set`. The
+    existing `EditMetaDialog` (notes + tags + name) is kept as-is and is
+    what the cloud `Rename` entry actually opens — because editing a cloud
+    chart is the natural superset of renaming. Local charts use the
+    name-only `RenameDialog` (tags/notes aren't editable on local yet).
+  - Added a page-level **delete confirmation** via `AlertDialog`. Single
+    `pendingDelete: UnifiedChart | null` drives it. On confirm: cloud uses
+    `client.deleteCloudChart(id)` then optimistic-removes from
+    `cloudCharts`; local uses `chartCache.delete(id)` then optimistic-removes
+    from `localCharts`. No reload round-trip — state is in sync.
+  - `onRowMenu` from the table switches on action. Rename/Delete dispatch
+    to the same handlers the grid card uses, keeping the two views
+    behavior-parity. Pin/Tag/Export still emit `toast.info("… — coming
+    soon")` per scope.
+  - Selection props are stubbed (`selected={false}`, `onToggleSelect`
+    no-op, `anySelected={false}`) — Task 6 wires multi-select. The prop
+    shape is the final one so Task 6 does not refactor.
+  - Removed the now-unused `filteredLocal` / `filteredCloud` memos and the
+    `SIGN_GLYPHS` import. Kept `formatRelativeTime`.
+  - Removed legacy imports: `Pencil`, `Trash2` icons are no longer
+    referenced directly by the page.
+- **`apps/web/src/routes/charts-page.css`** — added the scoped utility
+  primitives the ported design uses but that were never in `index.css`:
+  - `.charts-page .btn` / `.btn-primary` / `.btn-ghost` (used by
+    `EmptyState`; styled to match the port's tokens).
+  - `.charts-page .chip` base (the existing `.chip.dom-*` rules specialize
+    it).
+  - `.charts-page .g` glyph family + `.c-fire|earth|air|water` element
+    color classes (used by the trio cells in the card and the
+    Sun/Moon/ASC column in the table).
+
+### Decisions
+
+- **Where the overflow menu lives on the card.** The design reference puts
+  `.cc-select` at the top-right and never shows a 3-dot button. Our
+  production UX needs direct per-card actions (the design assumes a
+  selection-plus-bulk-bar flow we'll only wire in Task 6 / Task 7). To keep
+  the design's top-right select visible and uncluttered, the
+  `DropdownMenu` trigger lives at the **bottom-right of `.cc-wheel`**
+  (`absolute bottom-2 right-2`). It is `opacity-0` by default and fades in
+  on `group-hover/cc`, plus stays visible while the popup is open via
+  `data-[popup-open]`. The wheel container adds `group/cc` (Tailwind group
+  scope) alongside the `.cc` class so the CSS hover reveal of
+  `.cc-select` (scoped CSS) continues to work independent of the Tailwind
+  group.
+- **Cloud rename opens `EditMetaDialog`, not the simple rename.** Plan
+  language permits both — the existing cloud flow already supported
+  name + notes + tags editing, and reusing that dialog preserves parity
+  and avoids regressing cloud users to a name-only rename. Local charts
+  have no notes/tags field today, so they get the name-only
+  `RenameDialog`. When local charts gain those fields, the same policy
+  can be applied without a component-shape change.
+- **Delete is a single page-level confirmation instead of per-card
+  inline.** Matches the bulk pattern the design pushes, and simplifies
+  the card/table components to fire a pure event. Destructive action is
+  rendered via `AlertDialog` (shadcn's accessible variant) with
+  optimistic local-state removal on success.
+- **Empty vs. no-matches separation.** Only true zero-library renders
+  `<EmptyState>`. A non-empty library that the current query filters
+  down to zero keeps the pre-existing muted "No charts match '{query}'"
+  centered message — the editorial empty illustration is thematically
+  wrong for transient filter states.
+- **Legacy `chart-card.tsx` left in place.** It no longer has any
+  consumers on the charts page but I did not delete it — it may still be
+  referenced elsewhere later (e.g. chart-view) and the scope for this
+  task is about the charts page body. An orphan check is a follow-up
+  hygiene pass, not a Task 4 concern.
+
+### Verification
+
+- `npm run typecheck --workspaces` — clean across all 5 workspaces.
+- `npm run build --workspace=apps/web` — built successfully (589 ms).
+- Dev server boots cleanly on :5174 (smoke).
+
+### References
+
+- `apps/web/src/components/chart/chart-card-editorial.tsx`
+- `apps/web/src/components/chart/charts-table.tsx`
+- `apps/web/src/components/chart/empty-state.tsx`
+- `apps/web/src/routes/charts.tsx` (body rewrite + RenameDialog + delete flow)
+- `apps/web/src/routes/charts-page.css` (scoped utilities appended)
+
+---
+
 ## 2026-04-19 — Charts redesign Task 3: page shell port
 
 ### Change

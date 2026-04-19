@@ -1,6 +1,40 @@
 /* Charts page — styles specific to the Charts screen.
    All rules are scoped under .charts-page so they do not leak. */
 
+/* ─── Local utility primitives (scoped) ─────────────────── */
+.charts-page .btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 38px; padding: 0 14px; border-radius: 8px;
+  background: var(--card); border: 1px solid var(--border);
+  color: var(--fg); font-size: 13px; font-weight: 500;
+  transition: background 120ms, border-color 120ms, color 120ms;
+  cursor: pointer;
+}
+.charts-page .btn:hover { background: var(--card-hover); border-color: var(--border-strong); }
+.charts-page .btn-primary {
+  background: var(--accent); border-color: var(--accent); color: var(--accent-fg);
+}
+.charts-page .btn-primary:hover { filter: brightness(1.08); }
+.charts-page .btn-ghost {
+  background: transparent; border-color: transparent; color: var(--fg-muted);
+}
+.charts-page .btn-ghost:hover { color: var(--fg); background: var(--card-hover); }
+.charts-page .btn svg { width: 14px; height: 14px; }
+
+.charts-page .chip {
+  display: inline-flex; align-items: center;
+  padding: 3px 8px; border-radius: 999px;
+  font-size: 11px; font-weight: 500;
+  background: var(--bg-elev); border: 1px solid var(--border);
+  color: var(--fg-muted);
+}
+
+.charts-page .g { font-family: 'Noto Sans Symbols 2', sans-serif; }
+.charts-page .c-fire  { color: var(--fire); }
+.charts-page .c-earth { color: var(--earth); }
+.charts-page .c-air   { color: var(--air); }
+.charts-page .c-water { color: var(--water); }
+
 /* ─── Page-scoped accent/token aliases ─────────────────── */
 .charts-page {
   --accent: var(--primary);

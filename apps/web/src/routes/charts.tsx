@@ -1,16 +1,19 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Search, Pencil, Trash2, Tag, FileText, LayoutGrid, List } from "lucide-react";
+import { Search, Tag, FileText, LayoutGrid, List } from "lucide-react";
 import { toast } from "sonner";
 import { chartCache, useAstroClient } from "@astro-app/astro-client";
 import type { StoredChart, CloudChart } from "@astro-app/astro-client";
-import { CelestialBody } from "@astro-app/shared-types";
-import { ChartCard } from "@/components/chart/chart-card";
-import { SIGN_GLYPHS, formatRelativeTime } from "@/lib/format";
+import { ChartCardEditorial } from "@/components/chart/chart-card-editorial";
+import { ChartsTable } from "@/components/chart/charts-table";
+import type { ChartsTableAction } from "@/components/chart/charts-table";
+import { EmptyState } from "@/components/chart/empty-state";
+import { NewChartTile } from "@/components/chart/new-chart-tile";
+import { formatRelativeTime } from "@/lib/format";
 import { CardSkeleton } from "@/components/ui/skeleton";
 import { ErrorCard } from "@/components/ui/error-card";
 import { useAuth } from "@/hooks/use-auth";
-import { fromStored, fromCloud } from "@/lib/unified-chart";
+import { fromStored, fromCloud, chartHref } from "@/lib/unified-chart";
 import type { UnifiedChart } from "@/lib/unified-chart";
 import {
   Dialog,
@@ -19,6 +22,16 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import "./charts-page.css";
 
 const FREE_TIER_LIMIT = 5;
@@ -44,7 +57,90 @@ function sortCharts(charts: UnifiedChart[], sort: SortMode): UnifiedChart[] {
   return copy;
 }
 
-// ─── Edit metadata dialog ────────────────────────────────────────────────────
+// ─── Rename dialog (works for both local and cloud) ──────────────────────────
+
+interface RenameDialogProps {
+  chart: UnifiedChart;
+  getStored: (id: string) => StoredChart | undefined;
+  onClose: () => void;
+  onRenamedLocal: (id: string, name: string) => void;
+  onRenamedCloud: (updated: CloudChart) => void;
+}
+
+function RenameDialog({
+  chart,
+  getStored,
+  onClose,
+  onRenamedLocal,
+  onRenamedCloud,
+}: RenameDialogProps) {
+  const client = useAstroClient();
+  const [name, setName] = useState(chart.name);
+  const [saving, setSaving] = useState(false);
+
+  async function handleSave() {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setSaving(true);
+    try {
+      if (chart.source === "cloud") {
+        const updated = await client.updateCloudChart(chart.id, { name: trimmed });
+        onRenamedCloud(updated);
+      } else {
+        const stored = getStored(chart.id);
+        if (!stored) throw new Error("Chart not found");
+        const next: StoredChart = { ...stored, name: trimmed, updatedAt: Date.now() };
+        await chartCache.set(next);
+        onRenamedLocal(chart.id, trimmed);
+      }
+      toast.success("Chart renamed");
+      onClose();
+    } catch {
+      toast.error("Could not rename chart");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="bg-card border-border text-foreground max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Rename chart</DialogTitle>
+        </DialogHeader>
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleSave();
+          }}
+          className="w-full bg-input border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary transition-colors"
+          autoFocus
+        />
+        <DialogFooter>
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving || !name.trim()}
+            className="px-4 py-2 text-sm bg-primary hover:bg-primary-hover disabled:opacity-50 text-white font-semibold rounded-lg transition-colors"
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Edit metadata dialog (cloud full edit) ──────────────────────────────────
 
 interface EditDialogProps {
   chart: CloudChart;
@@ -146,142 +242,6 @@ function EditMetaDialog({ chart, onClose, onSaved }: EditDialogProps) {
   );
 }
 
-// ─── Cloud chart card ─────────────────────────────────────────────────────────
-
-function CloudChartCard({
-  chart,
-  onDeleted,
-  onEdited,
-}: {
-  chart: CloudChart;
-  onDeleted: () => void;
-  onEdited: (updated: CloudChart) => void;
-}) {
-  const client = useAstroClient();
-  const navigate = useNavigate();
-  const [deleting, setDeleting] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [editing, setEditing] = useState(false);
-
-  const dt = new Date(chart.birth_datetime);
-  const dateStr = dt.toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-
-  async function handleDelete() {
-    setDeleting(true);
-    try {
-      await client.deleteCloudChart(chart.id);
-      toast.success("Chart deleted");
-      onDeleted();
-    } catch {
-      toast.error("Failed to delete chart");
-    } finally {
-      setDeleting(false);
-      setConfirmDelete(false);
-    }
-  }
-
-  return (
-    <>
-      <div
-        className="group bg-card border border-border rounded-lg p-4 flex flex-col gap-3 hover:border-border-hover transition-colors cursor-pointer"
-        onClick={() => navigate(`/chart/${chart.id}?source=cloud`)}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") navigate(`/chart/${chart.id}?source=cloud`);
-        }}
-      >
-        <div className="flex items-start gap-2">
-          <div className="flex-1 min-w-0">
-            <p className="text-foreground font-medium text-sm truncate">{chart.name}</p>
-            <p className="text-muted-foreground text-xs mt-0.5">{dateStr}</p>
-          </div>
-          <div
-            className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              type="button"
-              title="Edit"
-              onClick={() => setEditing(true)}
-              className="p-1.5 text-muted-foreground hover:text-primary transition-colors rounded"
-            >
-              <Pencil size={14} />
-            </button>
-            <button
-              type="button"
-              title="Delete"
-              onClick={() => setConfirmDelete(true)}
-              className="p-1.5 text-muted-foreground hover:text-destructive transition-colors rounded"
-            >
-              <Trash2 size={14} />
-            </button>
-          </div>
-        </div>
-
-        {chart.tags && chart.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {chart.tags.map((tag) => (
-              <span
-                key={tag}
-                className="bg-secondary border border-border text-muted-foreground text-xs px-2 py-0.5 rounded"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        )}
-
-        {chart.notes && (
-          <p className="text-xs text-dim-foreground line-clamp-2">{chart.notes}</p>
-        )}
-      </div>
-
-      {confirmDelete && (
-        <Dialog open onOpenChange={() => setConfirmDelete(false)}>
-          <DialogContent className="bg-card border-border text-foreground max-w-sm">
-            <DialogHeader>
-              <DialogTitle>Delete chart?</DialogTitle>
-            </DialogHeader>
-            <p className="text-sm text-muted-foreground py-2">
-              "{chart.name}" will be permanently deleted. This cannot be undone.
-            </p>
-            <DialogFooter>
-              <button
-                type="button"
-                onClick={() => setConfirmDelete(false)}
-                className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={deleting}
-                className="px-4 py-2 text-sm bg-destructive hover:bg-destructive/80 disabled:opacity-50 text-white font-semibold rounded-lg transition-colors"
-              >
-                {deleting ? "Deleting…" : "Delete"}
-              </button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {editing && (
-        <EditMetaDialog
-          chart={chart}
-          onClose={() => setEditing(false)}
-          onSaved={onEdited}
-        />
-      )}
-    </>
-  );
-}
-
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export function ChartsPage() {
@@ -303,6 +263,12 @@ export function ChartsPage() {
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     return (localStorage.getItem("astro-charts-view") as ViewMode) ?? "cards";
   });
+
+  // Dialog state
+  const [renaming, setRenaming] = useState<UnifiedChart | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<UnifiedChart | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [editing, setEditing] = useState<CloudChart | null>(null);
 
   function setView(next: ViewMode) {
     setViewMode(next);
@@ -355,28 +321,6 @@ export function ChartsPage() {
     return sortCharts(filtered, sort);
   }, [allCharts, query, sort]);
 
-  const filteredLocal = useMemo(() => {
-    if (authenticated) return [] as StoredChart[];
-    const ids = new Set(displayCharts.map((c) => c.id));
-    return localCharts.filter((c) => ids.has(c.id))
-      .sort((a, b) => {
-        const ai = displayCharts.findIndex((x) => x.id === a.id);
-        const bi = displayCharts.findIndex((x) => x.id === b.id);
-        return ai - bi;
-      });
-  }, [authenticated, localCharts, displayCharts]);
-
-  const filteredCloud = useMemo(() => {
-    if (!authenticated) return [] as CloudChart[];
-    const ids = new Set(displayCharts.map((c) => c.id));
-    return cloudCharts.filter((c) => ids.has(c.id))
-      .sort((a, b) => {
-        const ai = displayCharts.findIndex((x) => x.id === a.id);
-        const bi = displayCharts.findIndex((x) => x.id === b.id);
-        return ai - bi;
-      });
-  }, [authenticated, cloudCharts, displayCharts]);
-
   const chartCount = allCharts.length;
   const pinnedCount = allCharts.filter((c) => c.pinned).length;
   const lastViewedAt = allCharts.reduce<number | null>((acc, c) => {
@@ -391,6 +335,83 @@ export function ChartsPage() {
 
   const loading = authenticated ? cloudLoading : localLoading;
   const hasError = authenticated ? cloudError : localError;
+
+  // ── Handlers ──
+  const getStoredById = (id: string): StoredChart | undefined =>
+    localCharts.find((c) => c.id === id);
+  const getCloudById = (id: string): CloudChart | undefined =>
+    cloudCharts.find((c) => c.id === id);
+
+  function handleOpen(c: UnifiedChart) {
+    navigate(chartHref(c));
+  }
+
+  function handleNew() {
+    if (atLimit) {
+      toast.error("Free tier reached — upgrade to add more charts");
+      return;
+    }
+    navigate("/chart/new");
+  }
+
+  function handleRename(c: UnifiedChart) {
+    // For cloud charts, open the full metadata editor so notes/tags remain editable.
+    if (c.source === "cloud") {
+      const cloud = getCloudById(c.id);
+      if (cloud) {
+        setEditing(cloud);
+        return;
+      }
+    }
+    setRenaming(c);
+  }
+
+  function handleDelete(c: UnifiedChart) {
+    setPendingDelete(c);
+  }
+
+  async function confirmDelete() {
+    if (!pendingDelete) return;
+    setDeleting(true);
+    try {
+      if (pendingDelete.source === "cloud") {
+        await client.deleteCloudChart(pendingDelete.id);
+        setCloudCharts((prev) => prev.filter((c) => c.id !== pendingDelete.id));
+      } else {
+        await chartCache.delete(pendingDelete.id);
+        setLocalCharts((prev) => prev.filter((c) => c.id !== pendingDelete.id));
+      }
+      toast.success(`"${pendingDelete.name}" deleted`);
+      setPendingDelete(null);
+    } catch {
+      toast.error("Could not delete chart");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  function handleRowMenu(action: ChartsTableAction, c: UnifiedChart) {
+    switch (action) {
+      case "rename":
+        handleRename(c);
+        return;
+      case "delete":
+        handleDelete(c);
+        return;
+      case "pin":
+        toast.info("Pin — coming soon");
+        return;
+      case "tag":
+        toast.info("Tag — coming soon");
+        return;
+      case "export":
+        toast.info("Export — coming soon");
+        return;
+    }
+  }
+
+  const isEmpty = chartCount === 0;
+  const noMatches = !isEmpty && displayCharts.length === 0;
 
   return (
     <div className="charts-page flex flex-col gap-6 py-8 px-6 md:px-12 h-full">
@@ -509,93 +530,106 @@ export function ChartsPage() {
             className="max-w-xs w-full"
           />
         </div>
-      ) : displayCharts.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center">
-          {allCharts.length === 0 ? (
-            <>
-              <p className="text-muted-foreground">No charts saved yet.</p>
-              <button
-                type="button"
-                onClick={() => navigate("/chart/new")}
-                className="text-primary text-sm hover:underline"
-              >
-                Create your first chart →
-              </button>
-            </>
-          ) : (
-            <p className="text-muted-foreground">No charts match "{query}".</p>
-          )}
+      ) : isEmpty ? (
+        <EmptyState onNew={() => navigate("/chart/new")} />
+      ) : noMatches ? (
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-muted-foreground text-sm">
+            No charts match "{query}".
+          </p>
         </div>
-      ) : authenticated ? (
-        viewMode === "cards" ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 flex-1 content-start">
-            {filteredCloud.map((c) => (
-              <CloudChartCard
-                key={c.id}
-                chart={c}
-                onDeleted={loadCloud}
-                onEdited={(updated) =>
-                  setCloudCharts((prev) =>
-                    prev.map((x) => (x.id === c.id ? updated : x)),
-                  )
-                }
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="flex flex-col gap-1 flex-1">
-            {filteredCloud.map((c) => {
-              const dt = new Date(c.birth_datetime);
-              const dateStr = dt.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-              return (
-                <div
-                  key={c.id}
-                  className="flex items-center gap-4 px-4 py-3 bg-card border border-border rounded-lg hover:border-primary/40 hover:bg-secondary cursor-pointer transition-[border-color,background-color] duration-160 ease-out"
-                  onClick={() => navigate(`/chart/${c.id}?source=cloud`)}
-                >
-                  <span className="text-foreground font-medium text-sm flex-1 truncate">{c.name}</span>
-                  <span className="text-muted-foreground text-xs shrink-0">{dateStr}</span>
-                </div>
-              );
-            })}
-          </div>
-        )
       ) : viewMode === "cards" ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 flex-1 content-start">
-          {filteredLocal.map((c) => (
-            <ChartCard
+        <div className="charts-grid">
+          <NewChartTile atLimit={atLimit} onClick={handleNew} />
+          {displayCharts.map((c) => (
+            <ChartCardEditorial
               key={c.id}
-              stored={c}
-              onDeleted={loadLocal}
-              onRenamed={(name) =>
-                setLocalCharts((prev) =>
-                  prev.map((x) => (x.id === c.id ? { ...x, name } : x)),
-                )
-              }
+              chart={c}
+              selected={false}
+              anySelected={false}
+              onToggleSelect={() => {
+                /* selection — Task 6 */
+              }}
+              onOpen={handleOpen}
+              onPin={() => toast.info("Pin — coming soon")}
+              onRename={handleRename}
+              onTag={() => toast.info("Tag — coming soon")}
+              onExport={() => toast.info("Export — coming soon")}
+              onDelete={handleDelete}
             />
           ))}
         </div>
       ) : (
-        <div className="flex flex-col gap-1 flex-1">
-          {filteredLocal.map((c) => {
-            const sunZp = c.chart.zodiac_positions[CelestialBody.Sun];
-            const signGlyph = sunZp ? (SIGN_GLYPHS[sunZp.sign] ?? "") : "";
-            const dt = new Date(c.request.datetime);
-            const dateStr = dt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
-            return (
-              <div
-                key={c.id}
-                className="flex items-center gap-4 px-4 py-3 bg-card border border-border rounded-lg hover:border-primary/40 hover:bg-secondary cursor-pointer transition-[border-color,background-color] duration-160 ease-out"
-                onClick={() => navigate(`/chart/${c.id}`)}
-              >
-                {sunZp && <span className="text-primary text-base shrink-0">{signGlyph}</span>}
-                <span className="text-foreground font-medium text-sm flex-1 truncate">{c.name}</span>
-                {c.location && <span className="text-muted-foreground text-xs shrink-0 hidden sm:block">{c.location}</span>}
-                <span className="text-muted-foreground text-xs shrink-0">{dateStr}</span>
-              </div>
+        <ChartsTable
+          charts={displayCharts}
+          selected={new Set()}
+          anySelected={false}
+          onToggleSelect={() => {
+            /* selection — Task 6 */
+          }}
+          onOpen={handleOpen}
+          onRowMenu={handleRowMenu}
+        />
+      )}
+
+      {/* Dialogs */}
+      {renaming && (
+        <RenameDialog
+          chart={renaming}
+          getStored={getStoredById}
+          onClose={() => setRenaming(null)}
+          onRenamedLocal={(id, name) =>
+            setLocalCharts((prev) =>
+              prev.map((x) => (x.id === id ? { ...x, name } : x)),
+            )
+          }
+          onRenamedCloud={(updated) =>
+            setCloudCharts((prev) =>
+              prev.map((x) => (x.id === updated.id ? updated : x)),
+            )
+          }
+        />
+      )}
+
+      {editing && (
+        <EditMetaDialog
+          chart={editing}
+          onClose={() => setEditing(null)}
+          onSaved={(updated) => {
+            setCloudCharts((prev) =>
+              prev.map((x) => (x.id === updated.id ? updated : x)),
             );
-          })}
-        </div>
+          }}
+        />
+      )}
+
+      {pendingDelete && (
+        <AlertDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setPendingDelete(null);
+          }}
+        >
+          <AlertDialogContent className="bg-card border-border text-foreground max-w-sm">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete chart?</AlertDialogTitle>
+              <AlertDialogDescription>
+                "{pendingDelete.name}" will be permanently deleted. This cannot
+                be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmDelete}
+                disabled={deleting}
+                className="bg-destructive hover:bg-destructive/80 text-white"
+              >
+                {deleting ? "Deleting…" : "Delete"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
     </div>
   );
