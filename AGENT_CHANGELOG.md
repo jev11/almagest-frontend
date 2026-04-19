@@ -1,5 +1,169 @@
 # Agent Changelog
 
+## 2026-04-19 — Grid chart cards show the aspect web
+
+### Change
+On the `/charts` page, the featured hero card's 360 px `MiniWheel` drew the
+full aspect web (red/blue lines in the center), while the grid-view chart
+cards' 120 px wheels did not — they stopped at sign glyphs, planet glyphs,
+and axes. The two contexts rendered the same chart with visibly different
+visual languages. Flipped the grid card's `MiniWheel` variant from
+`"compact"` to `"featured"` so its 120 px wheel is bumped from Tier M to
+Tier L by the existing `variant === "featured" && baseTier === "M"` rule
+in `mini-wheel.tsx`, which unlocks aspect rendering, degree ticks, and
+axis labels at the smaller size.
+
+### Files
+- `apps/web/src/components/chart/chart-card-editorial.tsx` — line 85:
+  `toMiniWheelProps(chart.chart, { size: 120, variant: "compact" })` →
+  `toMiniWheelProps(chart.chart, { size: 120, variant: "featured" })`.
+
+### Decisions
+- **Reused the existing variant bump instead of adding a new prop.**
+  `MiniWheel` already has a `variant === "featured"` escape hatch that
+  elevates Tier M to Tier L (`mini-wheel.tsx:187-188`). Adding a
+  dedicated `showAspects` / `featuredLayers` prop would be strictly more
+  surface area for the same visual outcome; the existing mechanism is
+  exactly the one intended for this case (the comment at line 184 calls
+  out the "bump tier when explicitly requested even at smaller sizes"
+  use-case).
+- **Accepted degree ticks + axis labels at 120 px as part of the bump.**
+  At 120 px the 360 degree ticks (length 0.4–1.3 px, opacity 0.35–0.9)
+  read as subtle ring texture rather than clutter, and the 7 px axis
+  labels (As/Ds/Mc/Ic) are faint but not distracting. If verification
+  shows the labels feel like noise, a follow-up can add an optional
+  `showAxisLabels` prop to suppress them on small cards — scoped
+  separately.
+- **Did not touch the list/table view (32 px, Tier S)** or the empty-
+  state demo (300 px, natural Tier L). Both paths are unaffected.
+
+## 2026-04-19 — Featured hero mini-wheel no longer clips the card edge
+
+### Change
+On the `/charts` page, the "MOST RECENT" featured hero card's mini-wheel was
+being clipped at the card's right edge on standard desktop viewports. Two
+separate layout bugs combined: the wheel column was set up as an auto-sizing
+square (`aspect-ratio: 1; width: 100%`) roughly the size of the right grid
+column (~500 px on a 1440 desktop), and the SVG inside used
+`width: 100%; height: 100%; max-width: 340px`, so its drawn content could
+extend past the card's right edge where `overflow: hidden` clipped it. On
+top of that, the card itself was a flex child of a `flex-col h-full` page
+shell; because `.featured` has `overflow: hidden`, its `min-height: auto`
+resolved to `0` per the Flexbox spec, letting the flex parent shrink the
+card below its own content and clip the wheel vertically too.
+
+### Files
+- `apps/web/src/routes/charts-page.css` — `.featured`, `.featured-wheel`,
+  and the `<920 px` stacked breakpoint.
+  - `.featured`: added `min-height: 376px` so the grid row is tall enough
+    for the wheel on desktop, and `flex-shrink: 0` so the outer flex column
+    can't collapse the card below its natural size.
+  - `.featured-wheel`: replaced `aspect-ratio: 1; width: 100%;` (which
+    tracked the full grid column) with a bounded square — `width: 100%;
+    max-width: 320px; aspect-ratio: 1 / 1; justify-self: center`.
+  - `.featured-wheel svg`: kept `width: 100%; height: 100%` so the viewBox
+    fills the now-bounded wrapper. SVG renders at 320 × 320 on desktop.
+  - `<920 px` stacked breakpoint: wheel left-aligns under the text column
+    (`justify-self: start; max-width: 260px`). `min-height: 376px` is
+    retained but harmless because the stacked content is taller.
+
+### Decisions
+- **Kept `.featured { overflow: hidden }`.** The card's `::before` radial
+  gradient accent relies on it; with the wheel bounded to 320 px it no
+  longer overflows, so clipping is no longer triggered.
+- **Fixed `min-height` in px, not row-based grid tracks.** Grid
+  `max-content` row sizing doesn't resolve `aspect-ratio` reliably on
+  nested SVG content, so driving the row height from a container
+  `min-height` is more predictable across browsers.
+- **`flex-shrink: 0` on the card.** Mitigates the
+  `overflow:hidden → min-height:auto = 0` flexbox interaction instead of
+  fighting it via per-breakpoint `min-height` overrides.
+- **No changes to `MiniWheel`** — the component emits the correct viewBox
+  and `display: block`; this was purely a container/CSS sizing issue.
+- **Verified via Playwright** at 900, 1100, 1440, and 1920 px widths: SVG
+  renders fully inside the card with visible gutters at every width and
+  the card grows to fit the stacked layout below 920 px.
+
+## 2026-04-19 — MC/IC participate in planet-ring collision avoidance
+
+### Change
+MC and IC angle labels are now movable participants in the collision
+resolver instead of fixed wide blockers. When a planet glyph lands close
+to MC or IC, the angle label shifts laterally and draws a leader line
+back to its true ecliptic tick — the same pattern already used for
+displaced planets. AS/DS behavior is unchanged (still fixed wide
+blockers pinned to the horizontal axis line).
+
+### Files
+- `packages/chart-renderer/src/layers/planet-ring.ts` — single-file change.
+  - Filter only AS/DS out of the resolver pool; MC/IC now flow through
+    `resolveCollisions` alongside planets.
+  - `angleBlockerPositions` contains only AS/DS.
+  - Include MC/IC cusp lines (indices 3, 9) in `cuspBlockers` as normal
+    thin blockers.
+  - Deleted the MC/IC cusp-proximity nudge block — the thin cusp blocker
+    above plus pair-wise label collisions subsume it.
+  - `marginForCusp` falls through to `houseMargin` for MC/IC; AS/DS
+    same-side/opposite-side logic preserved.
+
+### Decisions
+- **Kept AS/DS fixed.** User request was scoped to MC/IC; AS/DS sit on
+  the horizontal axis line by convention and their wide-blocker
+  treatment remains correct.
+- **Reused existing leader-line + tick rendering.** The draw loop
+  already branches on `pos.displaced` and on the `isAscDsc` guard for
+  ticks, so no rendering code changes were needed — MC/IC pick up leader
+  lines automatically when the resolver marks them displaced.
+- **Thin blocker on MC/IC cusp lines (not wide).** With the MC/IC label
+  itself in the pool giving pair-wise `minGlyphGap` clearance, the cusp
+  line only needs the normal thin-blocker `cuspBlockerGap` — wider would
+  over-constrain neighbouring planets.
+- **Verified via Playwright** on the home natal wheel where Sun at
+  Aries 29°26′ is within ~6° of MC at Taurus 5°40′ (reproduces the
+  screenshot case). MC label visibly shifts left of the tick, leader
+  line draws cleanly, Sun/Mercury stack remains legible.
+
+## 2026-04-19 — Mini-wheel visual upgrade (match canvas big wheel)
+
+### Change
+Rewrote `apps/web/src/components/chart/mini-wheel.tsx` to mirror the
+canvas chart-renderer's visual language. Adds element-tinted zodiac
+segments, real planet glyphs (no more `translateY(-5px)` hack), full
+ASC/DSC/MC/IC angle axes with labels, a colored aspect web, retrograde
+indicator, and degree ticks at the largest size. Driven by per-tier
+LOD (S < 64px, M 64–199px, L ≥ 200px) so the same component scales
+from 32px table-row previews to 360px featured wheels without losing
+its visual coherence.
+
+### Files
+- `apps/web/src/components/chart/mini-wheel.tsx` — full rewrite, ~410 lines.
+  - New `MiniWheelProps` fields (all optional, back-compat preserved):
+    `retrograde`, `houses`, `aspects`.
+  - `toMiniWheelProps()` now populates the new fields from `ChartData`.
+  - New `tierFor(size)`, `geometryFor(size, tier)` helpers and a
+    `segmentPath()` SVG arc builder for the 30° annular wedges.
+  - Tier S: element-tinted band + planet dots only.
+  - Tier M: + sign glyphs + planet glyphs + axis ticks.
+  - Tier L: + degree ticks + axis labels + full aspect web colored by
+    aspect type (mirrors `aspect-grid.tsx` color palette).
+
+### Decisions
+- **Stayed in SVG, did not reuse the Canvas renderer.**
+  Reusing chart-renderer would cost ~10–15ms per render (89-iter
+  spring-force collision pass) and ~50 `<canvas>` elements with
+  devicePixelRatio buffers in a populated table — unacceptable. SVG
+  stays declarative, ~0.5–2ms even at Tier L.
+- **Element opacity tuned per tier** — 0.42 / 0.26 / 0.22 (S / M / L).
+  Smaller wheels need stronger fills since there's no glyph competing
+  for attention; large wheels match the canvas wheel exactly.
+- **No collision resolution.** Featured wheel keeps planets at exact
+  longitudes; close conjunctions overlap. For a 360px preview this is
+  fine — the full chart view uses the canvas renderer when accuracy
+  matters.
+- **Aspect color tokens reuse `apps/web/src/components/home/aspect-grid.tsx`
+  conventions** rather than importing chart-renderer's theme. Keeps
+  the mini-wheel framework-agnostic of `packages/chart-renderer`.
+
 ## 2026-04-19 — Charts redesign fix: New-chart row in list view
 
 ### Change

@@ -82,7 +82,7 @@ export function ChartCardEditorial({
 
       <div className="cc-wheel relative">
         <MiniWheel
-          {...toMiniWheelProps(chart.chart, { size: 120, variant: "compact" })}
+          {...toMiniWheelProps(chart.chart, { size: 120, variant: "featured" })}
         />
         <DropdownMenu>
           <DropdownMenuTrigger

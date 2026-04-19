@@ -8,18 +8,6 @@ import type { RenderDimensions } from "./types.js";
 import { ASPECT_GLYPHS } from "../glyphs/aspect-glyphs.js";
 import { drawGlyphText } from "../glyphs/draw.js";
 
-function hexWithOpacity(hex: string, opacity: number): string {
-  const base = hex.length > 7 ? hex.slice(0, 7) : hex;
-  const alpha = Math.round(opacity * 255).toString(16).padStart(2, "0");
-  return base + alpha;
-}
-
-function orbToOpacity(orb: number): number {
-  if (orb <= 1.0) return 1.0;
-  if (orb <= 3.0) return 0.7;
-  if (orb <= 5.0) return 0.5;
-  return 0.35;
-}
 
 export function drawAspectWeb(
   ctx: CanvasRenderingContext2D,
@@ -56,9 +44,7 @@ export function drawAspectWeb(
     const pt2 = polarToCartesian(cx, cy, angle2, aspectR);
 
     const isMajor = MAJOR_ASPECTS.has(aspect.type as string);
-    const opacity = orbToOpacity(aspect.orb);
-    const baseColor = theme.aspectColors[aspect.type as AspectType] ?? "#888888";
-    const color = hexWithOpacity(baseColor, opacity);
+    const color = theme.aspectColors[aspect.type as AspectType] ?? "#888888";
 
     // Draw aspect line
     ctx.beginPath();

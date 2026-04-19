@@ -112,6 +112,11 @@ export function drawPlanetRing(
   const circularDiff = (a: number, b: number): number =>
     ((a - b) % TWO_PI + TWO_PI + Math.PI) % TWO_PI - Math.PI;
 
+  // Sideways nudge magnitude for AS/DS labels to clear the horizontal axis
+  // line. MC/IC labels are movable participants in the collision resolver
+  // (not nudged by a fixed offset).
+  const axisOffsetPx = 14;
+
   // Flip the AS/DS label to whichever side has fewer planets in the adjacent
   // ~1-sign window — the wide label blocker otherwise acts as a floor that
   // compresses a near-axis stellium and can collapse it into overlapping glyphs.
@@ -160,40 +165,39 @@ export function drawPlanetRing(
   }
 
   // House cusp angles act as fixed repulsors in the collision resolver.
-  // Exclude angular cusps (1,4,7,10 = indices 0,3,6,9) — they have dedicated
-  // angle labels rendered separately.
-  const ANGULAR_INDICES = new Set([0, 3, 6, 9]);
+  // Exclude the AS/DS cusp indices (0, 6) — those are represented as wide
+  // blockers via angleBlockerPositions. IC (index 3) and MC (index 9) cusp
+  // lines stay as thin blockers; their labels are movable participants and
+  // benefit from the normal cusp-line clearance.
   const cuspBlockers = data.houses.cusps
-    .filter((c, i): c is number => c !== undefined && !ANGULAR_INDICES.has(i))
+    .filter((c, i): c is number => c !== undefined && i !== 0 && i !== 6)
     .map((cuspLon) => longitudeToAngle(cuspLon, ascendant));
 
-  // Angle labels are fixed (not movable). Remove them from the planet pool
-  // and pass their positions as wide blockers so the resolver pushes planets
-  // away by the full minGlyphGap (not the halved cusp-line gap).
-  // Spacing between blocker points must exceed minGlyphGap to prevent
-  // equilibrium traps where a planet settles between two adjacent points.
-  const axisOffsetPx = 14;
+  // AS/DS labels are fixed (not movable). Pass their positions as wide blockers
+  // so the resolver pushes planets away by the full minGlyphGap (not the halved
+  // cusp-line gap). MC/IC labels participate in the resolver directly instead,
+  // so they get pair-wise clearance from adjacent planets and can shift laterally.
   const axisOffsetRad = axisOffsetPx / planetRingR;
   const angleBlockerPositions: number[] = [];
   for (const ap of anglePoints) {
-    // Single blocker point per angle label — wide blocker clearance (minGlyphGap)
-    // on each side provides ~68px exclusion zone, enough for the label.
+    if (ap.id !== ANGLE_IDS.asc && ap.id !== ANGLE_IDS.dsc) continue;
     const offset = ap.nudgeFromAxis ? axisOffsetRad * ap.nudgeSign : 0;
     angleBlockerPositions.push(longitudeToAngle(ap.lon, ascendant) + offset);
   }
 
-  // Remove angle points from planet positions — they'll be rendered separately
+  // Keep AS/DS out of the collision pool (they're injected at fixed positions
+  // below). MC/IC stay in so the resolver can displace them around planets.
   const planetPositions = glyphPositions.filter(
-    (pos) => !anglePoints.some((ap) => ap.id === pos.body),
+    (pos) => pos.body !== ANGLE_IDS.asc && pos.body !== ANGLE_IDS.dsc,
   );
 
   // Resolve collisions: cusp lines as thin blockers, angle labels as wide blockers
   const resolved = resolveCollisions(planetPositions, planetRingR, cuspBlockers, angleBlockerPositions);
 
-  // Re-insert angle points at their fixed positions for rendering.
-  // originalAngle = true ecliptic position (tick mark), displayAngle = nudged (label)
-  // for AS/DS, or same as originalAngle for MC/IC (label centered on tick).
+  // Re-insert AS/DS at their fixed positions for rendering. MC/IC are already
+  // in `resolved` from the resolver call (possibly displaced).
   for (const ap of anglePoints) {
+    if (ap.id !== ANGLE_IDS.asc && ap.id !== ANGLE_IDS.dsc) continue;
     const trueAngle = longitudeToAngle(ap.lon, ascendant);
     const labelAngle = ap.nudgeFromAxis ? trueAngle + axisOffsetRad * ap.nudgeSign : trueAngle;
     resolved.push({
@@ -221,22 +225,18 @@ export function drawPlanetRing(
   const houseMargin = 8 / planetRingR; // stay this many pixels away from regular cusp line
   const anglePointIds = new Set(anglePoints.map((ap) => ap.id));
 
-  // Angular-cusp margin depends on which side the label was nudged to relative
-  // to the planet. Same side: planet must clear past the label, so minGlyphGap
-  // plus the axisOffset nudge. Opposite side: minGlyphGap shrunk by the nudge,
-  // since the label sits axisOffsetPx toward the far side of the cusp line.
-  // MC/IC labels aren't nudged, so they need the full minGlyphGap centered.
+  // AS/DS angular-cusp margin depends on which side the label was nudged to
+  // relative to the planet. Same side: planet must clear past the label, so
+  // minGlyphGap plus the axisOffset nudge. Opposite side: the label sits on
+  // the far side of the axis; keep the full minGlyphGap so the clamp boundary
+  // is far enough from the axis that snapped planets still have room to separate.
+  // MC/IC fall through to `houseMargin`: their labels are movable, and the
+  // resolver's pair-wise minGlyphGap already handles planet↔label spacing.
   function marginForCusp(cuspAngle: number, planetSide: 1 | -1): number {
     for (const { angle, ap } of angularCuspMatches) {
       if (Math.abs(cuspAngle - angle) < 0.01) {
-        if (!ap.nudgeFromAxis) return COLLISION.minGlyphGap / planetRingR;
+        if (ap.id === ANGLE_IDS.mc || ap.id === ANGLE_IDS.ic) return houseMargin;
         const sameSide = ap.nudgeSign === planetSide;
-        // Same-side: planet must clear the label itself → add axisOffset to minGap.
-        // Opposite-side: label is on the far side of the axis, but the resolver can
-        // push planets past the axis during its iterations; post-resolver house
-        // clamping then snaps them back, potentially collapsing adjacent pairs.
-        // Keep the full minGlyphGap on the opposite side so the clamp boundary is
-        // far enough from the axis that snapped planets still have room to separate.
         const px = sameSide ? COLLISION.minGlyphGap + axisOffsetPx : COLLISION.minGlyphGap;
         return px / planetRingR;
       }
@@ -326,7 +326,7 @@ export function drawPlanetRing(
       }
     }
 
-    // Draw tick mark at true ecliptic position on zodiac inner edge
+    // Draw tick mark at true ecliptic position on zodiac inner edge.
     // Skip for AS/DS only — their axis lines already indicate position. MC/IC keep ticks.
     const isAscDsc = pos.body === ANGLE_IDS.asc || pos.body === ANGLE_IDS.dsc;
     const s = radius / 300;

@@ -147,6 +147,8 @@
   border-radius: var(--radius);
   margin-bottom: 24px;
   position: relative; overflow: hidden;
+  min-height: 376px;
+  flex-shrink: 0;
 }
 .charts-page .featured::before {
   content: ''; position: absolute; inset: 0;
@@ -191,15 +193,28 @@
 .charts-page .featured-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
 .charts-page .featured-wheel {
-  aspect-ratio: 1; width: 100%;
-  display: grid; place-items: center;
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 1 / 1;
+  justify-self: center;
+  display: grid;
+  place-items: center;
+  min-width: 0;
 }
-.charts-page .featured-wheel svg { width: 100%; height: 100%; max-width: 340px; }
+.charts-page .featured-wheel svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
 
 @media (max-width: 920px) {
-  .charts-page .featured { grid-template-columns: 1fr; padding: 22px; gap: 22px; }
+  .charts-page .featured {
+    grid-template-columns: 1fr;
+    padding: 22px;
+    gap: 22px;
+  }
   .charts-page .featured-name { font-size: 32px; }
-  .charts-page .featured-wheel svg { max-width: 260px; }
+  .charts-page .featured-wheel { justify-self: start; max-width: 260px; }
 }
 
 /* ─── Grid of chart cards ──────────────────────────────── */
