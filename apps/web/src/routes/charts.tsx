@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { chartCache, useAstroClient } from "@astro-app/astro-client";
 import type { StoredChart, CloudChart } from "@astro-app/astro-client";
 import { BulkActionBar } from "@/components/chart/bulk-action-bar";
+import { BulkTagDialog } from "@/components/chart/bulk-tag-dialog";
+import { BulkExportDialog } from "@/components/chart/bulk-export-dialog";
 import { ChartCardEditorial } from "@/components/chart/chart-card-editorial";
 import { ChartsTable } from "@/components/chart/charts-table";
 import type { ChartsTableAction } from "@/components/chart/charts-table";
@@ -277,6 +279,10 @@ export function ChartsPage() {
   const [bulkDeletePending, setBulkDeletePending] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
+  // Bulk dialog state (Task 7)
+  const [tagDialogOpen, setTagDialogOpen] = useState(false);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+
   const toggleSelect = useCallback((id: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -327,6 +333,11 @@ export function ChartsPage() {
       ? cloudCharts.map(fromCloud)
       : localCharts.map(fromStored);
   }, [authenticated, cloudCharts, localCharts]);
+
+  const selectedCharts = useMemo<UnifiedChart[]>(
+    () => allCharts.filter((c) => selected.has(c.id)),
+    [allCharts, selected],
+  );
 
   const displayCharts = useMemo<UnifiedChart[]>(() => {
     const q = query.trim().toLowerCase();
@@ -446,6 +457,38 @@ export function ChartsPage() {
     setBulkDeleting(false);
   }
 
+  async function handleTogglePin(chart: UnifiedChart) {
+    const nextPinned = !chart.pinned;
+    try {
+      if (chart.source === "cloud") {
+        await client.pinCloudChart(chart.id, nextPinned);
+        loadCloud();
+      } else {
+        const stored = await chartCache.get(chart.id);
+        if (!stored) return;
+        await chartCache.set({
+          ...stored,
+          pinned: nextPinned,
+          updatedAt: Date.now(),
+        });
+        loadLocal();
+      }
+      toast.success(nextPinned ? "Pinned" : "Unpinned");
+    } catch {
+      toast.error("Pin action failed");
+    }
+  }
+
+  function openTagForSingle(c: UnifiedChart) {
+    setSelected(new Set([c.id]));
+    setTagDialogOpen(true);
+  }
+
+  function openExportForSingle(c: UnifiedChart) {
+    setSelected(new Set([c.id]));
+    setExportDialogOpen(true);
+  }
+
   function handleRowMenu(action: ChartsTableAction, c: UnifiedChart) {
     switch (action) {
       case "rename":
@@ -455,13 +498,13 @@ export function ChartsPage() {
         handleDelete(c);
         return;
       case "pin":
-        toast.info("Pin — coming soon");
+        handleTogglePin(c);
         return;
       case "tag":
-        toast.info("Tag — coming soon");
+        openTagForSingle(c);
         return;
       case "export":
-        toast.info("Export — coming soon");
+        openExportForSingle(c);
         return;
     }
   }
@@ -626,10 +669,10 @@ export function ChartsPage() {
                   anySelected={anySelected}
                   onToggleSelect={toggleSelect}
                   onOpen={handleOpen}
-                  onPin={() => toast.info("Pin — coming soon")}
+                  onPin={handleTogglePin}
                   onRename={handleRename}
-                  onTag={() => toast.info("Tag — coming soon")}
-                  onExport={() => toast.info("Export — coming soon")}
+                  onTag={openTagForSingle}
+                  onExport={openExportForSingle}
                   onDelete={handleDelete}
                 />
               ))}
@@ -741,9 +784,26 @@ export function ChartsPage() {
         compareReady={selected.size === 2}
         onClear={clearSelection}
         onCompare={() => toast.info("Compare — coming soon")}
-        onTag={() => toast.info("Tag — coming soon")}
-        onExport={() => toast.info("Export — coming soon")}
+        onTag={() => setTagDialogOpen(true)}
+        onExport={() => setExportDialogOpen(true)}
         onDelete={() => setBulkDeletePending(true)}
+      />
+
+      <BulkTagDialog
+        open={tagDialogOpen}
+        charts={selectedCharts}
+        onClose={() => setTagDialogOpen(false)}
+        onApplied={() => {
+          loadLocal();
+          if (authenticated) loadCloud();
+          clearSelection();
+        }}
+      />
+
+      <BulkExportDialog
+        open={exportDialogOpen}
+        charts={selectedCharts}
+        onClose={() => setExportDialogOpen(false)}
       />
     </div>
   );

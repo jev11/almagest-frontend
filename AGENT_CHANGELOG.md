@@ -1,5 +1,64 @@
 # Agent Changelog
 
+## 2026-04-19 — Charts redesign Task 7: bulk tag / export (JSON) + pin
+
+### Change
+Seventh task of the "Redesign My Charts page" plan. Bulk Tag
+(Add / Remove / Replace) and bulk Export (JSON implementation only)
+dialogs are now wired to the Charts page selection state. Per-card and
+per-row Pin/Unpin actions are real (no more toast stub). Single-chart
+Tag / Export menu actions reuse the bulk flow by pre-selecting the
+chart.
+
+### Files
+- **New:** `apps/web/src/lib/export-charts.ts` — `safeFilename`,
+  `triggerDownload`, `exportChartsJSON`, `exportChartsPNG` (throws for
+  now; Task 8 implements PNG).
+- **New:** `apps/web/src/components/chart/bulk-tag-dialog.tsx` —
+  three-mode tag editor (Add / Remove / Replace), writes through
+  `client.updateCloudChart` (cloud) or `chartCache.set` (local).
+- **New:** `apps/web/src/components/chart/bulk-export-dialog.tsx` —
+  JSON / PNG format picker; PNG is visually disabled with "Coming soon"
+  note.
+- **Modified:** `apps/web/src/routes/charts.tsx` — wires both dialogs,
+  implements `handleTogglePin`, replaces stub handlers on card + table.
+- **Modified:** `apps/web/package.json` — added `jszip@^3.10.1`.
+
+### Decisions
+- **Single dialog code-path for bulk + single actions.** Single-chart
+  Tag / Export menu items pre-populate `selected` with the row's id and
+  open the same dialog used by the bulk bar, instead of forking the
+  dialog props into a single-chart variant. Keeps one truth for what
+  "the target set" is and avoids state drift.
+- **Export payload is the `UnifiedChart` shape, not `StoredChart` /
+  `CloudChart`.** Using the already-normalized shape means a JSON file
+  is identical whether the chart came from local cache or the backend.
+  Re-import path (Task 11 or later) can parse one format.
+- **Zip only when >1 chart.** Single-chart export writes a bare `.json`
+  — no zip overhead, matches user expectation of "I exported one thing
+  I get one file."
+- **Duplicate name disambiguation inside the zip.** Two charts named
+  "Mom" become `mom.json` and `mom-2.json`. Case-insensitive collision
+  handled by using the same `safeFilename(name)` base as the key.
+- **PNG path stubbed as disabled, not hidden.** Radio stays in the UI
+  so Task 8 only has to flip `disabled`; users also see what's coming.
+- **Pin writes `updatedAt` on local path.** Touching the `pinned` field
+  without bumping `updatedAt` would leave the cached chart looking
+  stale-but-not-changed. Cloud's `updateCloudChart` server-side updates
+  the equivalent timestamp.
+- **Success toast uses actual succeeded count** (`charts.length -
+  failures`) so a partial failure doesn't claim more than it did.
+
+### Verification
+- `npm run typecheck --workspaces` — clean across all 5 workspaces.
+- `npm run build --workspace=apps/web` — built successfully (548ms).
+
+### Deferred to Task 8
+- PNG-zip export implementation (ChartCanvas off-screen render → zip).
+- `n`-key keyboard shortcut.
+
+---
+
 ## 2026-04-19 — Charts redesign Task 6: selection + bulk action bar
 
 ### Change
