@@ -181,6 +181,10 @@
   - [x] Current sign + degree
   - [x] Progress bar (new→full→new)
   - [x] Next ingress estimate (from Moon speed + remaining degrees)
+- [x] Replace `MoonCard` with `EclipseCard` on home right rail (2026-04-19):
+  - [x] Add `nextEclipse()` helper to `packages/approx-engine/src/eclipses.ts` (astronomy-engine solar+lunar search)
+  - [x] Create `src/components/home/eclipse-card.tsx` — Next Eclipse glance (kind title, short date, zodiac position of Sun/Moon at peak, days-until)
+  - [x] Delete `moon-card.tsx`; swap import + render site in `routes/home.tsx`
 - [x] Create `src/components/home/aspects-today.tsx`:
   - [x] Calculate aspects exact within 24h (from positions + speeds)
   - [x] Sort chronologically
