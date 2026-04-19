@@ -1,5 +1,64 @@
 # Agent Changelog
 
+## 2026-04-19 — Adaptive chart-view: split layout by breakpoint
+
+### Change
+Chart-view restructures by tier. Desktop/wide keep the 1.618 : 1 split
+(wheel + aspect grid on the left, planet card + element/modality on the
+right). Phone and tablet stack every panel in a single scrolling
+column, with the wheel constrained to `max-w-[560px]` at tablet so it
+doesn't occupy the full viewport. The top bar gets phone-friendly
+reshaping: the date/time subtitle drops to a second line under the
+title row (tablet+ keeps it inline), and the tab buttons shrink from
+`text-sm`/`px-3` to `text-xs`/`px-2` to fit at 360 px alongside back,
+settings, and save icons. Loading skeleton and error card pick up the
+density-token padding. Settings dialog now caps at
+`w-[calc(100vw-2rem)] max-w-md` so it doesn't overflow at 360 px.
+
+### Files
+- `apps/web/src/routes/chart-view.tsx` — imports `useBreakpoint` and
+  branches the main content `<div>` between a desktop two-column split
+  and a phone/tablet single-column stack. Top bar updated: container
+  gap scales (`gap-gap-sm tablet:gap-4`), title row wraps
+  (`flex-col tablet:flex-row tablet:items-baseline`), subtitle hidden
+  inline on phone and re-rendered as a separate row below the top bar
+  so it's always visible without squeezing the buttons. Tab buttons
+  use responsive padding + text size. Loading skeleton + error card
+  use `p-pad tablet:p-pad-lg`. Wide tier bumps outer gap to `gap-gap-lg`
+  and padding to `p-pad-lg`. Settings dialog max-width clamped against
+  viewport so the form doesn't overflow at 360 px.
+
+### Decisions
+- **Phone: stacked single column, not tabs.** The plan scoped a tabbed
+  phone layout for chart-view. With only four panels (wheel, aspect
+  grid, planet card, element/modality) a stacked scroll reads cleaner
+  than tabs + hidden content — users scan all the numbers at once
+  rather than hunting for the tab that holds them. This is a
+  deliberate divergence from the plan; if user prefers true tabs we
+  can reintroduce them as a follow-up without touching the desktop
+  split.
+- **Tablet uses the same stacked column as phone**, not a 2-col grid
+  below the wheel. The three smaller panels (aspect grid, planet,
+  element/modality) each want ≈ 400 px to breathe; at 640–1023 px a
+  2-col would starve them. Stacking them keeps each row legible.
+- **Wheel capped at 560 px on tablet only.** On phone the wheel takes
+  full width (usually ≤ 640 anyway, fine). On tablet without the cap
+  it would balloon to nearly 768 px and dominate the viewport before
+  anything scrolls into view. 560 px keeps the wheel visible-but-not-
+  total.
+- **Top-bar subtitle relocated to a second row at phone.** Keeping it
+  inline truncated the chart name aggressively at 360 px. A second
+  line costs ~16 px of vertical space — cheap, and the chart wheel is
+  well below the fold on phone regardless.
+- **No tab-reshape for Chart/Transits mode toggle.** These are mode
+  toggles (natal vs overlay with transits), not panel tabs — kept in
+  the top bar as a small segmented control, same as desktop.
+
+### Verification
+- `npm run typecheck --workspaces` — clean across all packages.
+- `npm run build --workspace=apps/web` — 571 ms.
+- Manual resize not executed. Logic verified by inspection.
+
 ## 2026-04-19 — Adaptive transits + settings: wide variants
 
 ### Change
