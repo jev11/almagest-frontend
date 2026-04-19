@@ -1,15 +1,17 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Search, Plus, Pencil, Trash2, Tag, FileText, LayoutGrid, List } from "lucide-react";
+import { Search, Pencil, Trash2, Tag, FileText, LayoutGrid, List } from "lucide-react";
 import { toast } from "sonner";
 import { chartCache, useAstroClient } from "@astro-app/astro-client";
 import type { StoredChart, CloudChart } from "@astro-app/astro-client";
 import { CelestialBody } from "@astro-app/shared-types";
 import { ChartCard } from "@/components/chart/chart-card";
-import { SIGN_GLYPHS } from "@/lib/format";
+import { SIGN_GLYPHS, formatRelativeTime } from "@/lib/format";
 import { CardSkeleton } from "@/components/ui/skeleton";
 import { ErrorCard } from "@/components/ui/error-card";
 import { useAuth } from "@/hooks/use-auth";
+import { fromStored, fromCloud } from "@/lib/unified-chart";
+import type { UnifiedChart } from "@/lib/unified-chart";
 import {
   Dialog,
   DialogContent,
@@ -17,8 +19,30 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import "./charts-page.css";
 
 const FREE_TIER_LIMIT = 5;
+
+type SortMode = "recent" | "az" | "birth";
+type ViewMode = "cards" | "list";
+
+function sortCharts(charts: UnifiedChart[], sort: SortMode): UnifiedChart[] {
+  const copy = [...charts];
+  if (sort === "recent") {
+    copy.sort((a, b) => {
+      if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+      const av = a.lastViewedAt ?? -Infinity;
+      const bv = b.lastViewedAt ?? -Infinity;
+      if (av !== bv) return bv - av;
+      return b.createdAt - a.createdAt;
+    });
+  } else if (sort === "az") {
+    copy.sort((a, b) => a.name.localeCompare(b.name));
+  } else {
+    copy.sort((a, b) => a.birthDatetime.localeCompare(b.birthDatetime));
+  }
+  return copy;
+}
 
 // ─── Edit metadata dialog ────────────────────────────────────────────────────
 
@@ -275,12 +299,12 @@ export function ChartsPage() {
   const [cloudError, setCloudError] = useState(false);
 
   const [query, setQuery] = useState("");
-  const [viewMode, setViewMode] = useState<"cards" | "list">(() => {
-    return (localStorage.getItem("astro-charts-view") as "cards" | "list") ?? "cards";
+  const [sort, setSort] = useState<SortMode>("recent");
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    return (localStorage.getItem("astro-charts-view") as ViewMode) ?? "cards";
   });
 
-  function toggleViewMode() {
-    const next = viewMode === "cards" ? "list" : "cards";
+  function setView(next: ViewMode) {
     setViewMode(next);
     localStorage.setItem("astro-charts-view", next);
   }
@@ -312,74 +336,165 @@ export function ChartsPage() {
     if (authenticated) loadCloud();
   }, [authenticated]);
 
-  const filteredLocal = useMemo(() => {
+  const allCharts = useMemo<UnifiedChart[]>(() => {
+    return authenticated
+      ? cloudCharts.map(fromCloud)
+      : localCharts.map(fromStored);
+  }, [authenticated, cloudCharts, localCharts]);
+
+  const displayCharts = useMemo<UnifiedChart[]>(() => {
     const q = query.trim().toLowerCase();
-    return q ? localCharts.filter((c) => c.name.toLowerCase().includes(q)) : localCharts;
-  }, [localCharts, query]);
+    const filtered = q
+      ? allCharts.filter(
+          (c) =>
+            c.name.toLowerCase().includes(q) ||
+            (c.location ?? "").toLowerCase().includes(q) ||
+            c.tags.some((t) => t.toLowerCase().includes(q)),
+        )
+      : allCharts;
+    return sortCharts(filtered, sort);
+  }, [allCharts, query, sort]);
+
+  const filteredLocal = useMemo(() => {
+    if (authenticated) return [] as StoredChart[];
+    const ids = new Set(displayCharts.map((c) => c.id));
+    return localCharts.filter((c) => ids.has(c.id))
+      .sort((a, b) => {
+        const ai = displayCharts.findIndex((x) => x.id === a.id);
+        const bi = displayCharts.findIndex((x) => x.id === b.id);
+        return ai - bi;
+      });
+  }, [authenticated, localCharts, displayCharts]);
 
   const filteredCloud = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return q ? cloudCharts.filter((c) => c.name.toLowerCase().includes(q)) : cloudCharts;
-  }, [cloudCharts, query]);
+    if (!authenticated) return [] as CloudChart[];
+    const ids = new Set(displayCharts.map((c) => c.id));
+    return cloudCharts.filter((c) => ids.has(c.id))
+      .sort((a, b) => {
+        const ai = displayCharts.findIndex((x) => x.id === a.id);
+        const bi = displayCharts.findIndex((x) => x.id === b.id);
+        return ai - bi;
+      });
+  }, [authenticated, cloudCharts, displayCharts]);
 
-  const chartCount = authenticated ? cloudCharts.length : localCharts.length;
+  const chartCount = allCharts.length;
+  const pinnedCount = allCharts.filter((c) => c.pinned).length;
+  const lastViewedAt = allCharts.reduce<number | null>((acc, c) => {
+    if (c.lastViewedAt === null) return acc;
+    if (acc === null) return c.lastViewedAt;
+    return c.lastViewedAt > acc ? c.lastViewedAt : acc;
+  }, null);
+
   const chartLimit = user?.tier === "premium" ? null : FREE_TIER_LIMIT;
   const usagePct = chartLimit ? Math.min((chartCount / chartLimit) * 100, 100) : 0;
   const atLimit = chartLimit !== null && chartCount >= chartLimit;
 
   const loading = authenticated ? cloudLoading : localLoading;
   const hasError = authenticated ? cloudError : localError;
-  const displayCharts = authenticated ? filteredCloud : filteredLocal;
-  const totalCharts = authenticated ? cloudCharts.length : localCharts.length;
 
   return (
-    <div className="flex flex-col gap-6 py-8 px-6 md:px-12 h-full">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <h1 className="text-2xl font-semibold text-foreground flex-1">My Charts</h1>
-        {atLimit && (
-          <div className="hidden md:flex items-center gap-2 bg-secondary border border-[var(--color-air)]/30 text-[var(--color-air)] text-xs px-3 py-1.5 rounded-lg">
-            <span>Limit reached</span>
-            <Link to="/settings" className="underline hover:text-foreground">
-              Upgrade →
-            </Link>
+    <div className="charts-page flex flex-col gap-6 py-8 px-6 md:px-12 h-full">
+      {/* Editorial header */}
+      <header className="charts-head">
+        <div>
+          {chartCount > 0 && (
+            <div className="eyebrow">Your library · {chartCount} saved</div>
+          )}
+          <h1>
+            My <em>charts</em>
+          </h1>
+          <div className="meta">
+            {chartCount === 0 ? (
+              <span>No charts yet — cast your first below.</span>
+            ) : (
+              <>
+                <span className="num">{chartCount}</span> saved
+                <span className="dot">·</span>
+                <span className="num">{pinnedCount}</span> pinned
+                <span className="dot">·</span>
+                last opened {formatRelativeTime(lastViewedAt)}
+              </>
+            )}
           </div>
-        )}
-        <button
-          type="button"
-          onClick={() => navigate("/chart/new")}
-          disabled={atLimit}
-          title={atLimit ? "Chart limit reached — upgrade to add more" : undefined}
-          className="flex items-center gap-2 bg-primary hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors min-h-[44px]"
-        >
-          <Plus size={16} />
-          New Chart
-        </button>
-      </div>
+        </div>
+        <div className="page-head-actions">
+          {chartLimit !== null ? (
+            <div className={`usage-chip ${atLimit ? "near" : ""}`}>
+              <span>
+                <span className="num">{chartCount}</span> of {chartLimit}
+              </span>
+              <div className="track">
+                <div className="fill" style={{ width: `${usagePct}%` }} />
+              </div>
+              <Link className="upg" to="/settings">
+                Upgrade →
+              </Link>
+            </div>
+          ) : (
+            <span className="text-sm text-muted-foreground">{chartCount} saved</span>
+          )}
+        </div>
+      </header>
 
-      {/* Search + view toggle */}
-      <div className="flex gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-dim-foreground pointer-events-none" />
+      {/* Toolbar */}
+      <div className="charts-toolbar">
+        <div className="search">
+          <Search />
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search charts…"
-            className="w-full bg-input border border-border rounded-lg pl-10 pr-4 py-3 text-sm text-foreground placeholder:text-dim-foreground focus:outline-none focus:border-primary transition-colors min-h-[44px]"
+            placeholder="Search charts, locations, tags…"
           />
+          <kbd>⌘K</kbd>
         </div>
-        <button
-          type="button"
-          onClick={toggleViewMode}
-          title={viewMode === "cards" ? "Switch to list" : "Switch to cards"}
-          className="w-11 h-11 flex items-center justify-center bg-input border border-border rounded-lg text-muted-foreground hover:text-foreground transition-colors shrink-0"
-        >
-          {viewMode === "cards" ? <List size={18} /> : <LayoutGrid size={18} />}
-        </button>
+        <div className="sort-seg" role="group" aria-label="Sort charts">
+          <button
+            type="button"
+            aria-pressed={sort === "recent"}
+            onClick={() => setSort("recent")}
+          >
+            Recent
+          </button>
+          <button
+            type="button"
+            aria-pressed={sort === "az"}
+            onClick={() => setSort("az")}
+          >
+            A–Z
+          </button>
+          <button
+            type="button"
+            aria-pressed={sort === "birth"}
+            onClick={() => setSort("birth")}
+          >
+            Birth date
+          </button>
+        </div>
+        <div className="view-seg" role="group" aria-label="View mode">
+          <button
+            type="button"
+            aria-pressed={viewMode === "cards"}
+            onClick={() => setView("cards")}
+            title="Grid"
+          >
+            <LayoutGrid />
+          </button>
+          <button
+            type="button"
+            aria-pressed={viewMode === "list"}
+            onClick={() => setView("list")}
+            title="List"
+          >
+            <List />
+          </button>
+        </div>
+        <div className="toolbar-meta">
+          {displayCharts.length} of {allCharts.length}
+        </div>
       </div>
 
-      {/* Grid */}
+      {/* Body */}
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 flex-1 content-start">
           {Array.from({ length: 3 }).map((_, i) => (
@@ -396,7 +511,7 @@ export function ChartsPage() {
         </div>
       ) : displayCharts.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center">
-          {totalCharts === 0 ? (
+          {allCharts.length === 0 ? (
             <>
               <p className="text-muted-foreground">No charts saved yet.</p>
               <button
@@ -482,46 +597,6 @@ export function ChartsPage() {
           })}
         </div>
       )}
-
-      {/* Footer */}
-      <div className="flex items-center gap-4 shrink-0 pt-2 border-t border-border">
-        {chartLimit !== null ? (
-          <>
-            <span className="text-muted-foreground text-sm">
-              {chartCount} of {chartLimit} charts used
-            </span>
-            <div className="w-24 h-1 bg-secondary rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all"
-                style={{
-                  width: `${usagePct}%`,
-                  backgroundColor: atLimit ? "var(--color-fire)" : "var(--primary)",
-                }}
-              />
-            </div>
-          </>
-        ) : (
-          <span className="text-muted-foreground text-sm">
-            {chartCount} chart{chartCount !== 1 ? "s" : ""} saved
-          </span>
-        )}
-        <div className="flex-1" />
-        {!authenticated ? (
-          <Link
-            to="/login"
-            className="text-primary text-sm font-medium hover:underline"
-          >
-            Sign in to sync →
-          </Link>
-        ) : user?.tier === "free" ? (
-          <Link
-            to="/settings"
-            className="text-primary text-sm font-medium hover:underline"
-          >
-            Upgrade to Premium →
-          </Link>
-        ) : null}
-      </div>
     </div>
   );
 }

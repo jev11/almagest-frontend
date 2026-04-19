@@ -1,5 +1,74 @@
 # Agent Changelog
 
+## 2026-04-19 — Charts redesign Task 3: page shell port
+
+### Change
+Third task of the "Redesign My Charts page" plan — port the editorial
+page shell (header + toolbar + scoped CSS) and refactor the charts
+route to flow through `UnifiedChart`. Card rendering is unchanged this
+task; legacy `ChartCard` / `CloudChartCard` / list rows still render
+beneath the new shell. Task 4 replaces them with the editorial card.
+
+- **`apps/web/src/routes/charts-page.css`** (new, 494 lines) — ported
+  from `/tmp/claude-design/almagest/project/charts-page.css`. Every
+  top-level selector is prefixed with `.charts-page ` so the rules
+  don't leak. Page-scoped token aliases (`--accent`, `--fg-muted`,
+  `--bg-elev`, `--fire`/`--earth`/`--air`/`--water`, `--shadow-lg`, …)
+  map the design's names onto the tokens defined in `index.css`
+  without touching `index.css`. Stripped: `.charts-head.dense`,
+  `.charts-head.minimal`, `.cc-locked*`, `.cmp-preview*`. Kept: all
+  `.cc-*`, `.cc-trio`, `.cc-tags`, `.chip.dom-*`, featured, empty,
+  bulk-bar, charts-table, usage-chip.
+- **`apps/web/src/routes/charts.tsx`** — refactored the shell:
+  editorial header (eyebrow + serif `My <em>charts</em>` + meta line
+  with counts and `formatRelativeTime(lastViewedAt)`), toolbar
+  (`.search` with `⌘K` kbd, `.sort-seg` Recent/A–Z/Birth date,
+  `.view-seg` grid/list, right-aligned `.toolbar-meta` shown/total),
+  and a `UnifiedChart[]` data flow driven by `fromStored`/`fromCloud`
+  adapters. Sort is client-side via `sortCharts`. The old bottom
+  usage footer is gone; its role is taken by the `.usage-chip` in the
+  header. The header's "New Chart" button is removed (replaced by
+  NewChartTile in Task 4).
+- **`apps/web/src/lib/format.ts`** — added `formatRelativeTime(ms |
+  null)` (never / just now / Nm / Nh / N days / locale date).
+
+### Decisions Made
+- **Keep legacy cards this task.** Per the plan, the body still
+  renders `ChartCard` / `CloudChartCard` / list rows during the shell
+  port. `filteredLocal` / `filteredCloud` are now derived from the
+  already-sorted `displayCharts` via id lookup, so the legacy body
+  picks up the new sort/filter logic without duplicating it. Task 4
+  replaces the body with the editorial card.
+- **Scope with a page class, not CSS nesting or Shadow DOM.** Every
+  rule in `charts-page.css` is prefixed with `.charts-page `, so the
+  import is safe even if another route ends up with a `.cc` or
+  `.featured` class. Alternative would have been `@scope`, but browser
+  support is still partial; a literal prefix is the lowest-risk move.
+- **Page-scoped token aliases instead of editing `index.css`.** The
+  design's CSS uses names like `--fg-muted`, `--fg-dim`, `--bg-elev`,
+  `--fire`/`--earth`/`--air`/`--water`. These live inside the
+  `.charts-page { … }` block so they resolve only on this page and the
+  global tokens stay untouched.
+- **Meta line uses `formatRelativeTime`, not `Intl.RelativeTimeFormat`.**
+  Plan asked for a simple helper in `format.ts`; implemented exactly
+  that. `Intl.RelativeTimeFormat` would be nicer for i18n, but the
+  plan is explicit about the breakpoints (just now / Nm / Nh / N days
+  / locale date).
+- **Usage chip uses the existing `FREE_TIER_LIMIT` (5).** No change to
+  the tier model. Premium users see a plain `{count} saved` span
+  instead of the chip.
+- **Search now matches name / location / tags.** The previous charts
+  page only searched by name; the design's placeholder ("Search
+  charts, locations, tags…") implies the broader match, and the tags
+  field is already on `UnifiedChart`.
+
+### References
+- `apps/web/src/routes/charts.tsx`
+- `apps/web/src/routes/charts-page.css`
+- `apps/web/src/lib/format.ts`
+- Plan: `/home/evgeny/.claude/plans/we-need-to-redesign-stateless-dolphin.md`
+- Design source: `/tmp/claude-design/almagest/project/charts-page.css`
+
 ## 2026-04-19 — Charts redesign Task 2: MiniWheel + NewChartTile
 
 ### Change
