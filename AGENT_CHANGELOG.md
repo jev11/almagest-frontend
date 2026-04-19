@@ -1,5 +1,69 @@
 # Agent Changelog
 
+## 2026-04-19 — Adaptive transits + settings: wide variants
+
+### Change
+Transits stacks through tablet (previously tried to split at 640 px
+with a cramped side rail); splits into wheel + rail at desktop; rail
+caps at 420 px on desktop and 480 px on wide so it doesn't balloon at
+ultrawide. Outer page padding tracks `--pad` tokens. Settings gets a
+form-shaped layout: sections stack on phone, Preferences + Appearance
+split into 2 columns at tablet, and the Aspects card (which spans both
+columns) renders its orb sliders in 2 columns from desktop onward —
+using ~9 rows instead of 9 stacked rows. Container max-width scales
+640 → 900 → 1040 across tiers so very wide viewports stay readable.
+
+### Files
+- `apps/web/src/routes/transits.tsx` — outer padding → `py-pad px-pad
+  tablet:py-pad-lg tablet:px-pad-lg desktop:px-12`; outer gap →
+  `gap-gap-lg`; flex direction `tablet:flex-row` → `desktop:flex-row`;
+  left column gains `w-full` so the stacked phone layout doesn't
+  collapse to zero width before the min-w-0 kicks in; right rail adds
+  `desktop:max-w-[420px] wide:max-w-[480px]`; heading uses
+  `text-[length:var(--text-2xl)]`; card uses `p-card-pad` and the
+  Planets sub-heading picks up `--text-sm`.
+- `apps/web/src/routes/settings.tsx` — `SectionCard` padding adapts
+  (`p-card-pad tablet:p-pad-lg`) and gap is `gap-gap`; page shell uses
+  `py-pad px-pad tablet:py-pad-lg tablet:px-pad-lg desktop:px-12`;
+  container max-width `640 → 900 → 1040` across phone/desktop/wide;
+  top-level section stack becomes a 2-column grid at tablet
+  (Preferences + Appearance side-by-side, Aspects + Save/Reset span
+  both columns); orb sliders grid splits to `desktop:grid-cols-2` so
+  wide settings card reads as a form, not a 9-row list.
+
+### Decisions
+- **Transits stack threshold raised to desktop.** At 640–1023, putting
+  the wheel (≥ 400 px) beside the positions card (~ 320 px) left both
+  cramped. The wheel + rail combo only really works once the viewport
+  is ≥ 1024 px. This matches the home-hero decision from the earlier
+  commit.
+- **Rail capped at 420 / 480 px.** Without a max-width, the right rail
+  was claiming ~40% of a 1920-wide viewport (≈ 768 px), which left it
+  feeling empty. Caps keep the wheel dominant at every size above
+  desktop.
+- **Orb sliders 2-col at desktop, not tablet.** A slider + label +
+  value needs ~280 px horizontally to breathe. At tablet (640), the
+  Aspects card is already sharing screen with two top sections in a
+  grid; splitting the sliders inside would starve them. Desktop
+  (≥ 1024) with `tablet:col-span-2` gives the card a real 900-ish px
+  wide and 2-col sliders feel right.
+- **Settings max-width widens past the phone 640 px.** A 640-px form
+  on a 1440-px viewport looks lost. Stepping up to 900 / 1040 keeps
+  the grid visually anchored without turning sliders into marathon
+  bars.
+- **`flex-row` → `desktop:flex-row` on transits outer layout.** Same
+  reasoning as the home hero: tablet is not wide enough to host two
+  visually-heavy columns; the gap between the wheel and rail was too
+  tight at 768. Now phone and tablet share the stacked layout, and
+  desktop kicks in the side-by-side.
+
+### Verification
+- `npm run typecheck --workspaces` — clean across shared-types,
+  chart-renderer, astro-client, approx-engine, web.
+- `npm run build --workspace=apps/web` — 607 ms.
+- Manual resize not executed. Logic verified by inspection; no
+  `any`-typing introduced.
+
 ## 2026-04-19 — Adaptive charts list: grid + media query cleanup
 
 ### Change

@@ -47,8 +47,8 @@ const selectClass =
 
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-card border border-border rounded-lg p-6 flex flex-col gap-4">
-      <h2 className="text-card-foreground font-semibold text-lg">{title}</h2>
+    <div className="bg-card border border-border rounded-lg p-card-pad tablet:p-pad-lg flex flex-col gap-gap">
+      <h2 className="text-card-foreground font-semibold text-[length:var(--text-lg)]">{title}</h2>
       {children}
     </div>
   );
@@ -147,11 +147,12 @@ export function SettingsPage() {
   }, [settings]);
 
   return (
-    <div className="py-8 px-6 tablet:px-12 overflow-y-auto">
-      <div className="max-w-[640px]">
-        <h1 className="text-2xl font-semibold text-foreground mb-6">Settings</h1>
+    <div className="py-pad px-pad tablet:py-pad-lg tablet:px-pad-lg desktop:px-12 overflow-y-auto">
+      <div className="max-w-[640px] desktop:max-w-[900px] wide:max-w-[1040px] mx-auto">
+        <h1 className="text-[length:var(--text-2xl)] font-semibold text-foreground mb-gap-lg">Settings</h1>
 
-        <div className="flex flex-col gap-6">
+        {/* Preferences + Appearance side-by-side from tablet; Aspects always full-width */}
+        <div className="grid grid-cols-1 tablet:grid-cols-2 gap-gap-lg">
           {/* Preferences */}
           <SectionCard title="Preferences">
             <Field label="House System">
@@ -234,40 +235,42 @@ export function SettingsPage() {
             </Field>
           </SectionCard>
 
-          {/* Aspects */}
-          <SectionCard title="Aspects">
-            <div className="flex items-center gap-3">
-              <span className="text-foreground text-sm flex-1">Show minor aspects</span>
-              <Switch
-                checked={draft.aspects.showMinor}
-                onCheckedChange={() => setDraft((d) => ({ ...d, aspects: { ...d.aspects, showMinor: !d.aspects.showMinor } }))}
-              />
-            </div>
+          {/* Aspects — spans both columns on tablet+; orbs grid splits to 2-col on desktop+ */}
+          <div className="tablet:col-span-2">
+            <SectionCard title="Aspects">
+              <div className="flex items-center gap-3">
+                <span className="text-foreground text-[length:var(--text-sm)] flex-1">Show minor aspects</span>
+                <Switch
+                  checked={draft.aspects.showMinor}
+                  onCheckedChange={() => setDraft((d) => ({ ...d, aspects: { ...d.aspects, showMinor: !d.aspects.showMinor } }))}
+                />
+              </div>
 
-            <div className="flex flex-col gap-4 mt-2">
-              {Object.entries(draft.aspects.orbs).map(([aspect, orb]) => (
-                <div key={aspect} className="flex items-center gap-3">
-                  <span className="text-foreground text-sm w-[110px] shrink-0">
-                    {ASPECT_ORB_LABELS[aspect] ?? aspect}
-                  </span>
-                  <input
-                    type="range"
-                    min={1}
-                    max={15}
-                    value={orb}
-                    onChange={(e) => setDraft((d) => ({ ...d, aspects: { ...d.aspects, orbs: { ...d.aspects.orbs, [aspect]: e.target.valueAsNumber } } }))}
-                    onDoubleClick={() => setDraft((d) => ({ ...d, aspects: { ...d.aspects, orbs: { ...d.aspects.orbs, [aspect]: DEFAULT_ORBS[aspect] ?? orb } } }))}
-                    className="orb-slider flex-1"
-                  />
-                  <span className="text-muted-foreground text-xs w-6 text-right">{orb}°</span>
-                </div>
-              ))}
-            </div>
-          </SectionCard>
+              <div className="grid grid-cols-1 desktop:grid-cols-2 gap-gap mt-2">
+                {Object.entries(draft.aspects.orbs).map(([aspect, orb]) => (
+                  <div key={aspect} className="flex items-center gap-3">
+                    <span className="text-foreground text-[length:var(--text-sm)] w-[110px] shrink-0">
+                      {ASPECT_ORB_LABELS[aspect] ?? aspect}
+                    </span>
+                    <input
+                      type="range"
+                      min={1}
+                      max={15}
+                      value={orb}
+                      onChange={(e) => setDraft((d) => ({ ...d, aspects: { ...d.aspects, orbs: { ...d.aspects.orbs, [aspect]: e.target.valueAsNumber } } }))}
+                      onDoubleClick={() => setDraft((d) => ({ ...d, aspects: { ...d.aspects, orbs: { ...d.aspects.orbs, [aspect]: DEFAULT_ORBS[aspect] ?? orb } } }))}
+                      className="orb-slider flex-1"
+                    />
+                    <span className="text-muted-foreground text-[length:var(--text-xs)] w-6 text-right">{orb}°</span>
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
+          </div>
 
-          {/* Action buttons */}
+          {/* Action buttons — span both columns on tablet+ */}
           {isDirty && (
-            <div className="flex gap-3">
+            <div className="tablet:col-span-2 flex gap-gap">
               <Button onClick={handleSave} className="flex-1">
                 Save
               </Button>
@@ -279,7 +282,7 @@ export function SettingsPage() {
 
           <button
             type="button"
-            className="w-full text-destructive text-sm hover:underline py-2"
+            className="tablet:col-span-2 w-full text-destructive text-[length:var(--text-sm)] hover:underline py-2"
             onClick={handleReset}
           >
             Reset to defaults

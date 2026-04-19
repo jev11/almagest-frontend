@@ -100,12 +100,12 @@ export function TransitsPage() {
   const isToday = dateStr === today;
 
   return (
-    <div className="flex flex-col h-full py-8 px-6 tablet:px-12 gap-6 overflow-hidden">
-      <h1 className="text-2xl font-semibold text-foreground shrink-0">Transits</h1>
+    <div className="flex flex-col h-full py-pad px-pad tablet:py-pad-lg tablet:px-pad-lg desktop:px-12 gap-gap-lg overflow-hidden">
+      <h1 className="text-[length:var(--text-2xl)] font-semibold text-foreground shrink-0">Transits</h1>
 
-      <div className="flex flex-col tablet:flex-row gap-6 flex-1 min-h-0 overflow-y-auto items-start">
+      <div className="flex flex-col desktop:flex-row gap-gap-lg flex-1 min-h-0 overflow-y-auto items-start">
         {/* Left: chart + date controls */}
-        <div className="flex flex-col gap-4 min-w-0 items-center" style={{ flex: "1.618" }}>
+        <div className="flex flex-col gap-gap min-w-0 items-center w-full" style={{ flex: "1.618" }}>
           {/* Date navigation */}
           <div className="flex items-center gap-3 shrink-0">
             <button
@@ -167,10 +167,10 @@ export function TransitsPage() {
           <p className="text-dim-foreground text-xs shrink-0">Current Transits</p>
         </div>
 
-        {/* Right: planet positions */}
-        <div className="w-full overflow-y-auto" style={{ flex: "1" }}>
-          <div className="bg-card border border-border rounded-lg p-4">
-            <h3 className="text-foreground font-semibold text-sm mb-3">
+        {/* Right: planet positions — full width on phone/tablet; capped side rail on desktop+ */}
+        <div className="w-full desktop:max-w-[420px] wide:max-w-[480px] overflow-y-auto" style={{ flex: "1" }}>
+          <div className="bg-card border border-border rounded-lg p-card-pad">
+            <h3 className="text-foreground font-semibold text-[length:var(--text-sm)] mb-3">
               Planets · {formatDisplayDate(dateStr)}
             </h3>
             <table className="w-full text-sm">
