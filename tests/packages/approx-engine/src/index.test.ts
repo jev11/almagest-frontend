@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { calculateApproximate, moonPhaseAngle, moonPhaseName, findNearestPhaseDate } from "./index.js";
+import { calculateApproximate, moonPhaseAngle, moonPhaseName, findNearestPhaseDate } from "../../../../packages/approx-engine/src/index.js";
 import { CelestialBody } from "@astro-app/shared-types";
 
 // J2000.0

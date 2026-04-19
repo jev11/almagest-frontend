@@ -7,7 +7,7 @@ import {
   SIGN_GLYPHS,
   PLANET_GLYPHS,
   ASPECT_GLYPHS,
-} from "./format";
+} from "../../../../../apps/web/src/lib/format";
 import { ZodiacSign } from "@astro-app/shared-types";
 
 describe("formatDegree", () => {

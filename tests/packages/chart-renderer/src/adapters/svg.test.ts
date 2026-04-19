@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { renderRadixToSvg } from "./svg.js";
-import { darkTheme } from "../themes/dark.js";
-import { lightTheme } from "../themes/light.js";
-import { STELLIUM_CHART } from "../test-data/stellium-chart.js";
+import { renderRadixToSvg } from "../../../../../packages/chart-renderer/src/adapters/svg.js";
+import { darkTheme } from "../../../../../packages/chart-renderer/src/themes/dark.js";
+import { lightTheme } from "../../../../../packages/chart-renderer/src/themes/light.js";
+import { STELLIUM_CHART } from "../../../../../packages/chart-renderer/src/test-data/stellium-chart.js";
 
 describe("renderRadixToSvg", () => {
   it("returns a string", () => {

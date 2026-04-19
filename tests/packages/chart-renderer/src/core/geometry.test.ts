@@ -5,7 +5,7 @@ import {
   angularDistance,
   normalizeLongitude,
   signIndexFromLongitude,
-} from "./geometry.js";
+} from "../../../../../packages/chart-renderer/src/core/geometry.js";
 
 describe("longitudeToAngle", () => {
   it("places Ascendant at 9 o'clock (π radians)", () => {

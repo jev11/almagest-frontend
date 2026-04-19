@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { localTimeToUtc } from "./utils";
+import { localTimeToUtc } from "../../../../../apps/web/src/lib/utils";
 
 describe("localTimeToUtc", () => {
   it("converts NYC noon to UTC correctly (UTC-5 in winter)", () => {

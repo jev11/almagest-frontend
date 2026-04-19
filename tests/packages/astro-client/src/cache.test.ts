@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import "fake-indexeddb/auto";
-import { ChartCache } from "./cache.js";
-import type { StoredChart } from "./types.js";
+import { ChartCache } from "../../../../packages/astro-client/src/cache.js";
+import type { StoredChart } from "../../../../packages/astro-client/src/types.js";
 
 function makeChart(id: string, name = "Test"): StoredChart {
   return {

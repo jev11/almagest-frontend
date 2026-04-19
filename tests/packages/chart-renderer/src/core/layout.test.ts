@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveCollisions, type GlyphPosition } from "./layout.js";
+import { resolveCollisions, type GlyphPosition } from "../../../../../packages/chart-renderer/src/core/layout.js";
 
 function makePositions(angles: number[]): GlyphPosition[] {
   return angles.map((a, i) => ({

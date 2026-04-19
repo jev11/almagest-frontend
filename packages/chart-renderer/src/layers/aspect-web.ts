@@ -17,8 +17,8 @@ function hexWithOpacity(hex: string, opacity: number): string {
 function orbToOpacity(orb: number): number {
   if (orb <= 1.0) return 1.0;
   if (orb <= 3.0) return 0.7;
-  if (orb <= 5.0) return 0.4;
-  return 0.2;
+  if (orb <= 5.0) return 0.5;
+  return 0.35;
 }
 
 export function drawAspectWeb(

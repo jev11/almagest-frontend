@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { useSettings } from "./use-settings";
+import { useSettings } from "../../../../../apps/web/src/hooks/use-settings";
 
 const DEFAULT_ORBS = {
   conjunction: 8, opposition: 8, trine: 8, square: 8,

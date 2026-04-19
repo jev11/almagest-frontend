@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CelestialBody, ZodiacSign, Element } from "@astro-app/shared-types";
 import type { ChartData } from "@astro-app/shared-types";
-import { SIGN_MODALITY, computeDistribution, dominantKeys } from "./astro-distribution";
+import { SIGN_MODALITY, computeDistribution, dominantKeys } from "../../../../../apps/web/src/lib/astro-distribution";
 
 function makeChart(
   positions: Partial<Record<CelestialBody, ZodiacSign>>,

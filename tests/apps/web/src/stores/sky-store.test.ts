@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { useSkyStore } from "./sky-store";
+import { useSkyStore } from "../../../../../apps/web/src/stores/sky-store";
 import type { ChartData } from "@astro-app/shared-types";
 
 // Minimal stub satisfying the ChartData shape for testing

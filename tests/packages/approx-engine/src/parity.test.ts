@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { Body, Ecliptic, GeoVector } from "astronomy-engine";
 import { CelestialBody } from "@astro-app/shared-types";
-import { calculateBodyPosition } from "./index.js";
+import { calculateBodyPosition } from "../../../../packages/approx-engine/src/index.js";
 
 // Dates span ±75 years around J2000 so the tests exercise both near-epoch
 // accuracy (2000, 2026) and the far-drift regime (1975, 2075). Do not prune.

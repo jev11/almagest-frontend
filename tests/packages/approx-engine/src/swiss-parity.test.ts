@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { describe, it, expect } from "vitest";
 import { CelestialBody } from "@astro-app/shared-types";
-import { calculateBodyPosition } from "./index.js";
+import { calculateBodyPosition } from "../../../../packages/approx-engine/src/index.js";
 
 // Golden fixture produced by the backend Swiss Ephemeris C extension.
 // See fixtures/generate.py for the regeneration command.
@@ -15,7 +15,7 @@ interface GoldenRow {
 }
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const FIXTURE_PATH = resolve(__dirname, "../fixtures/swiss-ephemeris-golden.json");
+const FIXTURE_PATH = resolve(__dirname, "../../../../packages/approx-engine/fixtures/swiss-ephemeris-golden.json");
 const GOLDEN_ROWS = JSON.parse(readFileSync(FIXTURE_PATH, "utf-8")) as GoldenRow[];
 
 // Bodies covered by the fixture. The 10 classical bodies are backed by

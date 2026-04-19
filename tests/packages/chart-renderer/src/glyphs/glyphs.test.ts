@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { PLANET_GLYPHS } from "./planet-glyphs.js";
-import { SIGN_GLYPHS } from "./sign-glyphs.js";
-import { ASPECT_GLYPHS } from "./aspect-glyphs.js";
+import { PLANET_GLYPHS } from "../../../../../packages/chart-renderer/src/glyphs/planet-glyphs.js";
+import { SIGN_GLYPHS } from "../../../../../packages/chart-renderer/src/glyphs/sign-glyphs.js";
+import { ASPECT_GLYPHS } from "../../../../../packages/chart-renderer/src/glyphs/aspect-glyphs.js";
 import { CelestialBody, ZodiacSign, AspectType } from "@astro-app/shared-types";
 
 function allEnumValues(enumObj: Record<string, string>): string[] {

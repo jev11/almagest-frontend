@@ -5,7 +5,7 @@ import {
   getDignityDetail,
   getStrongestDignity,
   getHouseForLongitude,
-} from "./dignities";
+} from "../../../../../apps/web/src/lib/dignities";
 
 describe("getDignityForPlanet", () => {
   // Domicile

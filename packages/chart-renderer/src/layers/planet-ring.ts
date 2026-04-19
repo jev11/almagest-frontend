@@ -130,6 +130,24 @@ export function drawPlanetRing(
     if (countPositive > countNegative) ap.nudgeSign = -1;
   }
 
+  // If the AS/DS axis falls within 10° of a sign boundary, override nudgeSign
+  // to push the label away from that boundary. Without this, the label can land
+  // on the boundary side, trapping planets between the label and the cusp line.
+  // AS and DS are always 180° apart, and 180 is divisible by 30, so they share
+  // the same position within their signs — the check is consistent for both.
+  const SIGN_BOUNDARY_THRESHOLD = 10;
+  for (const ap of anglePoints) {
+    if (!ap.nudgeFromAxis) continue;
+    const posInSign = ap.lon % 30;
+    if (posInSign < SIGN_BOUNDARY_THRESHOLD) {
+      // Near the start of the sign; boundary is at lower longitude → push toward higher lon
+      ap.nudgeSign = 1;
+    } else if (posInSign > 30 - SIGN_BOUNDARY_THRESHOLD) {
+      // Near the end of the sign; boundary is at higher longitude → push toward lower lon
+      ap.nudgeSign = -1;
+    }
+  }
+
   for (const ap of anglePoints) {
     const trueAngle = longitudeToAngle(ap.lon, ascendant);
     const labelAngle = longitudeToAngle(ap.lon + ap.labelOffset, ascendant);
@@ -213,7 +231,13 @@ export function drawPlanetRing(
       if (Math.abs(cuspAngle - angle) < 0.01) {
         if (!ap.nudgeFromAxis) return COLLISION.minGlyphGap / planetRingR;
         const sameSide = ap.nudgeSign === planetSide;
-        const px = sameSide ? COLLISION.minGlyphGap + axisOffsetPx : COLLISION.minGlyphGap - axisOffsetPx;
+        // Same-side: planet must clear the label itself → add axisOffset to minGap.
+        // Opposite-side: label is on the far side of the axis, but the resolver can
+        // push planets past the axis during its iterations; post-resolver house
+        // clamping then snaps them back, potentially collapsing adjacent pairs.
+        // Keep the full minGlyphGap on the opposite side so the clamp boundary is
+        // far enough from the axis that snapped planets still have room to separate.
+        const px = sameSide ? COLLISION.minGlyphGap + axisOffsetPx : COLLISION.minGlyphGap;
         return px / planetRingR;
       }
     }

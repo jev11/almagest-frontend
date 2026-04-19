@@ -653,6 +653,7 @@ export const AspectsTimeline = memo(function AspectsTimeline({
                         fontSize={10}
                         textAnchor="end"
                         fill="var(--muted-foreground)"
+                        fontFamily="'Noto Sans Symbols 2', 'Noto Sans Symbols', sans-serif"
                       >
                         <tspan>{pG}</tspan>
                         <tspan style={{ fill: color }}>{aG}</tspan>

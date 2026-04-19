@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { dateToJulianDay, julianCenturies, normalizeDegrees } from "./julian.js";
+import { dateToJulianDay, julianCenturies, normalizeDegrees } from "../../../../packages/approx-engine/src/julian.js";
 
 describe("dateToJulianDay", () => {
   it("J2000.0 = JD 2451545.0", () => {

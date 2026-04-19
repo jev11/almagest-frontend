@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { findOrbCrossing, findLocalMaxIndices, orbAtTime, orbIntensity, refinePeakTime } from "./aspects-timeline-utils";
+import { findOrbCrossing, findLocalMaxIndices, orbAtTime, orbIntensity, refinePeakTime } from "../../../../../../apps/web/src/components/home/aspects-timeline-utils";
 import { CelestialBody } from "@astro-app/shared-types";
 
 describe("findLocalMaxIndices", () => {

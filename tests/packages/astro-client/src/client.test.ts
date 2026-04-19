@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { AstroClient, ApiError } from "./client.js";
+import { AstroClient, ApiError } from "../../../../packages/astro-client/src/client.js";
 
 const BASE_URL = "http://localhost:8000";
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { calculatePlanetaryHours, CHALDEAN_ORDER, DAY_RULERS } from "./planetary-hours";
+import { calculatePlanetaryHours, CHALDEAN_ORDER, DAY_RULERS } from "../../../../../apps/web/src/lib/planetary-hours";
 
 // Sunday April 5, 2026, 14:00 UTC — Moscow (55.75°N, 37.61°E)
 const MOSCOW_LAT = 55.75;
