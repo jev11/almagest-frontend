@@ -1,5 +1,45 @@
 # Agent Changelog
 
+## 2026-04-19 — Adaptive auth: login + register
+
+### Change
+Login and register pages pick up the density-token padding ladder and
+a fluid card-width ladder. Outer page padding was a flat `px-4`
+(login) / `px-4 py-12` (register); now it's `px-pad py-pad tablet:
+px-pad-lg tablet:py-pad-lg` on login and `px-pad py-pad-lg tablet:
+px-pad-lg tablet:py-12` on register (register keeps more vertical
+breathing because its form is taller). Card width stretches
+`max-w-full` on phone, `max-w-sm` on tablet, `max-w-md` on desktop.
+Card inner padding shifts from flat `p-8` to `p-card-pad tablet:
+p-pad-lg` so the form breathes with the viewport.
+
+### Files
+- `apps/web/src/routes/login.tsx` — outer padding + card width ladder
+  + card padding tokens.
+- `apps/web/src/routes/register.tsx` — same pattern; outer vertical
+  padding stays slightly larger because the form has four fields.
+
+### Decisions
+- **No change to the starfield / radial-glow backdrop.** Both use
+  percentage-based positioning and `absolute inset-0`, so they scale
+  naturally from 360 px to wide viewports. No `hidden tablet:block`
+  gate needed.
+- **max-w ladder `full / sm / md`, not `sm / sm / md`.** Using
+  `max-w-sm` at phone leaves ~384 px room — at 360 px that's wider
+  than the viewport, so the form technically just fills. But using
+  `max-w-full` is more explicit about intent and avoids any
+  edge-case horizontal scroll if the viewport is exactly 384 px.
+- **Register keeps `py-12` at tablet+.** Its form is ~520 px tall
+  (four inputs + button + link), and the page centers it
+  vertically — without extra padding the radial-glow behind gets cut
+  off awkwardly. On phone, `py-pad-lg` is enough because the viewport
+  is usually tall relative to the form.
+
+### Verification
+- `npm run typecheck --workspaces` — clean.
+- `npm run build --workspace=apps/web` — 3.52 s (first warm build
+  after clean dist; subsequent builds ~600 ms).
+
 ## 2026-04-19 — Adaptive chart-new: responsive form
 
 ### Change

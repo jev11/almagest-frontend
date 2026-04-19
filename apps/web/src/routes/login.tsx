@@ -67,7 +67,7 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4 relative overflow-hidden">
+    <div className="min-h-screen bg-background flex items-center justify-center px-pad py-pad tablet:px-pad-lg tablet:py-pad-lg relative overflow-hidden">
       {/* Starfield backdrop */}
       <svg
         className="absolute inset-0 w-full h-full pointer-events-none"
@@ -99,7 +99,7 @@ export function LoginPage() {
       />
 
       {/* Card */}
-      <div className="relative w-full max-w-[400px]">
+      <div className="relative w-full max-w-full tablet:max-w-sm desktop:max-w-md">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
           <div
@@ -126,7 +126,7 @@ export function LoginPage() {
         <form
           onSubmit={handleSubmit}
           noValidate
-          className="bg-card border border-border rounded-xl p-8 flex flex-col gap-5"
+          className="bg-card border border-border rounded-xl p-card-pad tablet:p-pad-lg flex flex-col gap-5"
           style={{ boxShadow: "0 24px 64px rgba(0,0,0,0.5)" }}
         >
           {errors.form && (
