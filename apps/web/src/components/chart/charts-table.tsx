@@ -1,5 +1,5 @@
 import type { JSX } from "react";
-import { Check, Pin, MoreVertical, Pencil, Tag, Download, Trash2 } from "lucide-react";
+import { Check, Pin, MoreVertical, Pencil, Tag, Download, Trash2, Plus } from "lucide-react";
 import type { UnifiedChart } from "@/lib/unified-chart";
 import { MiniWheel, toMiniWheelProps } from "@/components/chart/mini-wheel";
 import { getChartSummary, getDominantElement } from "@/lib/chart-summary";
@@ -18,6 +18,8 @@ interface ChartsTableProps {
   charts: UnifiedChart[];
   selected: Set<string>;
   anySelected: boolean;
+  atLimit: boolean;
+  onNew: () => void;
   onToggleSelect: (id: string) => void;
   onOpen: (chart: UnifiedChart) => void;
   onRowMenu: (action: ChartsTableAction, chart: UnifiedChart) => void;
@@ -27,6 +29,8 @@ export function ChartsTable({
   charts,
   selected,
   anySelected,
+  atLimit,
+  onNew,
   onToggleSelect,
   onOpen,
   onRowMenu,
@@ -44,6 +48,7 @@ export function ChartsTable({
         <div className="hide-sm">Last viewed</div>
         <div></div>
       </div>
+      <NewChartRow atLimit={atLimit} onClick={onNew} />
       {charts.map((c) => (
         <TableRow
           key={c.id}
@@ -210,6 +215,43 @@ function TableRow({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+      </div>
+    </div>
+  );
+}
+
+interface NewChartRowProps {
+  atLimit: boolean;
+  onClick: () => void;
+}
+
+function NewChartRow({ atLimit, onClick }: NewChartRowProps): JSX.Element {
+  return (
+    <div
+      className="tr tr-new"
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      aria-label="Create new chart"
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+    >
+      <div></div>
+      <div className="mini-wheel tr-new-icon" aria-hidden="true">
+        <Plus size={16} strokeWidth={1.75} />
+      </div>
+      <div className="tr-new-name">
+        New <em>chart</em>
+      </div>
+      <div className="hide-sm tr-new-sub" style={{ gridColumn: "4 / 9" }}>
+        {atLimit ? "Free tier reached — upgrade to add more" : "Cast a natal chart for anyone"}
+      </div>
+      <div className="hide-sm tr-new-kbd">
+        <kbd>N</kbd>
       </div>
     </div>
   );

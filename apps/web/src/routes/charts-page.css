@@ -373,6 +373,45 @@
   cursor: pointer;
 }
 .charts-page .charts-table .tr:last-child { border-bottom: 0; }
+
+/* New-chart row (list view) */
+.charts-page .charts-table .tr-new { color: var(--fg-muted); }
+.charts-page .charts-table .tr-new:hover { background: var(--card-hover); color: var(--fg); }
+.charts-page .charts-table .tr-new .tr-new-icon {
+  color: var(--fg-dim);
+  transition: color 160ms, border-color 160ms, transform 240ms cubic-bezier(.23,1,.32,1);
+}
+.charts-page .charts-table .tr-new:hover .tr-new-icon {
+  color: var(--accent);
+  border-color: var(--border-strong);
+  transform: rotate(90deg);
+}
+.charts-page .charts-table .tr-new .tr-new-name {
+  font-family: 'Instrument Serif', serif;
+  font-size: 16px; font-weight: 400; line-height: 1;
+  letter-spacing: -0.01em;
+  color: var(--fg);
+  display: flex; align-items: center;
+}
+.charts-page .charts-table .tr-new .tr-new-name em {
+  font-style: italic; color: var(--accent); margin-left: 4px;
+}
+.charts-page .charts-table .tr-new .tr-new-sub {
+  font-size: 12px; color: var(--fg-dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.charts-page .charts-table .tr-new .tr-new-kbd {
+  display: flex; align-items: center; justify-content: flex-end;
+  opacity: 0; transition: opacity 160ms;
+}
+.charts-page .charts-table .tr-new:hover .tr-new-kbd { opacity: 1; }
+.charts-page .charts-table .tr-new .tr-new-kbd kbd {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; color: var(--fg-dim);
+  background: var(--bg-elev); border: 1px solid var(--border);
+  padding: 2px 6px; border-radius: 4px;
+  letter-spacing: 0.05em;
+}
 .charts-page .charts-table .tr.thead {
   height: 36px;
   color: var(--fg-dim); font-size: 10.5px;

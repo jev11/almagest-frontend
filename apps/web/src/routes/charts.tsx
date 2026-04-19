@@ -710,6 +710,8 @@ export function ChartsPage() {
               charts={bodyCharts}
               selected={selected}
               anySelected={anySelected}
+              atLimit={atLimit}
+              onNew={handleNew}
               onToggleSelect={toggleSelect}
               onOpen={handleOpen}
               onRowMenu={handleRowMenu}

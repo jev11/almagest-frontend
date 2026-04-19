@@ -1,5 +1,34 @@
 # Agent Changelog
 
+## 2026-04-19 — Charts redesign fix: New-chart row in list view
+
+### Change
+List view now shows a "New chart" row at the top of the table,
+mirroring the grid-view `NewChartTile`. Row text reads
+`New chart · Cast a natal chart for anyone` (or `Free tier reached —
+upgrade to add more` at limit), has a rotating `+` icon on hover and
+a `<kbd>N</kbd>` hint that fades in on hover.
+
+### Files
+- `apps/web/src/components/chart/charts-table.tsx` — added `atLimit`
+  and `onNew` props; rendered a `NewChartRow` subcomponent inside the
+  table before the data rows. Keyboard accessible (Enter/Space).
+- `apps/web/src/routes/charts.tsx` — passes `atLimit` + `handleNew`
+  through to `ChartsTable`.
+- `apps/web/src/routes/charts-page.css` — scoped `.tr-new` styles
+  (serif name, rotating `+` icon, hovering kbd hint, sub-text
+  truncation).
+
+### Decisions
+- Row placed **inside** the table (above data rows) rather than as a
+  separate tile above the table, so it participates in the table's
+  grid alignment and shares the hover affordance pattern with the
+  other rows.
+- The plus-icon hover rotates 90° (clockwise) to mirror the grid
+  tile's 30° ghost-wheel rotation — deliberately different, since
+  the table row has no ghost wheel and a 90° cross is a cleaner read
+  at 32 px.
+
 ## 2026-04-19 — Charts redesign Task 8: PNG export + 'N' shortcut + polish
 
 ### Change
