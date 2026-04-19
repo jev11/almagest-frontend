@@ -1,5 +1,72 @@
 # Agent Changelog
 
+## 2026-04-19 — Adaptive home: page + components
+
+### Change
+Tightened the home page and its cards so phone (360 px) reads as a
+well-proportioned single column, tablet (640–1023) gets a sensible
+2-column detail row without the cramped 1.6fr middle panel, desktop
+(≥1024) restores the classic 3-column layout, and wide (≥1440) gets
+extra gap breathing room. Outer page padding now tracks `--pad`
+(14/16/18/22 by tier) instead of a flat 32 px. The hero `<h1>` scales
+32 → 44 → 52 px. The AspectGrid's fixed 36 px cell size — which
+overflowed at phone widths with 17 columns (612 px) — now scales by
+tier (22 → 30 → 36 → 40) and the card itself permits horizontal scroll
+as a safety net.
+
+### Files
+- `apps/web/src/routes/home.tsx` — outer padding `px-pad py-pad` with
+  `tablet:` bump; adaptive h1 font (`text-[32px] tablet:text-[44px]
+  desktop:text-[52px]`); hero row now `desktop:flex-row` (was `tablet:`,
+  too cramped at 640); detail row now `tablet:grid-cols-2
+  desktop:grid-cols-[1fr_1.6fr_1fr]` with AspectGrid spanning both tablet
+  columns; `wide:gap-gap-lg` on the stat row.
+- `apps/web/src/components/home/hero-stat.tsx` — font scales
+  22 → 26 → 28 → 30 across tiers; `p-pad` → `p-card-pad`; phone min-h
+  trimmed to 104 px so 2 rows at 360 don't tower.
+- `apps/web/src/components/home/aspect-grid.tsx` — per-tier CELL_SIZE
+  constant, `useBreakpoint()` wiring, `overflow-x-auto` on the card for
+  safety at <360 and any future column additions; `p-pad` → `p-card-pad`.
+- `apps/web/src/components/home/moon-card.tsx` — phase-icon / phase-name
+  fonts adapt (`text-[36px] tablet:text-[44px]` and
+  `text-[18px] tablet:text-[22px]`); `gap-[18px]` → `gap-gap` (adaptive);
+  `p-pad` → `p-card-pad`.
+- `apps/web/src/components/home/planet-card.tsx`,
+  `planetary-hours.tsx`, `retrograde-tracker.tsx`,
+  `element-modality-card.tsx`, `aspects-timeline.tsx` — card container
+  padding unified under `p-card-pad` so the card-interior density lever
+  works for all home cards.
+
+### Decisions
+- **Hero row at `desktop:flex-row`, not `tablet:`.** The wheel is
+  already ~420 px tall at tablet portrait; pairing it with the
+  Moon/Hours/Retrograde stack inside 640–1023 px crowded both columns.
+  Keeping them stacked through tablet gives each card room, and the
+  side-by-side layout kicks in at 1024 where there's genuinely space
+  for both.
+- **AspectGrid spans both tablet columns, single column on desktop.**
+  The 17-cell-wide grid is the widest card on the page; giving it a
+  full tablet row (with PlanetCard + ElementModalityCard sharing the
+  row above) reads much better than cramming all three into a 1.6fr
+  middle lane at 800 px viewport.
+- **Per-tier CELL_SIZE via `useBreakpoint()`.** CSS alone can't set
+  `gridTemplateColumns: repeat(17, <responsive>)` because the font-size
+  must match the cell size (glyphs are sized in em). A breakpoint hook
+  is the honest way to swap the numeric constant.
+- **`p-card-pad` over `p-pad`.** `--card-pad` is the token intended for
+  card interior padding; it scales slightly more aggressively than
+  `--pad` (14 / 16 / 18 / 20 vs 14 / 16 / 18 / 22). Home cards now
+  consistently pick it up.
+- **Hero stat min-height reduced on phone.** The old 118 px floor was
+  fine at 28 px font but over-tall with the new 22 px phone font.
+
+### Verification
+- `npm run typecheck --workspace=apps/web` — clean.
+- `npm run build --workspace=apps/web` — succeeds in 1.99 s.
+- Manual resize not executed in this session; logic verified by
+  inspection. AspectGrid's overflow-x-auto safety net covers any
+  miscalculation at <320 px.
+
 ## 2026-04-19 — Adaptive foundation: chart-renderer density input
 
 ### Change

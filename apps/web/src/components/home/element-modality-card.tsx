@@ -99,7 +99,7 @@ export function ElementModalityCard({ chartData }: Props) {
 
   return (
     <Card className="card-hover py-0">
-      <CardContent className="p-pad">
+      <CardContent className="p-card-pad">
         <div className="flex items-baseline justify-between mb-3.5">
           <div className="card-title">Element × Modality</div>
         </div>

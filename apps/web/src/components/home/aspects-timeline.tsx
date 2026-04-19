@@ -535,7 +535,7 @@ export const AspectsTimeline = memo(function AspectsTimeline({
   const isLoading = bars.length === 0;
 
   return (
-    <div className="bg-card border border-border rounded-lg p-pad card-hover">
+    <div className="bg-card border border-border rounded-lg p-card-pad card-hover">
       <div className="flex items-baseline justify-between mb-3.5">
         <div className="card-title">{title}</div>
       </div>

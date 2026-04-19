@@ -119,7 +119,7 @@ export function PlanetCard({
       className="card-hover cursor-pointer py-0"
       onClick={() => setExpanded((v) => !v)}
     >
-      <CardContent className="p-pad-sm">
+      <CardContent className="p-card-pad">
       <div className="flex items-baseline justify-between mb-3.5">
         <div className="card-title">Positions</div>
         <span className="text-[12px] text-muted-foreground tabular-nums">

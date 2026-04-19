@@ -3,6 +3,7 @@ import { CelestialBody, AspectType, Element, SIGN_ELEMENT, SIGN_ORDER } from "@a
 import type { CurrentSkyState } from "@/hooks/use-current-sky";
 import { ASPECT_GLYPHS } from "@/lib/format";
 import { useSettings } from "@/hooks/use-settings";
+import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { Card, CardContent } from "@/components/ui/card";
 
 const ELEMENT_VAR: Record<Element, string> = {
@@ -141,7 +142,14 @@ const ANGLE_ENTRIES: BodyEntry[] = [
 
 const ANGLE_KEYS = ["asc", "mc", "desc", "ic"] as const;
 
-const CELL_SIZE = 36;
+// Per-tier cell size — phone squeezes the 17-column grid to fit ~360px widths,
+// while desktop/wide uses the generous original 36px.
+const CELL_SIZE_BY_TIER: Record<"phone" | "tablet" | "desktop" | "wide", number> = {
+  phone: 22,
+  tablet: 30,
+  desktop: 36,
+  wide: 40,
+};
 
 interface Props {
   chartData: CurrentSkyState["chartData"];
@@ -151,6 +159,8 @@ interface Props {
 export const AspectGrid = memo(function AspectGrid({ chartData, nodeType: nodeTypeProp }: Props) {
   const globalNodeType = useSettings((s) => s.defaults.nodeType);
   const nodeType = nodeTypeProp ?? globalNodeType;
+  const { tier } = useBreakpoint();
+  const cellSize = CELL_SIZE_BY_TIER[tier];
   const gridBodies = useMemo(
     () => [...BASE_GRID_BODIES, ...(NODE_ENTRIES[nodeType] ?? NODE_ENTRIES.mean), ...ANGLE_ENTRIES],
     [nodeType],
@@ -223,7 +233,7 @@ export const AspectGrid = memo(function AspectGrid({ chartData, nodeType: nodeTy
 
   return (
     <Card className="card-hover py-0">
-      <CardContent className="p-pad">
+      <CardContent className="p-card-pad overflow-x-auto">
         <div className="flex items-baseline justify-between mb-3.5">
           <div className="card-title">Aspects</div>
           <span className="text-[12px] text-muted-foreground tabular-nums">
@@ -231,10 +241,10 @@ export const AspectGrid = memo(function AspectGrid({ chartData, nodeType: nodeTy
           </span>
         </div>
         <div
-          className="grid"
+          className="grid mx-auto w-fit"
           style={{
-            gridTemplateColumns: `repeat(${N}, ${CELL_SIZE}px)`,
-            fontSize: `${CELL_SIZE}px`,
+            gridTemplateColumns: `repeat(${N}, ${cellSize}px)`,
+            fontSize: `${cellSize}px`,
           }}
           onMouseLeave={() => setHover(null)}
         >
