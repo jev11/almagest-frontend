@@ -183,39 +183,40 @@ export function BirthDataForm() {
         )}
       </div>
 
-      {/* House System */}
-      <div>
-        <Label className="text-xs text-muted-foreground mb-1.5 font-medium">House System</Label>
-        <Select
-          value={houseSystem}
-          onValueChange={(v) => { if (v) setHouseSystem(v as HouseSystem); }}
-        >
-          <SelectTrigger className="min-h-[44px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {HOUSE_SYSTEMS.map((h) => (
-              <SelectItem key={h.value} value={h.value}>{h.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      {/* House System + Zodiac Type — side-by-side on tablet+, stacked on phone */}
+      <div className="grid grid-cols-1 tablet:grid-cols-2 gap-5 tablet:gap-4">
+        <div>
+          <Label className="text-xs text-muted-foreground mb-1.5 font-medium">House System</Label>
+          <Select
+            value={houseSystem}
+            onValueChange={(v) => { if (v) setHouseSystem(v as HouseSystem); }}
+          >
+            <SelectTrigger className="min-h-[44px] w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {HOUSE_SYSTEMS.map((h) => (
+                <SelectItem key={h.value} value={h.value}>{h.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
-      {/* Zodiac Type */}
-      <div>
-        <Label className="text-xs text-muted-foreground mb-1.5 font-medium">Zodiac Type</Label>
-        <Select
-          value={zodiacType}
-          onValueChange={(v) => { if (v) setZodiacType(v as ZodiacType); }}
-        >
-          <SelectTrigger className="min-h-[44px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ZodiacType.Tropical}>Tropical</SelectItem>
-            <SelectItem value={ZodiacType.Sidereal}>Sidereal</SelectItem>
-          </SelectContent>
-        </Select>
+        <div>
+          <Label className="text-xs text-muted-foreground mb-1.5 font-medium">Zodiac Type</Label>
+          <Select
+            value={zodiacType}
+            onValueChange={(v) => { if (v) setZodiacType(v as ZodiacType); }}
+          >
+            <SelectTrigger className="min-h-[44px] w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ZodiacType.Tropical}>Tropical</SelectItem>
+              <SelectItem value={ZodiacType.Sidereal}>Sidereal</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Ayanamsa (sidereal only) */}

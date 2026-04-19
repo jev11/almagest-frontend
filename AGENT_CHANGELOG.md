@@ -1,5 +1,53 @@
 # Agent Changelog
 
+## 2026-04-19 — Adaptive chart-new: responsive form
+
+### Change
+The New Chart page and its embedded birth-data form shift to density
+tokens and a fluid width. On phone the card stretches `max-w-full`
+with `p-card-pad` inside; tablet caps at 480 px (current); desktop
+widens to 560 px so the form breathes. House System and Zodiac Type
+now share a 2-column row at tablet+ — they're short, single-select
+dropdowns and stacking them burned vertical space. Outer padding
+follows the tokens (`px-pad py-pad tablet:px-pad-lg tablet:py-pad-lg`)
+and the container uses `items-start` on phone (form anchored to the
+top of the viewport so the first field is visible without scrolling
+past whitespace) and `items-center` on tablet+.
+
+### Files
+- `apps/web/src/routes/chart-new.tsx` — outer padding switches to
+  density tokens, card width ladder `max-w-full / 480 / 560`, card
+  inner padding `p-card-pad tablet:p-pad-lg`, vertical alignment
+  phone `items-start` tablet+ `items-center`.
+- `apps/web/src/components/forms/birth-data-form.tsx` — House System +
+  Zodiac Type wrapped in a `grid grid-cols-1 tablet:grid-cols-2 gap-5
+  tablet:gap-4`; select triggers get `w-full` to fill the grid cell.
+  All other fields remain single-column — date/time already sit
+  horizontally inside `DateTimePicker`, location search has its own
+  popover width logic.
+
+### Decisions
+- **Only House System + Zodiac Type paired on tablet.** Date + Time
+  are already side-by-side inside `DateTimePicker`. Name + Location
+  are wider-than-half natively (name is free-form, location shows
+  coordinate text below). Pairing only the two short enum selects
+  keeps the form's visual rhythm legible.
+- **Card padding from `--card-pad`, not `p-8`.** The previous `p-8`
+  (32 px) was too much at 360 px — ate a quarter of the viewport
+  horizontally. `--card-pad` = 14 / 16 / 18 / 20 across tiers gives a
+  natural ladder that widens as the card widens.
+- **Page padding `px-pad py-pad` phone, `px-pad-lg py-pad-lg` tablet+.**
+  Matches the transits/settings pattern from the previous commit —
+  keeps the form card 14 px from the viewport edge on phone, 24–32 px
+  on tablet+.
+- **LocationSearch popover left alone.** It already uses
+  `w-[var(--anchor-width)] min-w-[200px]`, so it matches its trigger
+  width. No adjustments needed at phone.
+
+### Verification
+- `npm run typecheck --workspaces` — clean.
+- `npm run build --workspace=apps/web` — 597 ms.
+
 ## 2026-04-19 — Adaptive chart-view: split layout by breakpoint
 
 ### Change
