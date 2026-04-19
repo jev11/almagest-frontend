@@ -1,26 +1,6 @@
 /* Charts page — styles specific to the Charts screen.
    All rules are scoped under .charts-page so they do not leak. */
 
-/* ─── Local utility primitives (scoped) ─────────────────── */
-.charts-page .btn {
-  display: inline-flex; align-items: center; gap: 8px;
-  height: 38px; padding: 0 14px; border-radius: 8px;
-  background: var(--card); border: 1px solid var(--border);
-  color: var(--fg); font-size: 13px; font-weight: 500;
-  transition: background 120ms, border-color 120ms, color 120ms;
-  cursor: pointer;
-}
-.charts-page .btn:hover { background: var(--card-hover); border-color: var(--border-strong); }
-.charts-page .btn-primary {
-  background: var(--accent); border-color: var(--accent); color: var(--accent-fg);
-}
-.charts-page .btn-primary:hover { filter: brightness(1.08); }
-.charts-page .btn-ghost {
-  background: transparent; border-color: transparent; color: var(--fg-muted);
-}
-.charts-page .btn-ghost:hover { color: var(--fg); background: var(--card-hover); }
-.charts-page .btn svg { width: 14px; height: 14px; }
-
 .charts-page .chip {
   display: inline-flex; align-items: center;
   padding: 3px 8px; border-radius: 999px;
@@ -111,30 +91,6 @@
   position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
   width: 14px; height: 14px; color: var(--fg-dim);
 }
-.charts-page .search kbd {
-  position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
-  font: inherit; font-family: 'JetBrains Mono', monospace;
-  font-size: 10.5px; color: var(--fg-dim);
-  background: var(--bg-elev); border: 1px solid var(--border);
-  padding: 1px 5px; border-radius: 4px;
-}
-
-.charts-page .sort-seg, .charts-page .view-seg {
-  display: inline-flex; align-items: center;
-  background: var(--card); border: 1px solid var(--border);
-  border-radius: 8px; padding: 2px; height: 38px;
-}
-.charts-page .sort-seg button, .charts-page .view-seg button {
-  padding: 0 10px; height: 30px; border-radius: 6px;
-  font-size: 12px; font-weight: 500; color: var(--fg-muted);
-  display: inline-flex; align-items: center; gap: 5px;
-  transition: background 120ms, color 120ms;
-}
-.charts-page .sort-seg button[aria-pressed="true"], .charts-page .view-seg button[aria-pressed="true"] {
-  background: var(--bg-elev); color: var(--fg);
-  box-shadow: 0 0 0 1px var(--border);
-}
-.charts-page .sort-seg button svg, .charts-page .view-seg button svg { width: 13px; height: 13px; }
 
 .charts-page .toolbar-meta {
   margin-left: auto;
@@ -142,272 +98,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* ─── Featured (editorial hero chart) ──────────────────── */
-.charts-page .featured {
-  display: grid; grid-template-columns: 1.4fr 1fr;
-  gap: 32px; padding: 28px;
-  background: var(--card); border: 1px solid var(--border);
-  border-radius: var(--radius);
-  margin-bottom: 24px;
-  position: relative; overflow: hidden;
-  min-height: 376px;
-  flex-shrink: 0;
-}
-.charts-page .featured::before {
-  content: ''; position: absolute; inset: 0;
-  background: radial-gradient(circle at 85% 20%, var(--accent-soft), transparent 55%);
-  pointer-events: none;
-}
-.charts-page .featured > * { position: relative; z-index: 1; }
-.charts-page .featured .eyebrow {
-  font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase;
-  color: var(--accent); font-weight: 600; margin-bottom: 14px;
-}
-.charts-page .featured-name {
-  font-family: 'Instrument Serif', serif; font-weight: 400;
-  font-size: 42px; line-height: 1.02; letter-spacing: -0.02em;
-  margin: 0 0 12px;
-}
-.charts-page .featured-meta {
-  font-size: 13.5px; color: var(--fg-muted); margin-bottom: 18px;
-  display: flex; flex-wrap: wrap; gap: 14px; align-items: center;
-}
-.charts-page .featured-meta .mono { font-size: 12px; }
-.charts-page .featured-big-trio {
-  display: grid; grid-template-columns: repeat(3, 1fr);
-  gap: 14px; margin-bottom: 22px;
-  padding: 14px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
-}
-.charts-page .featured-big-trio .cell { display: flex; flex-direction: column; gap: 2px; }
-.charts-page .featured-big-trio .cell .lab {
-  font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
-  color: var(--fg-dim); font-weight: 500;
-}
-.charts-page .featured-big-trio .cell .val {
-  font-family: 'Instrument Serif', serif; font-size: 26px;
-  line-height: 1.1; letter-spacing: -0.01em;
-}
-.charts-page .featured-big-trio .cell .val .g { font-size: 22px; margin-right: 6px; }
-.charts-page .featured-notes {
-  font-size: 14px; color: var(--fg-muted); line-height: 1.55;
-  margin-bottom: 22px; font-style: italic;
-  padding-left: 14px; border-left: 2px solid var(--border-strong);
-}
-.charts-page .featured-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-
-.charts-page .featured-wheel {
-  width: 100%;
-  max-width: 320px;
-  aspect-ratio: 1 / 1;
-  justify-self: center;
-  display: grid;
-  place-items: center;
-  min-width: 0;
-}
-.charts-page .featured-wheel svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-/* Featured hero reflows to a single column below the `desktop` breakpoint
-   (previously 920 px, but the visual tipping point aligns with the
-   tier system — phone + tablet stack, desktop + wide split). */
-@media (max-width: 1023px) {
-  .charts-page .featured {
-    grid-template-columns: 1fr;
-    padding: 22px;
-    gap: 22px;
-  }
-  .charts-page .featured-name { font-size: 32px; }
-  .charts-page .featured-wheel { justify-self: start; max-width: 260px; }
-}
-/* Phone-tier featured hero: tighter padding, smaller type, centered wheel. */
-@media (max-width: 639px) {
-  .charts-page .featured {
-    padding: 16px;
-    gap: 18px;
-    min-height: 0;
-  }
-  .charts-page .featured-name { font-size: 28px; }
-  .charts-page .featured-wheel { justify-self: center; max-width: 220px; }
-  .charts-page .featured-big-trio { gap: 8px; padding: 10px 0; }
-  .charts-page .featured-big-trio .cell .val { font-size: 20px; }
-  .charts-page .featured-big-trio .cell .val .g { font-size: 18px; }
-}
-
-/* ─── Grid of chart cards ──────────────────────────────── */
-/* Phone: 1 col · tablet: 2 · desktop: 3 · wide: 4. The `auto-fill` fallback
-   keeps ultra-wide or unusual viewports sensible. */
-.charts-page .charts-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--gap);
-}
-@media (min-width: 640px) {
-  .charts-page .charts-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-@media (min-width: 1024px) {
-  .charts-page .charts-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-@media (min-width: 1440px) {
-  .charts-page .charts-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-.charts-page .cc {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 16px;
-  display: flex; flex-direction: column; gap: 14px;
-  transition: background 120ms, border-color 120ms, transform 120ms;
-  cursor: pointer;
-  position: relative;
-}
-.charts-page .cc:hover { background: var(--card-hover); border-color: var(--border-strong); }
-.charts-page .cc[data-selected="true"] {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent);
-}
-.charts-page .cc-wheel {
-  width: 100%; aspect-ratio: 1;
-  display: grid; place-items: center;
-  background: var(--bg-elev);
-  border-radius: 8px;
-  border: 1px solid var(--border);
-}
-.charts-page .cc-wheel svg { width: 88%; height: 88%; }
-.charts-page .cc-head { display: flex; align-items: flex-start; gap: 8px; }
-.charts-page .cc-head h3 {
-  font: inherit; font-size: 14px; font-weight: 600;
-  letter-spacing: -0.005em; margin: 0; flex: 1;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.charts-page .cc-pin { color: var(--accent); }
-.charts-page .cc-meta {
-  font-size: 11.5px; color: var(--fg-dim);
-  font-variant-numeric: tabular-nums;
-  margin-top: -6px;
-}
-.charts-page .cc-trio {
-  display: grid; grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-  padding-top: 10px; border-top: 1px solid var(--border);
-}
-.charts-page .cc-trio .cell { display: flex; flex-direction: column; gap: 1px; }
-.charts-page .cc-trio .lab {
-  font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase;
-  color: var(--fg-dim); font-weight: 500;
-}
-.charts-page .cc-trio .val {
-  font-size: 13px; font-weight: 500;
-  display: flex; align-items: baseline; gap: 3px;
-}
-.charts-page .cc-trio .val .g { font-size: 14px; }
-.charts-page .cc-trio .val .num { font-size: 11px; color: var(--fg-muted); }
-
-.charts-page .cc-tags {
-  display: flex; flex-wrap: wrap; gap: 4px;
-}
-
-/* selection checkbox */
-.charts-page .cc-select {
-  position: absolute; top: 10px; right: 10px;
-  width: 20px; height: 20px; border-radius: 6px;
-  border: 1.5px solid var(--border-strong);
-  background: var(--card);
-  display: grid; place-items: center;
-  opacity: 0; transition: opacity 120ms, background 120ms, border-color 120ms;
-  z-index: 2;
-}
-.charts-page .cc:hover .cc-select, .charts-page .cc[data-selected="true"] .cc-select,
-.charts-page [data-any-selected="true"] .cc-select { opacity: 1; }
-.charts-page .cc[data-selected="true"] .cc-select {
-  background: var(--accent); border-color: var(--accent);
-  color: var(--accent-fg);
-}
-.charts-page .cc[data-selected="true"] .cc-select svg { width: 12px; height: 12px; }
-
-/* ─── New chart tile ───────────────────────────────────── */
-.charts-page .cc-new {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 20px 18px;
-  display: flex; flex-direction: column;
-  align-items: center;
-  gap: 14px;
-  min-height: 280px;
-  color: var(--fg-muted);
-  text-align: center;
-  position: relative;
-  overflow: hidden;
-  transition: background 160ms, border-color 160ms, transform 160ms;
-  cursor: pointer;
-  font: inherit;
-}
-.charts-page .cc-new::before {
-  content: '';
-  position: absolute; inset: -1px;
-  border-radius: inherit;
-  background: radial-gradient(circle at 50% 38%, var(--accent-soft), transparent 55%);
-  opacity: 0;
-  transition: opacity 220ms;
-  pointer-events: none;
-}
-.charts-page .cc-new:hover { border-color: var(--border-strong); }
-.charts-page .cc-new:hover::before { opacity: 1; }
-
-.charts-page .cc-new-wheel {
-  width: 120px; height: 120px;
-  display: grid; place-items: center;
-  color: var(--fg-dim);
-  margin-top: 12px;
-  transition: color 220ms, transform 400ms cubic-bezier(.23,1,.32,1);
-}
-.charts-page .cc-new-wheel svg { width: 100%; height: 100%; display: block; }
-.charts-page .cc-new:hover .cc-new-wheel {
-  color: var(--accent);
-  transform: rotate(30deg);
-}
-
-.charts-page .cc-new-copy {
-  display: flex; flex-direction: column; gap: 6px;
-  align-items: center;
-  margin-top: 4px;
-  position: relative;
-}
-.charts-page .cc-new-title {
-  font-family: 'Instrument Serif', serif;
-  font-size: 26px; line-height: 1; letter-spacing: -0.015em;
-  color: var(--fg);
-  font-weight: 400;
-}
-.charts-page .cc-new-title em { font-style: italic; color: var(--accent); }
-.charts-page .cc-new-sub {
-  font-size: 12px; color: var(--fg-dim);
-  max-width: 22ch; line-height: 1.4;
-}
-
-.charts-page .cc-new-kbd {
-  position: absolute; top: 12px; right: 12px;
-  opacity: 0; transition: opacity 180ms;
-}
-.charts-page .cc-new-kbd kbd {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px; color: var(--fg-dim);
-  background: var(--bg-elev); border: 1px solid var(--border);
-  padding: 2px 6px; border-radius: 4px;
-  letter-spacing: 0.05em;
-}
-.charts-page .cc-new:hover .cc-new-kbd { opacity: 1; }
-
-/* ─── Dense / list table ──────────────────────────────── */
+/* ─── Dense list table ────────────────────────────────── */
 .charts-page .charts-table {
   background: var(--card); border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -415,10 +106,10 @@
 }
 .charts-page .charts-table .tr {
   display: grid;
-  grid-template-columns: 28px 44px 1.7fr 1.1fr 1fr 1fr 0.9fr 0.9fr 28px;
+  grid-template-columns: 28px 1.7fr 1.1fr 1fr 1fr 0.9fr 0.9fr 28px;
   align-items: center;
-  gap: 10px; padding: 0 14px;
-  height: 48px;
+  gap: 10px; padding: 8px 14px;
+  min-height: 48px;
   border-bottom: 1px solid var(--border);
   font-size: 13px;
   transition: background 120ms;
@@ -426,46 +117,9 @@
 }
 .charts-page .charts-table .tr:last-child { border-bottom: 0; }
 
-/* New-chart row (list view) */
-.charts-page .charts-table .tr-new { color: var(--fg-muted); }
-.charts-page .charts-table .tr-new:hover { background: var(--card-hover); color: var(--fg); }
-.charts-page .charts-table .tr-new .tr-new-icon {
-  color: var(--fg-dim);
-  transition: color 160ms, border-color 160ms, transform 240ms cubic-bezier(.23,1,.32,1);
-}
-.charts-page .charts-table .tr-new:hover .tr-new-icon {
-  color: var(--accent);
-  border-color: var(--border-strong);
-  transform: rotate(90deg);
-}
-.charts-page .charts-table .tr-new .tr-new-name {
-  font-family: 'Instrument Serif', serif;
-  font-size: 16px; font-weight: 400; line-height: 1;
-  letter-spacing: -0.01em;
-  color: var(--fg);
-  display: flex; align-items: center;
-}
-.charts-page .charts-table .tr-new .tr-new-name em {
-  font-style: italic; color: var(--accent); margin-left: 4px;
-}
-.charts-page .charts-table .tr-new .tr-new-sub {
-  font-size: 12px; color: var(--fg-dim);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.charts-page .charts-table .tr-new .tr-new-kbd {
-  display: flex; align-items: center; justify-content: flex-end;
-  opacity: 0; transition: opacity 160ms;
-}
-.charts-page .charts-table .tr-new:hover .tr-new-kbd { opacity: 1; }
-.charts-page .charts-table .tr-new .tr-new-kbd kbd {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px; color: var(--fg-dim);
-  background: var(--bg-elev); border: 1px solid var(--border);
-  padding: 2px 6px; border-radius: 4px;
-  letter-spacing: 0.05em;
-}
 .charts-page .charts-table .tr.thead {
   height: 36px;
+  min-height: 36px;
   color: var(--fg-dim); font-size: 10.5px;
   letter-spacing: 0.12em; text-transform: uppercase; font-weight: 500;
   background: var(--bg-elev);
@@ -475,12 +129,6 @@
 .charts-page .charts-table .tr[data-selected="true"] { background: var(--accent-soft); }
 .charts-page .charts-table .tr .name { font-weight: 500; display: flex; align-items: center; gap: 8px; min-width: 0; }
 .charts-page .charts-table .tr .name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.charts-page .charts-table .mini-wheel {
-  width: 32px; height: 32px; border-radius: 50%;
-  background: var(--bg-elev); border: 1px solid var(--border);
-  display: grid; place-items: center; flex-shrink: 0;
-}
-.charts-page .charts-table .mini-wheel svg { width: 100%; height: 100%; }
 .charts-page .charts-table .cell-sub { font-size: 11px; color: var(--fg-dim); }
 .charts-page .charts-table .row-sel {
   width: 16px; height: 16px; border-radius: 4px;
@@ -497,6 +145,17 @@
 .charts-page .charts-table .row-sel svg { width: 10px; height: 10px; }
 .charts-page .charts-table .num-cell { color: var(--fg-muted); font-variant-numeric: tabular-nums; font-size: 12px; }
 .charts-page .charts-table .tag-cell { display: flex; gap: 4px; flex-wrap: wrap; overflow: hidden; }
+
+/* Phone layout — single stacked row per chart. */
+.charts-page .charts-table-phone .tr {
+  display: flex;
+  align-items: flex-start;
+  height: auto;
+  min-height: 64px;
+  padding: var(--pad-sm) var(--pad);
+  gap: var(--gap-sm);
+}
+.charts-page .charts-table-phone .tr .row-sel { margin-top: 2px; }
 
 /* ─── Bulk action bar ──────────────────────────────────── */
 .charts-page .bulk-bar {
@@ -526,80 +185,9 @@
 .charts-page .bulk-bar button.danger:hover { background: oklch(55% 0.15 25 / 0.16); color: var(--fire); }
 .charts-page .bulk-bar button svg { width: 13px; height: 13px; }
 
-/* ─── Empty state ──────────────────────────────────────── */
-.charts-page .empty {
-  padding: 80px 28px;
-  display: grid; grid-template-columns: 1fr 1fr; gap: 48px;
-  align-items: center;
-  background: var(--card); border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
-  position: relative;
-}
-.charts-page .empty::before {
-  content: ''; position: absolute; inset: 0;
-  background: radial-gradient(circle at 80% 50%, var(--accent-soft), transparent 60%);
-  pointer-events: none;
-}
-.charts-page .empty > * { position: relative; }
-.charts-page .empty-copy .eyebrow {
-  font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
-  color: var(--fg-dim); font-weight: 500; margin-bottom: 14px;
-}
-.charts-page .empty-copy h2 {
-  font-family: 'Instrument Serif', serif; font-weight: 400;
-  font-size: 46px; line-height: 1.05; letter-spacing: -0.02em;
-  margin: 0 0 16px;
-}
-.charts-page .empty-copy h2 em { font-style: italic; color: var(--fg-muted); }
-.charts-page .empty-copy p {
-  font-size: 15px; color: var(--fg-muted); line-height: 1.55;
-  margin: 0 0 24px; max-width: 42ch;
-}
-.charts-page .empty-actions { display: flex; gap: 10px; flex-wrap: wrap; }
-.charts-page .empty-viz {
-  aspect-ratio: 1; max-width: 360px; margin: 0 auto;
-  display: grid; place-items: center;
-}
-.charts-page .empty-viz svg { width: 100%; height: 100%; }
-
-.charts-page .empty-examples {
-  grid-column: 1 / -1;
-  border-top: 1px solid var(--border);
-  padding-top: 22px; margin-top: 8px;
-}
-.charts-page .empty-examples .lab {
-  font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase;
-  color: var(--fg-dim); font-weight: 500; margin-bottom: 12px;
-}
-.charts-page .empty-examples .row { display: flex; flex-wrap: wrap; gap: 6px; }
-.charts-page .empty-examples button {
-  padding: 6px 10px; border-radius: 7px; font-size: 12px;
-  background: var(--bg-elev); border: 1px solid var(--border);
-  color: var(--fg-muted);
-}
-.charts-page .empty-examples button:hover { background: var(--card-hover); color: var(--fg); border-color: var(--border-strong); }
-
-/* Below the `tablet` breakpoint (640 px) — phone tier. Previously this block
-   fired at 820 px which grabbed some tablet widths too; those wide-enough
-   tablets comfortably fit the full 9-column list table, so the aggressive
-   collapse is now phone-only. */
+/* Phone tier — title reflows smaller. */
 @media (max-width: 639px) {
-  .charts-page .empty { grid-template-columns: 1fr; padding: 40px 22px; gap: 28px; }
-  .charts-page .empty-copy h2 { font-size: 32px; }
-  .charts-page .empty-viz { max-width: 220px; }
-  .charts-page .featured-big-trio { grid-template-columns: repeat(3, 1fr); }
   .charts-page .charts-head h1 { font-size: 32px; }
-  .charts-page .charts-table .tr {
-    grid-template-columns: 28px 36px 1.2fr 0.8fr 28px;
-    font-size: 12px;
-  }
-  .charts-page .charts-table .tr .hide-sm { display: none !important; }
-}
-/* Between phone and desktop — keep the list table readable by hiding the
-   lowest-priority columns while still showing name + location. */
-@media (min-width: 640px) and (max-width: 1023px) {
-  .charts-page .charts-table .tr .hide-md { display: none !important; }
 }
 
 /* usage chip in header */
@@ -633,12 +221,6 @@
   outline-offset: 2px;
   border-radius: 4px;
 }
-/* Cards have rounded corners + inset children — push the ring outward
-   so it doesn't clip the selection checkbox / action button. */
-.charts-page .cc:focus-visible,
-.charts-page .cc-new:focus-visible {
-  outline-offset: 4px;
-}
 /* The search input already styles its own focus border — let its rule win. */
 .charts-page .search input:focus-visible {
   outline: none;
@@ -653,7 +235,6 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
-  .charts-page .cc-new:hover .cc-new-wheel { transform: none; }
   .charts-page .bulk-bar { transition: none; }
 }
 

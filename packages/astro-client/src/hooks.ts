@@ -66,11 +66,13 @@ export function useCalculateChart() {
       name,
       location,
       nodeType,
+      tags,
     }: {
       request: NatalRequest;
       name: string;
       location?: string;
       nodeType?: "mean" | "true";
+      tags?: string[];
     }) => {
       const response = await client.calculateNatal(request);
       const id = hashRequest(request);
@@ -82,6 +84,7 @@ export function useCalculateChart() {
         request,
         location,
         nodeType,
+        tags,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };

@@ -5,9 +5,11 @@ import { useCalculateChart, useAstroClient } from "@astro-app/astro-client";
 import { HouseSystem, ZodiacType } from "@astro-app/shared-types";
 import { useSettings } from "@/hooks/use-settings";
 import { useAuth } from "@/hooks/use-auth";
+import { Tag } from "lucide-react";
 import { localTimeToUtc } from "@/lib/utils";
 import { LocationSearch } from "./location-search";
 import { DateTimePicker } from "./date-time-picker";
+import { TagInput } from "./tag-input";
 import {
   Select,
   SelectContent,
@@ -69,7 +71,9 @@ export function BirthDataForm() {
     settings.defaults.ayanamsa ?? "lahiri",
   );
   const [nodeType, setNodeType] = useState<"mean" | "true">(settings.defaults.nodeType);
+  const [tags, setTags] = useState<string[]>([]);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showTags, setShowTags] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   function validate(): boolean {
@@ -93,6 +97,7 @@ export function BirthDataForm() {
         name: chartName,
         location: location!.name,
         nodeType,
+        tags,
         request: {
           datetime: utcDate.toISOString(),
           latitude: location!.lat,
@@ -115,6 +120,7 @@ export function BirthDataForm() {
             longitude: location!.lon,
             house_system: houseSystem,
             chart_data: stored.chart,
+            tags,
           });
           toast.success("Chart calculated and saved to cloud");
         } catch (cloudErr: unknown) {
@@ -242,7 +248,7 @@ export function BirthDataForm() {
       {/* Advanced settings */}
       <button
         type="button"
-        className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors self-start"
         onClick={() => setShowAdvanced((v) => !v)}
       >
         <span className={`text-xs transition-transform ${showAdvanced ? "rotate-90" : ""}`}>▶</span>
@@ -265,6 +271,21 @@ export function BirthDataForm() {
               </SelectContent>
             </Select>
           </div>
+        </div>
+      )}
+
+      {/* Tags */}
+      <button
+        type="button"
+        className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors self-start"
+        onClick={() => setShowTags((v) => !v)}
+      >
+        <span className={`text-xs transition-transform ${showTags ? "rotate-90" : ""}`}>▶</span>
+        <Tag size={12} /> Tags{tags.length > 0 ? ` (${tags.length})` : ""}
+      </button>
+      {showTags && (
+        <div className="flex flex-col gap-4 pl-4 border-l-2 border-border">
+          <TagInput id="chart-tags" value={tags} onChange={setTags} />
         </div>
       )}
 

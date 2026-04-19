@@ -229,3 +229,6 @@ After each change update AGENT_CHANGELOG.md file with changes summary and decisi
 
 # Subagents usage
 Always use subagents for task implementation. 
+
+# Adaptive design
+All design is 

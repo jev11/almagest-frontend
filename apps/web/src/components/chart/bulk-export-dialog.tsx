@@ -1,7 +1,7 @@
 import { useState, type JSX } from "react";
 import { toast } from "sonner";
 import type { UnifiedChart } from "@/lib/unified-chart";
-import { exportChartsJSON, exportChartsPNG } from "@/lib/export-charts";
+import { exportChartsJSON, exportChartsPDF } from "@/lib/export-charts";
 import {
   Dialog,
   DialogContent,
@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-type ExportFormat = "json" | "png";
+type ExportFormat = "json" | "pdf";
 
 interface BulkExportDialogProps {
   charts: UnifiedChart[];
@@ -32,11 +32,12 @@ export function BulkExportDialog({
       if (format === "json") {
         await exportChartsJSON(charts);
       } else {
-        await exportChartsPNG(charts);
+        await exportChartsPDF(charts);
       }
       toast.success("Exported");
       onClose();
-    } catch {
+    } catch (err) {
+      console.error("[export]", err);
       toast.error("Export failed");
     } finally {
       setExporting(false);
@@ -85,21 +86,21 @@ export function BulkExportDialog({
             <button
               type="button"
               role="radio"
-              aria-checked={format === "png"}
-              onClick={() => setFormat("png")}
+              aria-checked={format === "pdf"}
+              onClick={() => setFormat("pdf")}
               className={`flex flex-col items-start gap-0.5 px-4 py-3 rounded-lg border text-left transition-colors ${
-                format === "png"
+                format === "pdf"
                   ? "border-primary bg-primary/5"
                   : "border-border bg-input hover:border-primary/50"
               }`}
             >
               <span className="text-sm font-medium text-foreground">
-                PNG {count === 1 ? "(image)" : "(image zip)"}
+                PDF {count === 1 ? "(document)" : "(document zip)"}
               </span>
               <span className="text-xs text-muted-foreground">
                 {count === 1
-                  ? "Rendered chart wheel as a PNG image"
-                  : "Zip of rendered chart wheels — one PNG per chart"}
+                  ? "Chart wheel + aspect grid on a clean white page"
+                  : "Zip of PDFs — each with the wheel + aspect grid, white background"}
               </span>
             </button>
           </div>

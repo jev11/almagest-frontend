@@ -165,7 +165,6 @@ export function Sidebar() {
       <div className={cn("relative p-2 border-t border-border", collapsed && "flex justify-center px-0")}>
         <DropdownMenu>
           <DropdownMenuTrigger
-            nativeButton={false}
             render={
               <button
                 className={cn(

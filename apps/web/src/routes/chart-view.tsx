@@ -1,8 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Bookmark, BookmarkCheck, Settings } from "lucide-react";
+import { ArrowLeft, Bookmark, BookmarkCheck, Download, Settings, Tag } from "lucide-react";
 import { toast } from "sonner";
 import { chartCache, useAstroClient } from "@astro-app/astro-client";
+import { fromStored } from "@/lib/unified-chart";
+import { buildChartPdfBlob } from "@/lib/pdf-export";
+import { triggerDownload, safeFilename } from "@/lib/export-charts";
 import { calculateApproximate } from "@astro-app/approx-engine";
 import type { StoredChart } from "@astro-app/astro-client";
 import { HouseSystem, ZodiacType } from "@astro-app/shared-types";
@@ -19,6 +22,7 @@ import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { cn, localTimeToUtc } from "@/lib/utils";
 import { LocationSearch } from "@/components/forms/location-search";
 import { DateTimePicker } from "@/components/forms/date-time-picker";
+import { TagInput } from "@/components/forms/tag-input";
 import { ChartSkeleton, TableSkeleton } from "@/components/ui/skeleton";
 import { ErrorCard } from "@/components/ui/error-card";
 import {
@@ -71,6 +75,7 @@ export function ChartViewPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("chart");
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   // Settings dialog state
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -82,7 +87,9 @@ export function ChartViewPage() {
   const [pendingZodiac, setPendingZodiac] = useState<ZodiacType>(ZodiacType.Tropical);
   const [pendingNodeType, setPendingNodeType] = useState<"mean" | "true">("mean");
   const [pendingAyanamsa, setPendingAyanamsa] = useState<string>("lahiri");
+  const [pendingTags, setPendingTags] = useState<string[]>([]);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showTags, setShowTags] = useState(false);
   const [applying, setApplying] = useState(false);
 
   useEffect(() => {
@@ -160,7 +167,12 @@ export function ChartViewPage() {
     setPendingZodiac((stored.request.zodiac_type as ZodiacType) ?? ZodiacType.Tropical);
     setPendingNodeType(stored.nodeType ?? useSettings.getState().defaults.nodeType);
     setPendingAyanamsa(stored.request.ayanamsa ?? "lahiri");
-  }, [stored, timezoneIana]);
+    setPendingTags(stored.tags ?? []);
+    setShowTags((stored.tags ?? []).length > 0);
+    if (searchParams.get("edit") === "1") {
+      setSettingsOpen(true);
+    }
+  }, [stored, timezoneIana, searchParams]);
 
   const currentSky = useMemo(() => {
     if (!stored) return null;
@@ -180,6 +192,21 @@ export function ChartViewPage() {
       setTimeout(() => setSaved(false), 2000);
     } catch {
       toast.error("Could not save chart");
+    }
+  }
+
+  async function handleExportPdf() {
+    if (!stored || exportingPdf) return;
+    setExportingPdf(true);
+    try {
+      const blob = await buildChartPdfBlob(fromStored(stored));
+      triggerDownload(blob, `${safeFilename(stored.name)}.pdf`);
+      toast.success("Chart exported");
+    } catch (err) {
+      console.error("[export-pdf]", err);
+      toast.error("Export failed");
+    } finally {
+      setExportingPdf(false);
     }
   }
 
@@ -208,9 +235,19 @@ export function ChartViewPage() {
         chart: res,
         request: newRequest,
         nodeType: pendingNodeType,
+        tags: pendingTags,
         updatedAt: Date.now(),
       };
       await chartCache.set(updated);
+      if (source === "cloud") {
+        try {
+          await client.updateCloudChart(stored.id, { tags: pendingTags });
+        } catch {
+          // Best-effort: chart recalculation already succeeded and was
+          // stored locally; surface the sync failure but don't block UI.
+          toast.warning("Tags saved locally; cloud sync failed");
+        }
+      }
       setStored(updated);
       setSettingsOpen(false);
       toast.success("Chart updated");
@@ -314,6 +351,20 @@ export function ChartViewPage() {
                 {tab.label}
               </button>
             ))}
+            <button
+              type="button"
+              title="Export PDF"
+              disabled={exportingPdf}
+              className={cn(
+                "w-11 h-11 flex items-center justify-center transition-colors",
+                exportingPdf
+                  ? "text-muted-foreground opacity-60 cursor-wait"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+              onClick={handleExportPdf}
+            >
+              <Download size={18} />
+            </button>
             <button
               type="button"
               title="Chart settings"
@@ -492,7 +543,7 @@ export function ChartViewPage() {
             {/* Advanced settings */}
             <button
               type="button"
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors self-start"
               onClick={() => setShowAdvanced((v) => !v)}
             >
               <span className={`text-xs transition-transform ${showAdvanced ? "rotate-90" : ""}`}>▶</span>
@@ -514,6 +565,21 @@ export function ChartViewPage() {
                     <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">▼</div>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* Tags */}
+            <button
+              type="button"
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors self-start"
+              onClick={() => setShowTags((v) => !v)}
+            >
+              <span className={`text-xs transition-transform ${showTags ? "rotate-90" : ""}`}>▶</span>
+              <Tag size={12} /> Tags{pendingTags.length > 0 ? ` (${pendingTags.length})` : ""}
+            </button>
+            {showTags && (
+              <div className="flex flex-col gap-4 pl-4 border-l-2 border-border">
+                <TagInput id="chart-view-tags" value={pendingTags} onChange={setPendingTags} />
               </div>
             )}
           </div>

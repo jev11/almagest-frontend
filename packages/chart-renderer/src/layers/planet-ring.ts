@@ -299,7 +299,7 @@ export function drawPlanetRing(
       const signColor = element ? (theme.elementColors[element as keyof typeof theme.elementColors] ?? theme.degreeLabelColor) : theme.degreeLabelColor;
       tickColor = theme.angleStroke;
       tokens = [
-        { text: anglePoint.label, color: theme.angleStroke, bold: false, extraGapAfter: true, size: planetGlyphSize },
+        { text: anglePoint.label, color: theme.angleStroke, bold: false, extraGapAfter: false, size: planetGlyphSize },
         { text: deg, color: theme.degreeLabelColor, bold: false },
         { text: "", color: signColor, bold: false, glyphChar: signChar, size: signGlyphSize },
         { text: min, color: theme.degreeLabelColor, bold: false, small: true },

@@ -1,31 +1,31 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Search, Tag, FileText, LayoutGrid, List } from "lucide-react";
+import { Search, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { chartCache, useAstroClient } from "@astro-app/astro-client";
 import type { StoredChart, CloudChart } from "@astro-app/astro-client";
 import { BulkActionBar } from "@/components/chart/bulk-action-bar";
 import { BulkTagDialog } from "@/components/chart/bulk-tag-dialog";
 import { BulkExportDialog } from "@/components/chart/bulk-export-dialog";
-import { ChartCardEditorial } from "@/components/chart/chart-card-editorial";
 import { ChartsTable } from "@/components/chart/charts-table";
-import type { ChartsTableAction } from "@/components/chart/charts-table";
-import { EmptyState } from "@/components/chart/empty-state";
-import { FeaturedChart } from "@/components/chart/featured-chart";
-import { NewChartTile } from "@/components/chart/new-chart-tile";
+import type {
+  ChartsTableAction,
+  SortKey,
+  SortDir,
+  SortState,
+} from "@/components/chart/charts-table";
 import { formatRelativeTime } from "@/lib/format";
 import { CardSkeleton } from "@/components/ui/skeleton";
 import { ErrorCard } from "@/components/ui/error-card";
+import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/use-auth";
 import { fromStored, fromCloud, chartHref } from "@/lib/unified-chart";
 import type { UnifiedChart } from "@/lib/unified-chart";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,213 +40,39 @@ import "./charts-page.css";
 
 const FREE_TIER_LIMIT = 5;
 
-type SortMode = "recent" | "az" | "birth";
-type ViewMode = "cards" | "list";
-
-function sortCharts(charts: UnifiedChart[], sort: SortMode): UnifiedChart[] {
-  const copy = [...charts];
-  if (sort === "recent") {
-    copy.sort((a, b) => {
-      if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+function compareByKey(
+  a: UnifiedChart,
+  b: UnifiedChart,
+  key: SortKey,
+  dir: SortDir,
+): number {
+  const mul = dir === "asc" ? 1 : -1;
+  switch (key) {
+    case "name":
+      return a.name.localeCompare(b.name) * mul;
+    case "location":
+      return (a.location ?? "").localeCompare(b.location ?? "") * mul;
+    case "born":
+      return a.birthDatetime.localeCompare(b.birthDatetime) * mul;
+    case "lastViewed": {
       const av = a.lastViewedAt ?? -Infinity;
       const bv = b.lastViewedAt ?? -Infinity;
-      if (av !== bv) return bv - av;
-      return b.createdAt - a.createdAt;
-    });
-  } else if (sort === "az") {
-    copy.sort((a, b) => a.name.localeCompare(b.name));
-  } else {
-    copy.sort((a, b) => a.birthDatetime.localeCompare(b.birthDatetime));
+      if (av === bv) return (b.createdAt - a.createdAt) * (dir === "asc" ? -1 : 1);
+      return (av - bv) * mul;
+    }
   }
+}
+
+// Pinned rows always float above the rest — the user's sort choice only
+// orders within each group.
+function sortCharts(charts: UnifiedChart[], sort: SortState): UnifiedChart[] {
+  const copy = [...charts];
+  copy.sort((a, b) => {
+    if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+    return compareByKey(a, b, sort.key, sort.dir);
+  });
   return copy;
 }
-
-// ─── Rename dialog (works for both local and cloud) ──────────────────────────
-
-interface RenameDialogProps {
-  chart: UnifiedChart;
-  getStored: (id: string) => StoredChart | undefined;
-  onClose: () => void;
-  onRenamedLocal: (id: string, name: string) => void;
-  onRenamedCloud: (updated: CloudChart) => void;
-}
-
-function RenameDialog({
-  chart,
-  getStored,
-  onClose,
-  onRenamedLocal,
-  onRenamedCloud,
-}: RenameDialogProps) {
-  const client = useAstroClient();
-  const [name, setName] = useState(chart.name);
-  const [saving, setSaving] = useState(false);
-
-  async function handleSave() {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    setSaving(true);
-    try {
-      if (chart.source === "cloud") {
-        const updated = await client.updateCloudChart(chart.id, { name: trimmed });
-        onRenamedCloud(updated);
-      } else {
-        const stored = getStored(chart.id);
-        if (!stored) throw new Error("Chart not found");
-        const next: StoredChart = { ...stored, name: trimmed, updatedAt: Date.now() };
-        await chartCache.set(next);
-        onRenamedLocal(chart.id, trimmed);
-      }
-      toast.success("Chart renamed");
-      onClose();
-    } catch {
-      toast.error("Could not rename chart");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="bg-card border-border text-foreground max-w-sm">
-        <DialogHeader>
-          <DialogTitle>Rename chart</DialogTitle>
-        </DialogHeader>
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") handleSave();
-          }}
-          className="w-full bg-input border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary transition-colors"
-          autoFocus
-        />
-        <DialogFooter>
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving || !name.trim()}
-            className="px-4 py-2 text-sm bg-primary hover:bg-primary-hover disabled:opacity-50 text-white font-semibold rounded-lg transition-colors"
-          >
-            {saving ? "Saving…" : "Save"}
-          </button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ─── Edit metadata dialog (cloud full edit) ──────────────────────────────────
-
-interface EditDialogProps {
-  chart: CloudChart;
-  onClose: () => void;
-  onSaved: (updated: CloudChart) => void;
-}
-
-function EditMetaDialog({ chart, onClose, onSaved }: EditDialogProps) {
-  const client = useAstroClient();
-  const [name, setName] = useState(chart.name);
-  const [notes, setNotes] = useState(chart.notes ?? "");
-  const [tagsInput, setTagsInput] = useState((chart.tags ?? []).join(", "));
-  const [saving, setSaving] = useState(false);
-
-  async function handleSave() {
-    if (!name.trim()) return;
-    setSaving(true);
-    try {
-      const tags = tagsInput
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean);
-      const updated = await client.updateCloudChart(chart.id, {
-        name: name.trim(),
-        notes: notes.trim() || undefined,
-        tags,
-      });
-      onSaved(updated);
-      toast.success("Chart updated");
-      onClose();
-    } catch {
-      toast.error("Failed to update chart");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="bg-card border-border text-foreground max-w-md">
-        <DialogHeader>
-          <DialogTitle>Edit chart</DialogTitle>
-        </DialogHeader>
-        <div className="flex flex-col gap-4 py-2">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-muted-foreground font-medium">Name</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full bg-input border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-primary transition-colors"
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
-              <Tag size={11} /> Tags
-            </label>
-            <input
-              type="text"
-              value={tagsInput}
-              onChange={(e) => setTagsInput(e.target.value)}
-              placeholder="natal, client, work…"
-              className="w-full bg-input border border-border rounded-lg px-3 py-2.5 text-sm text-foreground placeholder:text-dim-foreground focus:outline-none focus:border-primary transition-colors"
-            />
-            <p className="text-xs text-dim-foreground">Comma-separated</p>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
-              <FileText size={11} /> Notes
-            </label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-              placeholder="Optional notes…"
-              className="w-full bg-input border border-border rounded-lg px-3 py-2.5 text-sm text-foreground placeholder:text-dim-foreground focus:outline-none focus:border-primary transition-colors resize-none"
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving || !name.trim()}
-            className="px-4 py-2 text-sm bg-primary hover:bg-primary-hover disabled:opacity-50 text-white font-semibold rounded-lg transition-colors"
-          >
-            {saving ? "Saving…" : "Save"}
-          </button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ─── Main page ────────────────────────────────────────────────────────────────
 
 export function ChartsPage() {
   const navigate = useNavigate();
@@ -263,23 +89,18 @@ export function ChartsPage() {
   const [cloudError, setCloudError] = useState(false);
 
   const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<SortMode>("recent");
-  const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    return (localStorage.getItem("astro-charts-view") as ViewMode) ?? "cards";
+  const [sortState, setSortState] = useState<SortState>({
+    key: "lastViewed",
+    dir: "desc",
   });
 
-  // Dialog state
-  const [renaming, setRenaming] = useState<UnifiedChart | null>(null);
   const [pendingDelete, setPendingDelete] = useState<UnifiedChart | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [editing, setEditing] = useState<CloudChart | null>(null);
 
-  // Selection state (Task 6)
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [bulkDeletePending, setBulkDeletePending] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
-  // Bulk dialog state (Task 7)
   const [tagDialogOpen, setTagDialogOpen] = useState(false);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
 
@@ -295,11 +116,6 @@ export function ChartsPage() {
   const clearSelection = useCallback(() => setSelected(new Set()), []);
 
   const anySelected = selected.size > 0;
-
-  function setView(next: ViewMode) {
-    setViewMode(next);
-    localStorage.setItem("astro-charts-view", next);
-  }
 
   const authenticated = isAuthenticated();
 
@@ -349,8 +165,8 @@ export function ChartsPage() {
             c.tags.some((t) => t.toLowerCase().includes(q)),
         )
       : allCharts;
-    return sortCharts(filtered, sort);
-  }, [allCharts, query, sort]);
+    return sortCharts(filtered, sortState);
+  }, [allCharts, query, sortState]);
 
   const chartCount = allCharts.length;
   const pinnedCount = allCharts.filter((c) => c.pinned).length;
@@ -367,40 +183,6 @@ export function ChartsPage() {
   const loading = authenticated ? cloudLoading : localLoading;
   const hasError = authenticated ? cloudError : localError;
 
-  // 'N' keyboard shortcut — new chart. Skip if any modifier is held (browser
-  // shortcuts like ⌘N / Ctrl+N should pass through), if focus is in a text
-  // field, or if any Radix Dialog/AlertDialog is currently open. Using a DOM
-  // query for open dialogs keeps this future-proof: new modals don't need to
-  // be added to a dependency list.
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.key !== "n" && e.key !== "N") return;
-      const target = e.target as HTMLElement | null;
-      if (target) {
-        const tag = target.tagName;
-        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-        if (target.isContentEditable) return;
-      }
-      if (document.querySelector('[role="dialog"][data-state="open"]')) return;
-      if (document.querySelector('[role="alertdialog"][data-state="open"]')) return;
-      e.preventDefault();
-      if (atLimit) {
-        toast.error("Free tier reached — upgrade to add more charts");
-        return;
-      }
-      navigate("/chart/new");
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [navigate, atLimit]);
-
-  // ── Handlers ──
-  const getStoredById = (id: string): StoredChart | undefined =>
-    localCharts.find((c) => c.id === id);
-  const getCloudById = (id: string): CloudChart | undefined =>
-    cloudCharts.find((c) => c.id === id);
-
   function handleOpen(c: UnifiedChart) {
     navigate(chartHref(c));
   }
@@ -411,18 +193,6 @@ export function ChartsPage() {
       return;
     }
     navigate("/chart/new");
-  }
-
-  function handleRename(c: UnifiedChart) {
-    // For cloud charts, open the full metadata editor so notes/tags remain editable.
-    if (c.source === "cloud") {
-      const cloud = getCloudById(c.id);
-      if (cloud) {
-        setEditing(cloud);
-        return;
-      }
-    }
-    setRenaming(c);
   }
 
   function handleDelete(c: UnifiedChart) {
@@ -507,9 +277,10 @@ export function ChartsPage() {
     }
   }
 
-  function openTagForSingle(c: UnifiedChart) {
-    setSelected(new Set([c.id]));
-    setTagDialogOpen(true);
+  function openEditForSingle(c: UnifiedChart) {
+    const base = c.source === "cloud" ? `/chart/${c.id}?source=cloud` : `/chart/${c.id}`;
+    const sep = base.includes("?") ? "&" : "?";
+    navigate(`${base}${sep}edit=1`);
   }
 
   function openExportForSingle(c: UnifiedChart) {
@@ -519,17 +290,14 @@ export function ChartsPage() {
 
   function handleRowMenu(action: ChartsTableAction, c: UnifiedChart) {
     switch (action) {
-      case "rename":
-        handleRename(c);
-        return;
       case "delete":
         handleDelete(c);
         return;
       case "pin":
         handleTogglePin(c);
         return;
-      case "tag":
-        openTagForSingle(c);
+      case "edit":
+        openEditForSingle(c);
         return;
       case "export":
         openExportForSingle(c);
@@ -540,18 +308,20 @@ export function ChartsPage() {
   const isEmpty = chartCount === 0;
   const noMatches = !isEmpty && displayCharts.length === 0;
 
-  const featured: UnifiedChart | null =
-    !query.trim() && displayCharts.length > 0
-      ? (displayCharts.find((c) => c.pinned) ?? displayCharts[0])
-      : null;
-
-  const bodyCharts = featured
-    ? displayCharts.filter((c) => c.id !== featured.id)
-    : displayCharts;
+  const newChartButton = (
+    <Button
+      onClick={handleNew}
+      disabled={atLimit}
+      size="default"
+      className="gap-1.5"
+    >
+      <Plus size={14} />
+      New Chart
+    </Button>
+  );
 
   return (
     <div className="charts-page flex flex-col gap-gap-lg py-pad px-pad tablet:py-pad-lg tablet:px-pad-lg desktop:px-12 h-full">
-      {/* Editorial header */}
       <header className="charts-head">
         <div>
           {chartCount > 0 && (
@@ -562,7 +332,7 @@ export function ChartsPage() {
           </h1>
           <div className="meta">
             {chartCount === 0 ? (
-              <span>No charts yet — cast your first below.</span>
+              <span>No charts yet — start with a new one.</span>
             ) : (
               <>
                 <span className="num">{chartCount}</span> saved
@@ -574,7 +344,7 @@ export function ChartsPage() {
             )}
           </div>
         </div>
-        <div className="page-head-actions">
+        <div className="page-head-actions flex items-center gap-gap-sm">
           {chartLimit !== null ? (
             <div className={`usage-chip ${atLimit ? "near" : ""}`}>
               <span>
@@ -590,20 +360,25 @@ export function ChartsPage() {
           ) : (
             <span className="text-sm text-muted-foreground">{chartCount} saved</span>
           )}
+          {atLimit ? (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <span className="inline-flex" tabIndex={0}>
+                    {newChartButton}
+                  </span>
+                }
+              />
+              <TooltipContent side="bottom">
+                Free tier reached — upgrade to add more charts
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            newChartButton
+          )}
         </div>
       </header>
 
-      {/* Featured hero */}
-      {featured && (
-        <FeaturedChart
-          chart={featured}
-          onOpen={(c) => navigate(chartHref(c))}
-          onCompare={() => toast.info("Compare — coming soon")}
-          onEdit={(c) => handleRename(c)}
-        />
-      )}
-
-      {/* Toolbar */}
       <div className="charts-toolbar" data-any-selected={anySelected || undefined}>
         <div className="search">
           <Search />
@@ -613,55 +388,12 @@ export function ChartsPage() {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search charts, locations, tags…"
           />
-          <kbd>⌘K</kbd>
-        </div>
-        <div className="sort-seg" role="group" aria-label="Sort charts">
-          <button
-            type="button"
-            aria-pressed={sort === "recent"}
-            onClick={() => setSort("recent")}
-          >
-            Recent
-          </button>
-          <button
-            type="button"
-            aria-pressed={sort === "az"}
-            onClick={() => setSort("az")}
-          >
-            A–Z
-          </button>
-          <button
-            type="button"
-            aria-pressed={sort === "birth"}
-            onClick={() => setSort("birth")}
-          >
-            Birth date
-          </button>
-        </div>
-        <div className="view-seg" role="group" aria-label="View mode">
-          <button
-            type="button"
-            aria-pressed={viewMode === "cards"}
-            onClick={() => setView("cards")}
-            title="Grid"
-          >
-            <LayoutGrid />
-          </button>
-          <button
-            type="button"
-            aria-pressed={viewMode === "list"}
-            onClick={() => setView("list")}
-            title="List"
-          >
-            <List />
-          </button>
         </div>
         <div className="toolbar-meta">
           {displayCharts.length} of {allCharts.length}
         </div>
       </div>
 
-      {/* Body */}
       {loading ? (
         <div className="grid grid-cols-1 tablet:grid-cols-2 desktop:grid-cols-3 wide:grid-cols-4 gap-gap flex-1 content-start">
           {Array.from({ length: 3 }).map((_, i) => (
@@ -677,7 +409,11 @@ export function ChartsPage() {
           />
         </div>
       ) : isEmpty ? (
-        <EmptyState onNew={() => navigate("/chart/new")} />
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-[length:var(--text-sm)] text-muted-foreground">
+            No charts yet — tap New Chart to create one.
+          </p>
+        </div>
       ) : noMatches ? (
         <div className="flex-1 flex items-center justify-center">
           <p className="text-muted-foreground text-sm">
@@ -685,69 +421,15 @@ export function ChartsPage() {
           </p>
         </div>
       ) : (
-        <div data-any-selected={anySelected || undefined}>
-          {viewMode === "cards" ? (
-            <div className="charts-grid">
-              <NewChartTile atLimit={atLimit} onClick={handleNew} />
-              {bodyCharts.map((c) => (
-                <ChartCardEditorial
-                  key={c.id}
-                  chart={c}
-                  selected={selected.has(c.id)}
-                  anySelected={anySelected}
-                  onToggleSelect={toggleSelect}
-                  onOpen={handleOpen}
-                  onPin={handleTogglePin}
-                  onRename={handleRename}
-                  onTag={openTagForSingle}
-                  onExport={openExportForSingle}
-                  onDelete={handleDelete}
-                />
-              ))}
-            </div>
-          ) : (
-            <ChartsTable
-              charts={bodyCharts}
-              selected={selected}
-              anySelected={anySelected}
-              atLimit={atLimit}
-              onNew={handleNew}
-              onToggleSelect={toggleSelect}
-              onOpen={handleOpen}
-              onRowMenu={handleRowMenu}
-            />
-          )}
-        </div>
-      )}
-
-      {/* Dialogs */}
-      {renaming && (
-        <RenameDialog
-          chart={renaming}
-          getStored={getStoredById}
-          onClose={() => setRenaming(null)}
-          onRenamedLocal={(id, name) =>
-            setLocalCharts((prev) =>
-              prev.map((x) => (x.id === id ? { ...x, name } : x)),
-            )
-          }
-          onRenamedCloud={(updated) =>
-            setCloudCharts((prev) =>
-              prev.map((x) => (x.id === updated.id ? updated : x)),
-            )
-          }
-        />
-      )}
-
-      {editing && (
-        <EditMetaDialog
-          chart={editing}
-          onClose={() => setEditing(null)}
-          onSaved={(updated) => {
-            setCloudCharts((prev) =>
-              prev.map((x) => (x.id === updated.id ? updated : x)),
-            );
-          }}
+        <ChartsTable
+          charts={displayCharts}
+          selected={selected}
+          anySelected={anySelected}
+          sortState={sortState}
+          onSortChange={setSortState}
+          onToggleSelect={toggleSelect}
+          onOpen={handleOpen}
+          onRowMenu={handleRowMenu}
         />
       )}
 

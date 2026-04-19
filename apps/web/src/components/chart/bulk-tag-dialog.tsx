@@ -1,8 +1,8 @@
-import { useState, type JSX } from "react";
-import { Tag } from "lucide-react";
+import { useEffect, useMemo, useState, type JSX } from "react";
 import { toast } from "sonner";
 import { chartCache, useAstroClient } from "@astro-app/astro-client";
 import type { UnifiedChart } from "@/lib/unified-chart";
+import { TagInput } from "@/components/forms/tag-input";
 import {
   Dialog,
   DialogContent,
@@ -11,13 +11,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-type BulkTagMode = "add" | "remove" | "replace";
-
 interface BulkTagDialogProps {
   charts: UnifiedChart[];
   open: boolean;
   onClose: () => void;
   onApplied: () => void;
+}
+
+function intersectionTags(charts: UnifiedChart[]): string[] {
+  if (charts.length === 0) return [];
+  const [first, ...rest] = charts;
+  return first.tags.filter((t) => rest.every((c) => c.tags.includes(t)));
 }
 
 export function BulkTagDialog({
@@ -27,18 +31,22 @@ export function BulkTagDialog({
   onApplied,
 }: BulkTagDialogProps): JSX.Element {
   const client = useAstroClient();
-  const [mode, setMode] = useState<BulkTagMode>("add");
-  const [tagsInput, setTagsInput] = useState("");
+  const initial = useMemo(() => intersectionTags(charts), [charts]);
+  const [tags, setTags] = useState<string[]>(initial);
   const [applying, setApplying] = useState(false);
 
-  async function handleApply() {
-    const inputTags = tagsInput
-      .split(",")
-      .map((t) => t.trim())
-      .filter(Boolean);
+  useEffect(() => {
+    if (open) setTags(initial);
+  }, [open, initial]);
 
-    if (mode !== "replace" && inputTags.length === 0) {
-      toast.error("Enter at least one tag");
+  async function handleApply() {
+    const initialSet = new Set(initial);
+    const finalSet = new Set(tags);
+    const added = tags.filter((t) => !initialSet.has(t));
+    const removed = initial.filter((t) => !finalSet.has(t));
+
+    if (added.length === 0 && removed.length === 0) {
+      onClose();
       return;
     }
 
@@ -46,15 +54,10 @@ export function BulkTagDialog({
     let failures = 0;
 
     for (const c of charts) {
-      let nextTags: string[];
-      if (mode === "add") {
-        nextTags = Array.from(new Set([...c.tags, ...inputTags]));
-      } else if (mode === "remove") {
-        const removeSet = new Set(inputTags);
-        nextTags = c.tags.filter((t) => !removeSet.has(t));
-      } else {
-        nextTags = [...inputTags];
-      }
+      const removeSet = new Set(removed);
+      const nextTags = Array.from(
+        new Set([...c.tags.filter((t) => !removeSet.has(t)), ...added]),
+      );
       try {
         if (c.source === "cloud") {
           await client.updateCloudChart(c.id, { tags: nextTags });
@@ -74,11 +77,9 @@ export function BulkTagDialog({
     }
 
     const succeeded = charts.length - failures;
-    const verb =
-      mode === "replace" ? "replaced" : mode === "add" ? "added" : "removed";
     if (succeeded > 0) {
       toast.success(
-        `Tags ${verb} on ${succeeded} chart${succeeded !== 1 ? "s" : ""}`,
+        `Tags updated on ${succeeded} chart${succeeded !== 1 ? "s" : ""}`,
       );
     }
     if (failures > 0) {
@@ -86,16 +87,12 @@ export function BulkTagDialog({
     }
 
     setApplying(false);
-    setTagsInput("");
-    setMode("add");
     onApplied();
     onClose();
   }
 
   function handleClose() {
     if (applying) return;
-    setTagsInput("");
-    setMode("add");
     onClose();
   }
 
@@ -114,46 +111,13 @@ export function BulkTagDialog({
         </DialogHeader>
         <div className="flex flex-col gap-4 py-2">
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-muted-foreground font-medium">
-              Mode
-            </label>
-            <div
-              className="flex gap-2"
-              role="radiogroup"
-              aria-label="Tag mode"
+            <label
+              htmlFor="bulk-tags"
+              className="text-xs text-muted-foreground font-medium"
             >
-              {(["add", "remove", "replace"] as const).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  role="radio"
-                  aria-checked={mode === m}
-                  onClick={() => setMode(m)}
-                  className={`flex-1 px-3 py-2 text-sm rounded-lg border transition-colors ${
-                    mode === m
-                      ? "bg-primary text-white border-primary"
-                      : "bg-input border-border text-foreground hover:border-primary/50"
-                  }`}
-                >
-                  {m === "add" ? "Add" : m === "remove" ? "Remove" : "Replace"}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
-              <Tag size={11} /> Tags
+              Tags
             </label>
-            <input
-              type="text"
-              value={tagsInput}
-              onChange={(e) => setTagsInput(e.target.value)}
-              placeholder="natal, client, work…"
-              className="w-full bg-input border border-border rounded-lg px-3 py-2.5 text-sm text-foreground placeholder:text-dim-foreground focus:outline-none focus:border-primary transition-colors"
-              autoFocus
-            />
-            <p className="text-xs text-dim-foreground">Comma-separated</p>
+            <TagInput id="bulk-tags" value={tags} onChange={setTags} />
             <p className="text-xs text-muted-foreground">
               Applies to {count} chart{count !== 1 ? "s" : ""}
             </p>

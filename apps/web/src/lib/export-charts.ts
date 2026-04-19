@@ -1,6 +1,6 @@
 import JSZip from "jszip";
-import { renderRadix, darkTheme } from "@astro-app/chart-renderer";
 import type { UnifiedChart } from "./unified-chart";
+import { buildChartPdfBlob } from "./pdf-export";
 
 export function safeFilename(name: string): string {
   return name.replace(/[\/\\:*?"<>|]/g, "_").trim().slice(0, 80) || "chart";
@@ -41,36 +41,13 @@ export async function exportChartsJSON(charts: UnifiedChart[]): Promise<void> {
   triggerDownload(blob, `charts-${date}.zip`);
 }
 
-async function renderChartToPngBlob(chart: UnifiedChart): Promise<Blob> {
-  // Off-DOM canvas: renderRadix uses canvas.clientWidth/Height when set,
-  // otherwise falls back to canvas.width/height — so setting width/height
-  // is sufficient without appending to the document.
-  const size = 800;
-  const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
-  renderRadix({
-    data: chart.chart,
-    theme: darkTheme,
-    canvas,
-    padding: 20,
-  });
-  return new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob(
-      (blob) =>
-        blob ? resolve(blob) : reject(new Error("Failed to encode PNG")),
-      "image/png",
-    );
-  });
-}
-
-export async function exportChartsPNG(charts: UnifiedChart[]): Promise<void> {
+export async function exportChartsPDF(charts: UnifiedChart[]): Promise<void> {
   if (charts.length === 0) return;
 
   if (charts.length === 1) {
     const c = charts[0]!;
-    const blob = await renderChartToPngBlob(c);
-    triggerDownload(blob, `${safeFilename(c.name)}.png`);
+    const blob = await buildChartPdfBlob(c);
+    triggerDownload(blob, `${safeFilename(c.name)}.pdf`);
     return;
   }
 
@@ -80,8 +57,8 @@ export async function exportChartsPNG(charts: UnifiedChart[]): Promise<void> {
     const base = safeFilename(c.name);
     const n = (seen.get(base) ?? 0) + 1;
     seen.set(base, n);
-    const fname = n === 1 ? `${base}.png` : `${base}-${n}.png`;
-    const blob = await renderChartToPngBlob(c);
+    const fname = n === 1 ? `${base}.pdf` : `${base}-${n}.pdf`;
+    const blob = await buildChartPdfBlob(c);
     zip.file(fname, blob);
   }
   const blob = await zip.generateAsync({ type: "blob" });

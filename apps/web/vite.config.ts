@@ -50,6 +50,6 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
-    include: [path.resolve(__dirname, "../../tests/apps/web/**/*.test.ts")],
+    include: [path.resolve(__dirname, "../../tests/apps/web/**/*.test.{ts,tsx}")],
   },
 });

@@ -1,5 +1,474 @@
 # Agent Changelog
 
+## 2026-04-19 — Export: replace PNG with PDF (wheel + aspect grid, white background)
+
+### Change
+Replaced PNG export with PDF export. Every PDF contains the chart
+wheel AND the aspect grid on a clean white page, regardless of the
+app's current theme, with a minimal header (chart name + birth
+date/time + location). Available from two surfaces:
+
+1. **Bulk Export dialog** (`/charts`) — the PNG radio option became
+   PDF; single selection downloads a `.pdf`, multi selection still
+   produces a `charts-YYYY-MM-DD.zip` of PDFs.
+2. **Chart-view top bar** — new Download icon button between
+   Settings and Bookmark; exports the single chart on demand.
+
+The wheel is drawn on an offscreen canvas at 1200 px via the
+chart-renderer's existing `lightTheme`. The aspect grid is a DOM
+component, so we mount `<PdfLightScope><AspectGrid …/></PdfLightScope>`
+into a detached `<div>`, wait for `document.fonts.ready` + two
+rAF ticks, and snapshot it with `html-to-image`. The scope wrapper
+sets every themeable CSS variable inline to its light-mode value,
+so dark-mode users get the same white output.
+
+### Files
+- Created `apps/web/src/lib/pdf-export.ts` — `buildChartPdfBlob(chart)`
+  composes an A4 portrait page: 15 mm margins, 18 pt name, 10 pt
+  birth line, 140 × 140 mm wheel centered, aspect grid fit-to-width
+  with preserved aspect ratio (and clipped to remaining page height
+  if it would overflow).
+- Created `apps/web/src/components/chart/pdf-light-scope.tsx` —
+  inline-style wrapper that locks `--background`, `--foreground`,
+  `--card`, `--border`, `--primary`, `--muted-foreground`,
+  `--color-fire/earth/air/water`, `--aspect-*` etc. to light values.
+  Keeps the override local — no global class toggle. Width prop
+  defaults to 720 px so the grid's `100cqi`-driven cell sizing has
+  a deterministic basis during offscreen capture.
+- Modified `apps/web/src/lib/export-charts.ts` — removed
+  `renderChartToPngBlob` + `exportChartsPNG`; added
+  `exportChartsPDF(charts)` using the same zip-for-multi pattern.
+- Modified `apps/web/src/components/chart/bulk-export-dialog.tsx`
+  — `ExportFormat` union is `"json" | "pdf"`; radio copy updated
+  to "Chart wheel + aspect grid on a clean white page".
+- Modified `apps/web/src/routes/chart-view.tsx` — added `Download`
+  icon import, `exportingPdf` state, `handleExportPdf()` handler,
+  and a new 44 × 44 px icon button in the top-bar cluster. Button
+  keeps its `w-11 h-11` touch target at every breakpoint so the
+  new action respects the adaptive rules.
+- Modified `apps/web/package.json` — added `jspdf ^4.2.1` and
+  `html-to-image ^1.11.13`.
+
+### Decisions
+- **html-to-image over html2canvas**: better CSS-variable handling,
+  and jsPDF already pulls html2canvas in transitively, so this only
+  adds html-to-image's own footprint (~15 KB gz).
+- **Inline CSS-variable scope instead of `class="light"` swap**:
+  avoids fighting the global `.dark` class on `<html>` and keeps
+  the export purely local — export styling cannot leak into live UI.
+- **DOM snapshot of the existing `AspectGrid` instead of a
+  canvas reimplementation**: faster to ship, no duplicate geometry,
+  and the only tradeoff (font loading) is handled with
+  `document.fonts.ready` + two rAFs.
+- **Wheel at 1200 px**: the previous 800 px PNG looked fuzzy when
+  blown up to the 140 mm PDF target; 1200 px keeps it sharp at
+  print DPI without blowing up file size meaningfully.
+- **No chart-view export menu, just an icon**: there's only one
+  export format at this surface, so a dropdown would be ceremony.
+  Keeps the top bar tight on phone.
+
+### Verification
+- `npm run typecheck --workspaces` — clean across all five workspaces.
+- `npm run build --workspace=apps/web` — clean production build.
+- Manual end-to-end testing (PDF open in browser, dark-mode export
+  still renders white, glyphs present in wheel + grid, multi-chart
+  zip) pending user run.
+
+## 2026-04-19 — Tags: shared chip-input component in Advanced everywhere
+
+### Change
+Replaced the comma-separated `<input>` used for tags on `/charts` →
+Edit Chart with a proper chip input: type a word, press Enter (or
+comma), it becomes a chip below the input; hover a chip and an X
+appears to remove it. The same control now appears on the two edit
+surfaces where tags were previously dropped on the floor — the
+create-a-chart form (`/chart/new`) and the chart-view Edit Chart
+dialog — so tags round-trip end-to-end. All three surfaces expose
+the control under the existing "Advanced settings" collapsible, not
+the top-level form.
+
+### Files
+- Created `apps/web/src/components/forms/tag-input.tsx` — shared
+  `TagInput` component plus exported `normalizeTag` and `appendTags`
+  helpers. Phone shows the X at `opacity-60` (touch has no hover);
+  tablet+ starts `opacity-0` and reveals the X on `group-hover` or
+  keyboard focus. Uses density tokens (`gap-gap-sm`, `min-h-[44px]`)
+  and semantic color tokens only.
+- Created `tests/apps/web/src/components/forms/tag-input.test.tsx`
+  — 13 Vitest unit tests covering `normalizeTag` (trim + lowercase,
+  whitespace-only, mixed case) and `appendTags` (dedupe across
+  existing + within a batch, empty/whitespace filtering, immutability,
+  the canonical `"Work, CLIENT , client, 2024" → ["work","client","2024"]`
+  paste example from the plan).
+- Modified `apps/web/src/routes/charts.tsx` — `EditMetaDialog` now
+  shows Name / Notes at top level and moves Tags into an Advanced
+  collapsible that defaults open when `chart.tags` is non-empty.
+  Dropped the comma-split-on-save logic (the component normalizes
+  as you type).
+- Modified `apps/web/src/routes/chart-view.tsx` — added
+  `pendingTags` state, seeded from `stored.tags ?? []`, rendered
+  `<TagInput>` under Lunar Node in the Advanced section.
+  `handleApplySettings` now writes `tags: pendingTags` onto the
+  updated StoredChart and, when `source === "cloud"`, calls
+  `client.updateCloudChart(id, { tags })` so the server stays in
+  sync with the local chartCache.
+- Modified `apps/web/src/components/forms/birth-data-form.tsx` —
+  added `tags` state, rendered `<TagInput>` in the Advanced block
+  under Lunar Node, and threaded tags through both
+  `calculateChart.mutateAsync` and `client.saveCloudChart` so a
+  freshly created chart carries its tags into both local cache and
+  the cloud on first save.
+- Modified `packages/astro-client/src/hooks.ts` —
+  `useCalculateChart` mutation now accepts optional `tags?: string[]`
+  and includes it on the `StoredChart` written to `chartCache`.
+- Modified `apps/web/vite.config.ts` — expanded the vitest
+  `include` pattern from `*.test.ts` to `*.test.{ts,tsx}` so the new
+  `.tsx` test file is picked up. (No `.tsx` tests existed before.)
+
+### Decisions
+- **One shared component, three call sites.** Keeps normalization
+  rules (trim + lowercase + dedupe) and the adaptive X-visibility
+  behavior in one place; the three edit surfaces pass
+  `value`/`onChange` and nothing else.
+- **Trim + lowercase + dedupe.** Case-insensitive dedupe was the
+  user's explicit ask. Lowercase storage keeps the data layer
+  boring — filters and tag-chip rendering never have to worry about
+  `Work` vs `work`.
+- **Paste splits on comma.** Matches the old comma-separated input
+  so existing muscle memory ("paste `natal, client, work`") still
+  works. Enter and `,` key commit the draft the same way.
+- **Backspace on empty input pops the last tag.** Standard
+  keyboard-only chip-input affordance.
+- **X visibility is tier-aware via `tablet:` prefix, not JS.** Phone
+  lacks hover state, so the X renders at `opacity-60` (always
+  tappable). Tablet+ starts `opacity-0` and appears on
+  `group-hover` / `focus-visible`. No JS branching needed.
+- **Pure-logic test suite (no RTL).** The repo has no React Testing
+  Library setup, and all existing tests are pure Vitest. Rather than
+  add a new test harness, the normalization and dedupe logic was
+  extracted into exported `normalizeTag` / `appendTags` helpers; the
+  test file calls those directly. Component keyboard/paste/render
+  behavior delegates to those helpers, so coverage of the helpers is
+  coverage of the component's commit path.
+- **`updateCloudChart` in chart-view's Apply & Recalculate is
+  best-effort, surfaced via toast.** If the recalculation succeeded
+  but the cloud tag sync failed, the chart has already been written
+  to the local cache; we warn but don't block the user.
+
+### Verification
+- `npm run typecheck --workspaces` — clean (all 5 packages).
+- `npm test --workspace=apps/web` — 13 new tests pass; 2 unrelated
+  pre-existing failures in `format.test.ts` (zodiac glyph variation
+  selector) confirmed to exist on base HEAD (verified via
+  `git stash`).
+- `npm run build --workspace=apps/web` — clean; emits a
+  `tag-input-*.js` chunk of 2.35 kB (gzip 1.18 kB).
+
+### Notes
+- Adaptive check: the component markup uses only `tablet:` (no
+  `sm:`/`md:`/`lg:`/`xl:`/`2xl:`), density tokens `gap-gap-sm` and
+  `min-h-[44px]` (44 px = iOS touch minimum), and semantic color
+  tokens (`bg-input`, `border-border`, `text-foreground`,
+  `text-dim-foreground`, `bg-secondary`). No raw pixel spacing or
+  colors introduced. Layout behavior: chips wrap via `flex-wrap`
+  at every tier; input is `flex-1 min-w-[8ch]` so it always has a
+  reasonable hit target even when chips fill the row.
+
+## 2026-04-19 — Charts page: remove mini-wheel thumbnail
+
+### Change
+Removed the per-row mini-wheel thumbnail from the charts list on the
+user's request ("mini chart can completely be removed from the app").
+The list now starts with the selection checkbox, then jumps straight
+to the chart name. With no remaining call sites, the `MiniWheel`
+component and its sibling `FeaturedChart` (which also rendered a
+wheel, and had been orphaned by the earlier charts-page simplification)
+were deleted outright rather than left as dead code.
+
+### Files
+- Modified `apps/web/src/components/chart/charts-table.tsx` —
+  dropped the `MiniWheel` / `toMiniWheelProps` import, the thead
+  placeholder slot, and the `<div className="mini-wheel">…</div>`
+  block from both the desktop `TableRow` and `PhoneRow`.
+- Modified `apps/web/src/routes/charts-page.css` —
+  `grid-template-columns` on `.charts-table .tr` went from 9 tracks
+  to 8 (dropped the 44px wheel column). Deleted the two `.mini-wheel`
+  rules and the `.charts-table-phone .tr .mini-wheel` rule.
+- Deleted `apps/web/src/components/chart/mini-wheel.tsx`.
+- Deleted `apps/web/src/components/chart/featured-chart.tsx` (dead
+  since the earlier featured-hero removal).
+
+### Verification
+- `rg "MiniWheel|mini-wheel|FeaturedChart|featured-chart" apps/web/src`
+  returns zero matches.
+- `npm run typecheck --workspace=apps/web` passes clean.
+
+### Notes
+- The `.mini-wheel` class name no longer appears anywhere; no dangling
+  style hooks.
+- Column layout on the charts list is now: checkbox · name · sun/moon/asc ·
+  born · location · tags · last viewed · overflow menu.
+
+## 2026-04-19 — Charts page: simplify to header-sortable list, New Chart in header
+
+### Change
+Stripped `/charts` down to a single list with clickable column-header
+sorting. Removed the dual card/list toggle, featured-hero block,
+segmented sort buttons, `N` keyboard shortcut, in-grid "New chart"
+tile, in-table "new chart" row, and the editorial empty-state CTA.
+The page now has exactly one entry point to create a chart: a `New
+Chart` button next to the usage chip in the page header. When the
+free-tier cap is reached, the button is disabled and a tooltip
+explains why.
+
+Desktop/tablet: sortable column headers (Name / Born / Location /
+Last viewed) with chevron indicators and `aria-sort`. Clicking the
+active column flips direction; clicking a new column jumps to that
+key's sensible default (asc for Name/Location, desc for Born/Last
+viewed). Phone: stacked rows with a `Sort: …` dropdown above the
+list that exposes the same four keys + direction toggle.
+
+### Files
+- Modified `apps/web/src/routes/charts.tsx` — dropped 300+ lines of
+  view-mode, featured-hero, segmented-sort, `N`-shortcut, and
+  `bodyCharts` logic. Added `SortState` model, `compareByKey` helper,
+  and a header `New Chart` `Button` wrapped in a `Tooltip` when
+  `atLimit`. Inline 3-line text-only empty state replaces the
+  ex-`EmptyState` card.
+- Modified `apps/web/src/components/chart/charts-table.tsx` — new
+  `sortState` / `onSortChange` props; `useBreakpoint().isPhone`
+  branches between the grid layout (now with sortable `<button>`
+  headers, chevron icons, `aria-sort`) and a phone-tier flex-column
+  layout (wheel · name / sub-line / tags · overflow menu). Added
+  `PhoneSortControl` dropdown. Removed `NewChartRow`.
+- Modified `apps/web/src/routes/charts-page.css` — deleted
+  card-grid, featured-hero, view-toggle, segmented-sort, in-grid
+  new-chart-tile, table new-chart-row, old empty-state, `hide-sm`
+  / `hide-md`, and the scoped `btn` utility rules. Added a small
+  `charts-table-phone .tr` flex-row style for the phone layout.
+- Deleted `apps/web/src/components/chart/chart-card-editorial.tsx`.
+- Deleted `apps/web/src/components/chart/new-chart-tile.tsx`.
+- Deleted `apps/web/src/components/chart/empty-state.tsx`.
+
+### Decisions
+- **Pinned rows always float above the rest, regardless of sort key
+  or direction.** Documented in a one-line comment on `sortCharts`.
+  Pinned-group is still sorted by the current sort key so a pinned
+  Alice ranks above a pinned Bob in Name-asc.
+- **Sort is not persisted.** Each visit starts at `{ lastViewed,
+  desc }`, matching the pre-existing behavior. No new localStorage
+  key was introduced.
+- **`featured-chart.tsx` is left on disk.** Plan listed only three
+  files for deletion; `FeaturedChart` is no longer imported but the
+  file stays in case a future redesign brings the hero back. No
+  dangling references per `grep`.
+- **Disabled `New Chart` button uses a `<span>` wrapper for the
+  `TooltipTrigger`.** A disabled `<button>` does not receive
+  pointer events, so the tooltip needs a non-disabled parent to
+  detect hover/focus. `tabIndex={0}` on the wrapper keeps it
+  keyboard-reachable.
+- **Phone sort control renders above the list, right-aligned.**
+  Puts the existing search input at the top (mobile order `-1`
+  already established), keeps the sort near the data it affects.
+- **Kept the `⌘K` kbd affordance out of the search.** Search no
+  longer needs a shortcut hint now that the page has just one
+  action; the underlying shortcut infra was `N`, which is gone.
+
+### Verification
+- `npm run typecheck --workspace=apps/web` → clean (exit 0).
+- `npm run build --workspace=apps/web` → succeeded; the
+  pre-existing >500 kB chunk warning is unchanged and unrelated.
+- `grep` for `chart-card-editorial|new-chart-tile|empty-state|
+  ChartCardEditorial|NewChartTile|EmptyState` across `apps/web/src`
+  returns only the stale comment in `mini-wheel.tsx:287` (the
+  empty-state demo was a 300-px consumer; the comment is now
+  outdated but the plan says leave mini-wheel alone).
+- Interactive browser verification was NOT performed. A human
+  should eyeball at each tier:
+  - **Wide / Desktop**: table with four sortable column headers —
+    chevron toggles on click, `aria-sort` flips, pinned rows stay
+    on top when sort direction is reversed.
+  - **Tablet**: same shape as desktop; density tokens should
+    scale padding down one notch.
+  - **Phone**: list switches to stacked rows. "Sort: …" dropdown
+    above the list re-orders live; tapping a row opens the chart;
+    overflow menu still works.
+  - **Header**: `New Chart` button navigates to `/chart/new`. When
+    the local chart count hits 5 (free tier), the button becomes
+    disabled with a "Free tier reached — upgrade to add more
+    charts" tooltip on hover/focus.
+  - **Empty state**: clear IndexedDB to `charts = []`; page should
+    show the one-line text empty state and the header button
+    still works.
+
+---
+
+## 2026-04-19 — MiniWheel: house-based planet placement (all tiers)
+
+### Change
+Replaced the mini-wheel's degree-based planet placement +
+tangential-only greedy collision sweep with a house-based symbolic
+layout. Planets are bucketed by their house (via `getHouseForLongitude`)
+and laid out inside the house arc: fanned tangentially across the arc,
+stacked onto inner rings when the outer ring fills (sequential fill:
+outer first, then inner, overflow compresses the innermost ring).
+Degree order is preserved within each house (ascending longitude,
+stable tiebreak on original array index).
+
+Applied at **all tiers**, including the 320/360-px featured wheel —
+the mini-wheel is explicitly no longer precision; the big canvas
+`planet-ring` layer remains the source of truth for exact degrees.
+
+### Files
+- `apps/web/src/components/chart/mini-wheel.tsx`
+  - Added `PLACEMENT` constants (edge-margin / tangential-gap /
+    radial-gap factors, `MIN_RING_RADIUS_FRACTION = aspectOuter + 0.03`).
+  - Added `PlacedPlanet` type and `computeHousePlacements()` pure
+    function. Fallback path when cusps are missing/malformed: place
+    every planet at its true longitude on the outer ring.
+  - Deleted old `distributePlanets()` helper and its `collisionPx` /
+    `minGapDeg` / `displayLngs` invocation block.
+  - Rewrote the leader-tick loop, planet glyph/dot loop, and aspect
+    endpoint lookup to iterate the new `placements` array. A
+    `Map<trueLng, PlacedPlanet>` routes aspect endpoints through
+    placed positions (clamped to `g.rAspect` so lines stay inside
+    the aspect-clip circle).
+- `apps/web/src/lib/dignities.ts` — reused unchanged: `getHouseForLongitude`.
+
+### Decisions
+- **Symbolic at every tier** — user confirmed the mini-wheel is not
+  precision at any size. Keeps all consumers (32-px charts-table,
+  120-px editorial card, 320/360-px featured wheel, 300-px empty-state
+  demo) on a single rendering path. Big canvas wheel at
+  `packages/chart-renderer/src/layers/planet-ring.ts` continues to
+  handle exact-degree layout with spring-force collision.
+- **Sequential fill, not interleaved rings** — outer ring fills first,
+  overflow goes inward. This keeps the visually dominant outer ring
+  in continuous degree order. Interleaving (even-index outer,
+  odd-index inner) would scatter adjacent-degree planets vertically
+  and undermine the "symbolic but legible" goal.
+- **Aspect endpoints routed via longitude map, not body IDs** —
+  cheaper diff than threading `CelestialBody` through
+  `MiniWheelAspect`. Map keyed by true longitude works because the
+  aspect payload's `aLng`/`bLng` come from the same source values
+  we bucketed. Graceful fallback to ecliptic position on lookup miss.
+- **Overflow rule beyond saturated rings: compress innermost ring's
+  tangential step, no glyph shrink** — deterministic, avoids the
+  glyph-size wobble that would come from a second shrink pass. At
+  320 px on an average 30° arc, 3 rings comfortably fit ≥10 planets,
+  so this path is defensive for pathological stelliums only.
+
+### Verification
+- `npm run typecheck --workspace=apps/web` → clean (exit 0).
+- Manual check in Playwright across tiers on `/charts`:
+  - Tier S (≈ 30 px, list view): colored dots cluster inside each
+    house arc; no overlap in either row.
+  - Tier L (320 px, featured library card): Scorpio stellium
+    (5 planets) shows radial stacking + tangential fan; aspect web
+    routes through placed positions; no glyph collapse.
+  - Grid-card Tier L (≈ 200 px): planets clearly grouped per house
+    with a clean aspect web.
+- Pre-existing HMR error in `aspect-grid.tsx` surfaced on first load
+  (`useBreakpoint is not defined` from a stale module after the prior
+  changelog entry's edit); resolved on cache-bust navigation.
+  Unrelated to this change.
+
+---
+
+## 2026-04-19 — AspectGrid: container-aware sizing (fills host card)
+
+### Change
+The aspect grid on the home page now resizes with its host card
+instead of using a fixed per-tier cell size. Cells grow or shrink
+continuously with the card's inline width, so the grid always fills
+its container without overflow.
+
+### Files
+- `apps/web/src/components/home/aspect-grid.tsx` — removed the
+  `CELL_SIZE_BY_TIER` table and the `useBreakpoint()` tier lookup
+  (including the import). Wrapped the grid in a container-query host
+  (`container-type: inline-size`), switched columns from fixed
+  `${cellSize}px` to `repeat(N, minmax(0, 1fr))`, and drove font size
+  from `calc(100cqi / N)` so the internal `em`-based glyph and orb
+  sizes scale automatically. Dropped `overflow-x-auto` from the
+  `CardContent` since the grid no longer overflows.
+
+### Decisions
+- **CSS container queries over JS `ResizeObserver`** — sizing is a
+  pure function of parent inline size, and container queries match
+  the project's density-token philosophy of continuous adaptation
+  (no breakpoint jumps, no JS state, no layout thrash).
+- **No new density tokens** — the grid's metrics are purely derived
+  from the card width; adding `--aspect-grid-cell-*` tokens would be
+  dead weight when `100cqi / N` already gives the right answer.
+- **Tradeoff: cells have no upper cap** — on very wide cards they'll
+  grow beyond the previous 40-px tier ceiling. Confirmed with the
+  user ("uncapped, fill the card"). If this becomes a problem on
+  wide screens, easy to add a `max()` bound to the font size later.
+
+### Verification
+- `npm run typecheck --workspace=apps/web` → clean.
+- `npm run build --workspace=apps/web` → clean.
+
+---
+
+## 2026-04-19 — MiniWheel: axis labels toggle (As/Ds/Mc/Ic)
+
+### Change
+Added a module-level `SHOW_AXIS_LABELS` constant in `mini-wheel.tsx`
+that gates the As/Ds/Mc/Ic text labels. Set to `false` for now — the
+angle axis lines still render (clipped to the inner zodiac ring), only
+the 2-letter labels disappear.
+
+### Files
+- `apps/web/src/components/chart/mini-wheel.tsx` — new
+  `SHOW_AXIS_LABELS = false` constant; `showAxisLabels` now ANDs that
+  flag with the existing `tier === "L"` guard.
+
+### Decisions
+- **Module constant rather than a prop** — the user asked for a
+  toggle variable, not a per-call override, and the axes read equally
+  well without labels across every call site (charts table, editorial
+  card, featured chart, empty state). Easy to promote to a prop if a
+  future surface needs them back.
+- **Axis lines untouched** — `showAxes` still fires on Tier M/L, so
+  the ASC/DSC/MC/IC lines and intermediate house cusps stay exactly as
+  before; only the text layer is gated.
+
+### Verification
+- `npm run typecheck --workspace=apps/web` → clean.
+
+---
+
+## 2026-04-19 — MiniWheel: planet glyphs scale with circle size
+
+### Change
+Planet glyph font size in `mini-wheel.tsx` no longer has an 8-px floor.
+Previously `Math.max(8, Math.round(r * 0.082))` clamped small wheels to
+8-px glyphs, breaking proportionality — a 120-px featured wheel rendered
+glyphs at 8 px (~13 % of radius) while a 360-px wheel rendered them at
+15 px (~8 %). Now it's pure `Math.round(r * 0.082)`, so glyphs shrink
+with the wheel.
+
+### Files
+- `apps/web/src/components/chart/mini-wheel.tsx` — dropped the
+  `Math.max(8, …)` floor on `planetFontSize`; added a comment explaining
+  the intent.
+
+### Decisions
+- **Sign glyphs kept their 8-px floor** — user asked about planetary
+  glyphs specifically, and sign glyphs sit in the zodiac band where
+  legibility at small sizes matters more (they're the chart's frame of
+  reference). If this looks inconsistent at 120 px, easy follow-up.
+- **No change to Tier S behaviour** — sizes < 64 still render dots
+  instead of glyphs, so the floor only affected Tier M/L wheels in the
+  120–200 px range.
+
+### Verification
+- `npm run typecheck --workspace=apps/web` → clean.
+
+---
+
 ## 2026-04-19 — Adaptive design is a permanent project requirement
 
 ### Change
