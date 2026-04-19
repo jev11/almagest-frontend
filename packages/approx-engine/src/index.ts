@@ -22,7 +22,6 @@ export { dateToJulianDay, julianCenturies, normalizeDegrees } from "./julian.js"
 export { calculateSunPosition, calculatePlanetPosition, calculateMoonPosition } from "./bodies.js";
 export { meanNorthNode, meanSouthNode } from "./nodes.js";
 export { calculateChironPosition } from "./chiron.js";
-export { nextEclipse, type NextEclipse, type EclipseKind, type EclipseSubtype } from "./eclipses.js";
 
 const SIGN_ORDER: ZodiacSign[] = [
   ZodiacSign.Aries, ZodiacSign.Taurus, ZodiacSign.Gemini,

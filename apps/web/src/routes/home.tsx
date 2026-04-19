@@ -5,7 +5,7 @@ import type { ChartData, ZodiacPosition } from "@astro-app/shared-types";
 import { ChartWheel } from "@/components/home/chart-wheel";
 import { PlanetCard } from "@/components/home/planet-card";
 import { AspectGrid } from "@/components/home/aspect-grid";
-import { EclipseCard } from "@/components/home/eclipse-card";
+import { MoonCard } from "@/components/home/moon-card";
 import { RetrogradeTracker } from "@/components/home/retrograde-tracker";
 import { PlanetaryHours } from "@/components/home/planetary-hours";
 import { ElementModalityCard } from "@/components/home/element-modality-card";
@@ -193,7 +193,7 @@ export function HomePage() {
           className="flex flex-col gap-gap min-w-0 w-full animate-fade-in"
           style={{ flex: "1", animationDelay: "0.1s" }}
         >
-          <EclipseCard />
+          <MoonCard />
           <PlanetaryHours lat={sky.location.lat} lon={sky.location.lon} />
           <RetrogradeTracker />
         </div>

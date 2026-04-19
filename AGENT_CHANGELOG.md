@@ -1407,30 +1407,3 @@ cd ../almagest-backend && SWISSEPH_PATH=./data python3 scripts/generate_swiss_go
 # then copy almagest-backend/scripts/swiss-ephemeris-golden.json into
 # almagest-frontend/packages/approx-engine/fixtures/
 ```
-
-## 2026-04-19 — replace MoonCard with EclipseCard (Next Eclipse glance)
-
-### Change
-Swapped the `MoonCard` on the home-screen right rail for a minimal `EclipseCard` that surfaces the next upcoming solar OR lunar eclipse. The card shows an eyebrow "NEXT ECLIPSE", a display-font title ("Solar" / "Lunar"), and a mono meta row: short date · colored zodiac glyph with degree/minute · days-until.
-
-- **New:** `packages/approx-engine/src/eclipses.ts` — thin wrapper over astronomy-engine's `SearchGlobalSolarEclipse` / `SearchLunarEclipse`. Exports `nextEclipse(from: Date): NextEclipse` plus `NextEclipse`, `EclipseKind` (`"solar" | "lunar"`), `EclipseSubtype` (`"partial" | "total" | "annular" | "penumbral"`). Pure, deterministic, no network.
-- **New:** `apps/web/src/components/home/eclipse-card.tsx` — one-shot `useMemo` that calls `nextEclipse(new Date())` then `calculateBodyPosition(peak, Sun|Moon)` to get the ecliptic position of the eclipsed body (Sun for solar, Moon for lunar). Reuses `SIGN_GLYPHS`, `longitudeToZp`, `SIGN_ELEMENT` and the `var(--color-{fire|earth|air|water})` inline-style pattern borrowed 1:1 from the old `MoonCard`. Uses 🌍 emoji for both kinds per the reference image.
-- **Modified:** `packages/approx-engine/src/index.ts` — re-export `nextEclipse` + the three types.
-- **Modified:** `apps/web/src/routes/home.tsx` — swap `MoonCard` import + render site for `EclipseCard`. Right-rail stack order preserved: EclipseCard → PlanetaryHours → RetrogradeTracker.
-- **Deleted:** `apps/web/src/components/home/moon-card.tsx` — the user asked to replace, not coexist. Moon data is still surfaced elsewhere on the page (Moon hero-stat and chart wheel).
-
-### Decisions Made
-- **astronomy-engine over a backend endpoint.** `astronomy-engine` is already a transitive dependency via `packages/approx-engine`, so eclipse search adds zero new deps and zero network round-trips. Its `SearchGlobalSolarEclipse` / `SearchLunarEclipse` return the next event of each kind from any instant; picking the earlier of the two yields "the next eclipse, full stop". Backend work wasn't warranted for a single glance card.
-- **Subtype (Total/Partial/Annular/Penumbral) intentionally deferred.** The reference image matches a no-subtype layout and the plan explicitly called for it out of scope. If later desired, the `subtype` field on `NextEclipse` is already populated; surfacing it is a zero-code-change pill-badge addition.
-- **EclipseKind cast, not `.toLowerCase()`.** Confirmed against `node_modules/astronomy-engine/astronomy.d.ts:2704-2709`: astronomy-engine's `EclipseKind` enum has **lowercase** string values (`"penumbral" | "partial" | "annular" | "total"`) — identical to our `EclipseSubtype`. Direct structural cast is exact; no case-mapping or switch is needed. If astronomy-engine ever switches to a numeric enum this will break loudly at compile time (TS will reject the cast), which is the right failure mode.
-- **One-shot `useMemo`, no periodic refresh.** Matches the old `MoonCard`'s `useState(() => ...)` one-shot pattern — the next eclipse doesn't change from minute to minute, and the card is cheap to re-render on route re-mount.
-- **Both eclipse kinds use 🌍 emoji.** The reference image shows a single glyph treatment regardless of kind; easiest path and matches the visual target. User can swap to 🌒 / ☀ later if desired.
-- **Approx-engine's own ecliptic positioning, not astronomy-engine's direct.** We use `calculateBodyPosition(peak, body)` (already exported from `index.ts`) rather than astronomy-engine's `Ecliptic(GeoVector(...))` directly. Keeps the card consistent with every other zodiac position shown on the page (same frame: ECT / ecliptic-of-date).
-
-### References
-- `packages/approx-engine/src/eclipses.ts`
-- `packages/approx-engine/src/index.ts`
-- `apps/web/src/components/home/eclipse-card.tsx`
-- `apps/web/src/routes/home.tsx`
-- `node_modules/astronomy-engine/astronomy.d.ts:2704-2847` — `EclipseKind`, `LunarEclipseInfo`, `GlobalSolarEclipseInfo`
-
