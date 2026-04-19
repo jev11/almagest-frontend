@@ -71,4 +71,8 @@ export interface StoredChart {
   nodeType?: "mean" | "true";
   createdAt: number;
   updatedAt: number;
+  pinned?: boolean;
+  lastViewedAt?: number;
+  tags?: string[];
+  notes?: string;
 }

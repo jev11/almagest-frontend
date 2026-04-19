@@ -1,5 +1,113 @@
 # Agent Changelog
 
+## 2026-04-19 — Charts redesign Task 1: schema + helper libraries
+
+### Change
+First task of the "Redesign My Charts page" plan — schema extensions and
+helper libraries only, no UI changes.
+
+- **`packages/astro-client/src/types.ts`** — extended `StoredChart` with
+  optional `pinned`, `lastViewedAt`, `tags`, `notes`. All fields are
+  optional so no IndexedDB version bump is needed; existing records stay
+  read-compatible.
+- **`packages/astro-client/src/auth.ts`** — extended `CloudChart` with
+  `pinned?: boolean` and `last_viewed_at?: string | null`, extended
+  `UpdateChartRequest` with `pinned?: boolean`, and widened
+  `ListChartsParams.sort` to include `"last_viewed_at"`.
+- **`packages/astro-client/src/client.ts`** — added `pinCloudChart(id,
+  pinned)` (delegates to `updateCloudChart`) and `markCloudChartViewed(id)`
+  (POST `/v1/charts/:id/view`, returns void via the class's existing
+  `request<void>` helper, which already handles 204 No Content).
+- **`apps/web/src/lib/chart-summary.ts`** (new) — pure helpers:
+  `summarizeBody`, `getChartSummary`, `getDominantElement`. Returns
+  sign/glyph/element summaries for Sun, Moon, ASC plus the dominant
+  element(s) across the 10 classical bodies.
+- **`apps/web/src/lib/unified-chart.ts`** (new) — `UnifiedChart`
+  interface plus `fromStored`, `fromCloud`, `chartHref` adapters so
+  downstream UI (Task 3) can iterate cloud + local charts uniformly.
+
+### Decisions Made
+- **Optional fields only → no IndexedDB migration.** The existing
+  `chart-cache` v1 schema stays intact. Charts saved before this change
+  simply have `pinned`/`lastViewedAt`/`tags`/`notes` undefined; callers
+  use `?? false`/`?? null`/`?? []`/`?? ""` fallbacks (as done in
+  `fromStored`).
+- **`markCloudChartViewed` gracefully degrades.** The method calls
+  `this.request<void>` which throws `ApiError` on 404. Callers are
+  expected to try/catch; the plan explicitly notes the `/view` endpoint
+  may not be deployed yet on the backend. No silent swallowing inside
+  the SDK — that would mask unrelated network failures.
+- **`summarizeBody` input shape.** The plan's sketch typed the parameter
+  as `ZodiacPosition | undefined`, but `longitudeToZp` (used to derive
+  the ASC summary) returns only `{ sign, degree, minute }` — not a full
+  `ZodiacPosition` (missing `second`, `is_retrograde`, `dignity`). Used
+  `Pick<ZodiacPosition, "sign" | "degree">` as the parameter type so
+  both callers type-check without casts.
+- **Element mapping duplicated locally.** `@astro-app/shared-types`
+  already exports `SIGN_ELEMENT` keyed by the `ZodiacSign` enum, but the
+  plan's sketch uses lowercase string keys (matches the
+  `chart.zodiac_positions[body].sign` runtime value directly). Kept the
+  plan's literal map for minimal deviation; can be deduped in a later
+  polish pass.
+
+### References
+- `packages/astro-client/src/types.ts`
+- `packages/astro-client/src/auth.ts`
+- `packages/astro-client/src/client.ts`
+- `apps/web/src/lib/chart-summary.ts`
+- `apps/web/src/lib/unified-chart.ts`
+- Plan: `/home/evgeny/.claude/plans/we-need-to-redesign-stateless-dolphin.md`
+
+## 2026-04-19 — MC/IC labels nudge off-axis when a non-angular cusp is close
+
+### Change
+In `packages/chart-renderer/src/layers/planet-ring.ts`, extended the AS/DS
+sideways-nudge mechanism to MC/IC, but conditioned on proximity to a
+non-angular house cusp (houses 3/5 near IC, 9/11 near MC). When a cusp
+sits within `axisOffsetPx + COLLISION.cuspBlockerGap` of the MC or IC
+angle *and* the other side has more room, the label flips
+`nudgeFromAxis: true` and `nudgeSign` is set to push away from the tight
+side. Re-used the existing wide-blocker / house-clamp / `marginForCusp`
+paths — all of them already branch on `nudgeFromAxis` and `nudgeSign`,
+so no changes were needed downstream.
+
+Supporting edits in the same file:
+- Hoisted `ANGULAR_INDICES = new Set([0,3,6,9])` and `axisOffsetPx = 14`
+  to the top of `drawPlanetRing` so the new MC/IC block can read them.
+  The previous in-place declarations (one inside the cuspBlockers
+  filter, one right before `axisOffsetRad`) were removed.
+
+MC/IC ticks are still drawn at their true ecliptic position, even when
+the label is nudged — the user confirmed that removing the tick in the
+nudged case was unwanted. The tick stays at `pos.originalAngle` on the
+axis line, and the label sits 14 px to one side when the nudge fires.
+
+All 48 chart-renderer tests pass; `tsc --noEmit` is clean.
+
+### Decisions Made
+- **Threshold `axisOffsetPx + cuspBlockerGap` (14 + 11 = 25 px).** After
+  nudging 14 px away from a cusp, the label center sits exactly
+  `cuspBlockerGap = 11 px` from the cusp line — matching the
+  thin-blocker clearance already enforced for planet↔cusp spacing. A
+  tighter threshold would trigger nudges that don't actually clear the
+  collision; a looser threshold would nudge unnecessarily on charts
+  where the cusp just happens to be near but not intersecting.
+- **Skip nudge when both sides are tight.** If cusps on both sides are
+  within the threshold, a 14 px shift would push the label from one
+  collision into another. Better to leave centered and accept the
+  (rare) overlap than to relocate it into a worse one.
+- **Only MC/IC, not AS/DS.** AS/DS already have a direction policy
+  (planet clustering + sign boundary). Overriding that with cusp
+  proximity would regress the stellium-compression fix from 2026-04-07.
+  Non-angular cusps adjacent to AS/DS are houses 2/12 and 6/8, which
+  in Placidus tend to sit farther from the axis than the 9/11/3/5
+  cusps do from MC/IC, so the collision is less common there anyway.
+### References
+- `packages/chart-renderer/src/layers/planet-ring.ts`
+- Prior nudge tuning: `## 2026-04-18 — bump minGlyphGap from 17 to 20`,
+  `## 2026-04-18 — halve minGlyphGap (34→17) and axisOffsetPx (14→7)`,
+  `## 2026-04-07 — Reduce planet label displacement near angle labels`.
+
 ## 2026-04-18 — add Chiron to approx-engine via Keplerian approximation
 
 ### Change

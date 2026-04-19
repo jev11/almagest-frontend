@@ -45,6 +45,8 @@ export interface CloudChart {
   notes: string;
   created_at: string;
   updated_at: string;
+  pinned?: boolean;
+  last_viewed_at?: string | null;
 }
 
 export interface SaveChartRequest {
@@ -62,12 +64,13 @@ export interface UpdateChartRequest {
   name?: string;
   tags?: string[];
   notes?: string;
+  pinned?: boolean;
 }
 
 export interface ListChartsParams {
   q?: string;
   tags?: string[];
-  sort?: "created_at" | "name";
+  sort?: "created_at" | "name" | "last_viewed_at";
   order?: "asc" | "desc";
   page?: number;
   page_size?: number;
