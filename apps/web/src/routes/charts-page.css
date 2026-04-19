@@ -526,3 +526,44 @@
 .charts-page .chip.dom-earth { color: var(--earth); background: oklch(55% 0.11 140 / 0.14); border-color: transparent; }
 .charts-page .chip.dom-air   { color: var(--air);   background: oklch(62% 0.12 85 / 0.14);  border-color: transparent; }
 .charts-page .chip.dom-water { color: var(--water); background: oklch(55% 0.13 235 / 0.14); border-color: transparent; }
+
+/* ─── Focus rings (keyboard-only) ─────────────────────── */
+.charts-page :focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+/* Cards have rounded corners + inset children — push the ring outward
+   so it doesn't clip the selection checkbox / action button. */
+.charts-page .cc:focus-visible,
+.charts-page .cc-new:focus-visible {
+  outline-offset: 4px;
+}
+/* The search input already styles its own focus border — let its rule win. */
+.charts-page .search input:focus-visible {
+  outline: none;
+}
+
+/* ─── Reduced motion ───────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .charts-page *,
+  .charts-page *::before,
+  .charts-page *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .charts-page .cc-new:hover .cc-new-wheel { transform: none; }
+  .charts-page .bulk-bar { transition: none; }
+}
+
+/* ─── Narrow viewport toolbar wrap ─────────────────────── */
+@media (max-width: 640px) {
+  .charts-page .charts-toolbar { flex-wrap: wrap; }
+  .charts-page .charts-toolbar .search {
+    flex: 1 1 100%;
+    max-width: none;
+    order: -1;
+  }
+  .charts-page .charts-toolbar .toolbar-meta { margin-left: 0; }
+}

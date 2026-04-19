@@ -367,6 +367,34 @@ export function ChartsPage() {
   const loading = authenticated ? cloudLoading : localLoading;
   const hasError = authenticated ? cloudError : localError;
 
+  // 'N' keyboard shortcut — new chart. Skip if any modifier is held (browser
+  // shortcuts like ⌘N / Ctrl+N should pass through), if focus is in a text
+  // field, or if any Radix Dialog/AlertDialog is currently open. Using a DOM
+  // query for open dialogs keeps this future-proof: new modals don't need to
+  // be added to a dependency list.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key !== "n" && e.key !== "N") return;
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+        if (target.isContentEditable) return;
+      }
+      if (document.querySelector('[role="dialog"][data-state="open"]')) return;
+      if (document.querySelector('[role="alertdialog"][data-state="open"]')) return;
+      e.preventDefault();
+      if (atLimit) {
+        toast.error("Free tier reached — upgrade to add more charts");
+        return;
+      }
+      navigate("/chart/new");
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [navigate, atLimit]);
+
   // ── Handlers ──
   const getStoredById = (id: string): StoredChart | undefined =>
     localCharts.find((c) => c.id === id);

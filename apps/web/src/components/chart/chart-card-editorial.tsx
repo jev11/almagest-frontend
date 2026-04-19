@@ -59,7 +59,12 @@ export function ChartCardEditorial({
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
-        if (e.key === "Enter") onOpen(chart);
+        if (e.key === "Enter" || e.key === " ") {
+          // Space would otherwise scroll the page when a role="button" is
+          // focused — preventDefault is the a11y-correct behavior.
+          e.preventDefault();
+          onOpen(chart);
+        }
       }}
     >
       <button

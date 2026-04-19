@@ -1,5 +1,66 @@
 # Agent Changelog
 
+## 2026-04-19 — Charts redesign Task 8: PNG export + 'N' shortcut + polish
+
+### Change
+Final task of the "Redesign My Charts page" plan. The `exportChartsPNG`
+function now actually renders chart wheels to PNG (bare file for one
+chart, zip for many) via the existing `renderRadix` canvas renderer.
+The `BulkExportDialog` PNG option is enabled and wired. Pressing `N`
+anywhere on the charts page jumps to `/chart/new`. Finishing polish:
+keyboard focus rings, `prefers-reduced-motion` support, a narrow-viewport
+toolbar wrap, and Space-to-open on chart cards.
+
+### Files
+- **Modified:** `apps/web/src/lib/export-charts.ts` — implemented
+  `exportChartsPNG`. Uses `renderRadix` from `@astro-app/chart-renderer`
+  on an 800×800 off-DOM `<canvas>`, then `canvas.toBlob("image/png")`.
+  Single chart → `.png`; multiple → zip named `charts-YYYY-MM-DD.zip`.
+  Same filename-collision disambiguation as JSON export.
+- **Modified:** `apps/web/src/components/chart/bulk-export-dialog.tsx` —
+  PNG radio no longer disabled; `onExport` branches on `format`; copy
+  updated ("PNG (image)" vs "PNG (image zip)" depending on count).
+- **Modified:** `apps/web/src/routes/charts.tsx` — `useEffect` window
+  keydown listener for 'N'. Skips on modifier keys, on inputs/textareas/
+  selects/contentEditable, and when any Radix dialog is open.
+- **Modified:** `apps/web/src/routes/charts-page.css` — added
+  `:focus-visible` ring rules (outward offset on cards), a reduced-
+  motion `@media` block, and a `max-width: 640px` toolbar-wrap rule.
+- **Modified:** `apps/web/src/components/chart/chart-card-editorial.tsx`
+  — keydown handler now also opens the chart on Space and calls
+  `preventDefault()` (Space otherwise scrolls the page on a focused
+  `role="button"`).
+- **Deleted:** `apps/web/src/components/chart/chart-card.tsx` — orphaned
+  after Task 5 replaced it with `chart-card-editorial.tsx`. Grep confirmed
+  no remaining references.
+
+### Decisions
+- **Use `darkTheme` for PNG exports unconditionally.** The app is dark-
+  mode-first and most users view charts there. A theme-aware export
+  would require resolving the runtime CSS-variable `--card` (done in
+  `chart-canvas.tsx`) or threading the active theme in — both out of
+  scope for this task. Can be revisited if users ask.
+- **Off-DOM canvas, no append to document.** `renderRadix` falls back
+  to `canvas.width` / `canvas.height` when `clientWidth` is zero, so a
+  detached canvas renders fine. Avoids a visual flash during export.
+- **DOM-query for dialog state in the 'N' listener.** Chose
+  `document.querySelector('[role="dialog"][data-state="open"]')` over
+  enumerating every modal state variable. Radix already exposes
+  `data-state="open"` on its portal, so this is future-proof — adding a
+  new Dialog/AlertDialog won't accidentally break the keybind. Cost: a
+  single selector per keypress (trivial).
+- **`N` respects `atLimit`** — same error toast as the button path. The
+  shortcut must not let users bypass the free-tier gate.
+- **Focus ring uses page-scoped `--accent`** (aliased to `--primary`
+  already at the page level), so light/dark themes both look right
+  without extra rules.
+- **Reduced-motion block is broad** (`*` under `.charts-page`). Matches
+  the Emil Kowalski / WCAG-2.3.3 pattern; the New-tile rotation and
+  bulk-bar slide are explicitly flattened.
+- **Space-to-open** on cards + `preventDefault` — required by ARIA
+  Authoring Practices for `role="button"` and missing from the earlier
+  implementation.
+
 ## 2026-04-19 — Charts redesign Task 7: bulk tag / export (JSON) + pin
 
 ### Change

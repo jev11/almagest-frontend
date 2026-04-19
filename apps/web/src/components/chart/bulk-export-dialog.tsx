@@ -1,7 +1,7 @@
 import { useState, type JSX } from "react";
 import { toast } from "sonner";
 import type { UnifiedChart } from "@/lib/unified-chart";
-import { exportChartsJSON } from "@/lib/export-charts";
+import { exportChartsJSON, exportChartsPNG } from "@/lib/export-charts";
 import {
   Dialog,
   DialogContent,
@@ -27,10 +27,13 @@ export function BulkExportDialog({
   const [exporting, setExporting] = useState(false);
 
   async function handleExport() {
-    if (format !== "json") return;
     setExporting(true);
     try {
-      await exportChartsJSON(charts);
+      if (format === "json") {
+        await exportChartsJSON(charts);
+      } else {
+        await exportChartsPNG(charts);
+      }
       toast.success("Exported");
       onClose();
     } catch {
@@ -83,18 +86,20 @@ export function BulkExportDialog({
               type="button"
               role="radio"
               aria-checked={format === "png"}
-              disabled
-              title="Coming soon"
-              className="flex flex-col items-start gap-0.5 px-4 py-3 rounded-lg border border-border bg-input text-left opacity-50 cursor-not-allowed"
+              onClick={() => setFormat("png")}
+              className={`flex flex-col items-start gap-0.5 px-4 py-3 rounded-lg border text-left transition-colors ${
+                format === "png"
+                  ? "border-primary bg-primary/5"
+                  : "border-border bg-input hover:border-primary/50"
+              }`}
             >
               <span className="text-sm font-medium text-foreground">
-                PNG (image zip)
-                <span className="ml-2 text-xs text-muted-foreground font-normal">
-                  Coming soon
-                </span>
+                PNG {count === 1 ? "(image)" : "(image zip)"}
               </span>
               <span className="text-xs text-muted-foreground">
-                Rendered chart wheels as PNG images
+                {count === 1
+                  ? "Rendered chart wheel as a PNG image"
+                  : "Zip of rendered chart wheels — one PNG per chart"}
               </span>
             </button>
           </div>
