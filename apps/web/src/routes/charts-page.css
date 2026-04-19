@@ -65,7 +65,10 @@
   border-bottom: 1px solid var(--border);
 }
 .charts-page .charts-head .page-head-actions { flex-wrap: wrap; justify-content: flex-end; }
-@media (max-width: 1280px) {
+/* Below the `desktop` breakpoint (1024 px) the header reflows to a single
+   column — same intent as the previous 1280 px trigger, aligned to the
+   semantic tier so density/layout breakpoints agree. */
+@media (max-width: 1023px) {
   .charts-page .charts-head { grid-template-columns: 1fr; }
   .charts-page .charts-head .page-head-actions { justify-content: flex-start; }
 }
@@ -207,7 +210,10 @@
   height: 100%;
 }
 
-@media (max-width: 920px) {
+/* Featured hero reflows to a single column below the `desktop` breakpoint
+   (previously 920 px, but the visual tipping point aligns with the
+   tier system — phone + tablet stack, desktop + wide split). */
+@media (max-width: 1023px) {
   .charts-page .featured {
     grid-template-columns: 1fr;
     padding: 22px;
@@ -216,11 +222,42 @@
   .charts-page .featured-name { font-size: 32px; }
   .charts-page .featured-wheel { justify-self: start; max-width: 260px; }
 }
+/* Phone-tier featured hero: tighter padding, smaller type, centered wheel. */
+@media (max-width: 639px) {
+  .charts-page .featured {
+    padding: 16px;
+    gap: 18px;
+    min-height: 0;
+  }
+  .charts-page .featured-name { font-size: 28px; }
+  .charts-page .featured-wheel { justify-self: center; max-width: 220px; }
+  .charts-page .featured-big-trio { gap: 8px; padding: 10px 0; }
+  .charts-page .featured-big-trio .cell .val { font-size: 20px; }
+  .charts-page .featured-big-trio .cell .val .g { font-size: 18px; }
+}
 
 /* ─── Grid of chart cards ──────────────────────────────── */
+/* Phone: 1 col · tablet: 2 · desktop: 3 · wide: 4. The `auto-fill` fallback
+   keeps ultra-wide or unusual viewports sensible. */
 .charts-page .charts-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 14px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--gap);
+}
+@media (min-width: 640px) {
+  .charts-page .charts-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1024px) {
+  .charts-page .charts-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1440px) {
+  .charts-page .charts-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 .charts-page .cc {
   background: var(--card);
@@ -543,17 +580,26 @@
 }
 .charts-page .empty-examples button:hover { background: var(--card-hover); color: var(--fg); border-color: var(--border-strong); }
 
-@media (max-width: 820px) {
+/* Below the `tablet` breakpoint (640 px) — phone tier. Previously this block
+   fired at 820 px which grabbed some tablet widths too; those wide-enough
+   tablets comfortably fit the full 9-column list table, so the aggressive
+   collapse is now phone-only. */
+@media (max-width: 639px) {
   .charts-page .empty { grid-template-columns: 1fr; padding: 40px 22px; gap: 28px; }
   .charts-page .empty-copy h2 { font-size: 32px; }
   .charts-page .empty-viz { max-width: 220px; }
   .charts-page .featured-big-trio { grid-template-columns: repeat(3, 1fr); }
-  .charts-page .charts-head h1 { font-size: 36px; }
+  .charts-page .charts-head h1 { font-size: 32px; }
   .charts-page .charts-table .tr {
     grid-template-columns: 28px 36px 1.2fr 0.8fr 28px;
     font-size: 12px;
   }
   .charts-page .charts-table .tr .hide-sm { display: none !important; }
+}
+/* Between phone and desktop — keep the list table readable by hiding the
+   lowest-priority columns while still showing name + location. */
+@media (min-width: 640px) and (max-width: 1023px) {
+  .charts-page .charts-table .tr .hide-md { display: none !important; }
 }
 
 /* usage chip in header */
@@ -612,7 +658,8 @@
 }
 
 /* ─── Narrow viewport toolbar wrap ─────────────────────── */
-@media (max-width: 640px) {
+/* Phone tier — below the `tablet` breakpoint (640 px). */
+@media (max-width: 639px) {
   .charts-page .charts-toolbar { flex-wrap: wrap; }
   .charts-page .charts-toolbar .search {
     flex: 1 1 100%;

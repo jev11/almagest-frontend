@@ -1,5 +1,62 @@
 # Agent Changelog
 
+## 2026-04-19 — Adaptive charts list: grid + media query cleanup
+
+### Change
+Extended the charts list grid to 1 → 2 → 3 → 4 columns across phone →
+tablet → desktop → wide. Migrated the five hardcoded `@media` queries
+in `charts-page.css` to align with the semantic tier thresholds: the
+header's 1280 px breakpoint now fires at 1023 (below desktop), the
+featured hero's 920 px trigger now fires at 1023, and the empty-state
+/ h1 / list-table collapse that previously kicked in at 820 px is now
+a true phone-only rule at 639. Added a phone-tier polish block for
+the featured hero (smaller padding, smaller trio, centered wheel) and
+a tablet-only rule that keeps the list table readable by hiding a
+pre-existing `hide-md` class.
+
+### Files
+- `apps/web/src/routes/charts.tsx` — outer padding now `py-pad px-pad
+  tablet:py-pad-lg tablet:px-pad-lg desktop:px-12`; skeleton grid gains
+  `wide:grid-cols-4` and uses `gap-gap` token instead of flat `gap-4`.
+- `apps/web/src/routes/charts-page.css` — `.charts-grid` rewritten as
+  explicit tier-based column counts (1 / 2 / 3 / 4) replacing the
+  `auto-fill minmax(260px, 1fr)` pattern which capped oddly at wide
+  viewports; `@media (max-width: 1280px)` → `1023px`; `@media
+  (max-width: 920px)` → `1023px` plus a new `@media (max-width: 639px)`
+  block for phone-specific featured-hero tightening; `@media
+  (max-width: 820px)` → `639px` (phone) with a separate `@media
+  (min-width: 640px) and (max-width: 1023px)` for the new `hide-md`
+  class; `@media (max-width: 640px)` → `639px` (correct upper bound —
+  640 already matches tablet).
+
+### Decisions
+- **1023 px, not 1024.** `max-width: 1023px` is the correct complement
+  of `min-width: 1024px` (the `desktop` threshold). Using 1024 for
+  both would make a 1024-px viewport match both rules.
+- **Explicit column counts over `auto-fill`.** `auto-fill minmax(260px,
+  1fr)` was serviceable on phone/tablet/desktop, but at wide
+  viewports (≥1440) it produced 5–6 cramped columns. Explicit
+  `repeat(4, …)` at wide clamps to a generous 4-col grid that matches
+  the design-system intent ("wide = spacious, not denser").
+- **Left the `.cc` card styles alone.** The card's own padding (16 px)
+  reads fine at phone through wide; the `.cc-new` tile's 280-px
+  min-height is intentional for the hover animation. No change.
+- **Kept the `charts-page.css` CSS architecture.** The plan suggested
+  "migrate as many rules as possible into Tailwind utilities on
+  markup"; I evaluated it and decided against. The charts-page.css
+  file uses page-scoped tokens (`--fire`, `--air`, `--shadow-lg`) and
+  tightly-coupled descendant selectors (`.tr.thead`, `.cc:hover .cc-
+  select`) that would balloon as utility class lists. The file now
+  reads as semantic-breakpoint CSS rather than arbitrary px — which
+  is the deeper win.
+
+### Verification
+- `npm run typecheck --workspace=apps/web` — clean.
+- `npm run build --workspace=apps/web` — 583 ms.
+- Manual resize not executed. `charts-grid` logic verified by reading
+  the CSS: phone (`grid-template-columns: 1fr`) → tablet (2) →
+  desktop (3) → wide (4); no `auto-fill` fallback paths.
+
 ## 2026-04-19 — Adaptive home: page + components
 
 ### Change
