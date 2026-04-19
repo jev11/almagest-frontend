@@ -1,5 +1,30 @@
 # Agent Changelog
 
+## 2026-04-19 — Adaptive design is a permanent project requirement
+
+### Change
+
+Elevated adaptive design from a Phase 3 workstream to a **permanent, non-negotiable project requirement**. Every future feature, component, route, and UI decision must be adaptive across phone / tablet / desktop / wide tiers — no desktop-only surfaces, no "responsive later."
+
+### Files
+
+- `CLAUDE.md` — new top-level "Adaptive Design Requirement (non-negotiable)" section immediately after Project Overview. Lists the six rules: only semantic breakpoints, density tokens over hard-coded pixels, `useBreakpoint()` for JS branching, density-aware chart layers, tier-by-tier design specs, adaptivity for third-party components.
+- `docs/DESIGN_DOCUMENT.md` §1.5 Breakpoints — replaced outdated 3-tier table (Mobile/Tablet/Desktop at 768/1024) with the current 4-tier semantic system (phone/tablet/desktop/wide at 640/1024/1440). Added a pointer to the density tokens and `useBreakpoint()` hook.
+- `docs/DESIGN_DOCUMENT.md` — appended "Adaptive Design Policy (2026-04-19 — permanent)" at the end. Mirrors the CLAUDE.md rules but expanded with mobile-first guidance, escape-hatch note, and authoritative-reference list.
+
+### Decisions
+
+- **CLAUDE.md is primary enforcement**, DESIGN_DOCUMENT.md is the expanded reference. The short form in CLAUDE.md is auto-loaded every agent session; the long form in DESIGN_DOCUMENT.md is linked for deep context.
+- **Code wins over docs on divergence.** Spec is kept in `apps/web/src/index.css` (tokens + breakpoints) and `apps/web/src/hooks/use-breakpoint.ts` (JS contract); when behavior drifts from these, the docs are updated to match, not the other way around.
+- **No new memory entry** — the rule is now in CLAUDE.md, which is loaded every session; auto-memory duplication would be noise.
+- **Chart-renderer adapters + `mini-wheel.tsx` flagged as legacy escape hatch** in the policy — acknowledged they predate the density system and may be migrated later. New standalone renderers must be density-aware from day one.
+
+### Verification
+
+No code changes. Docs only. No build step needed.
+
+---
+
 ## 2026-04-19 — Adaptive auth: login + register
 
 ### Change
