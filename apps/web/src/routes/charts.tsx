@@ -1,9 +1,10 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Search, Tag, FileText, LayoutGrid, List } from "lucide-react";
 import { toast } from "sonner";
 import { chartCache, useAstroClient } from "@astro-app/astro-client";
 import type { StoredChart, CloudChart } from "@astro-app/astro-client";
+import { BulkActionBar } from "@/components/chart/bulk-action-bar";
 import { ChartCardEditorial } from "@/components/chart/chart-card-editorial";
 import { ChartsTable } from "@/components/chart/charts-table";
 import type { ChartsTableAction } from "@/components/chart/charts-table";
@@ -271,6 +272,24 @@ export function ChartsPage() {
   const [deleting, setDeleting] = useState(false);
   const [editing, setEditing] = useState<CloudChart | null>(null);
 
+  // Selection state (Task 6)
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const [bulkDeletePending, setBulkDeletePending] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const clearSelection = useCallback(() => setSelected(new Set()), []);
+
+  const anySelected = selected.size > 0;
+
   function setView(next: ViewMode) {
     setViewMode(next);
     localStorage.setItem("astro-charts-view", next);
@@ -391,6 +410,42 @@ export function ChartsPage() {
     }
   }
 
+  async function handleBulkDelete() {
+    setBulkDeleting(true);
+    const ids = Array.from(selected);
+    const charts = allCharts.filter((c) => ids.includes(c.id));
+
+    let failures = 0;
+    for (const c of charts) {
+      try {
+        if (c.source === "cloud") {
+          await client.deleteCloudChart(c.id);
+        } else {
+          await chartCache.delete(c.id);
+        }
+      } catch {
+        failures++;
+      }
+    }
+
+    if (failures === 0) {
+      toast.success(
+        `${charts.length} chart${charts.length !== 1 ? "s" : ""} deleted`,
+      );
+    } else {
+      toast.error(
+        `Deleted ${charts.length - failures} of ${charts.length} — ${failures} failed`,
+      );
+    }
+
+    loadLocal();
+    if (authenticated) loadCloud();
+
+    clearSelection();
+    setBulkDeletePending(false);
+    setBulkDeleting(false);
+  }
+
   function handleRowMenu(action: ChartsTableAction, c: UnifiedChart) {
     switch (action) {
       case "rename":
@@ -478,7 +533,7 @@ export function ChartsPage() {
       )}
 
       {/* Toolbar */}
-      <div className="charts-toolbar">
+      <div className="charts-toolbar" data-any-selected={anySelected || undefined}>
         <div className="search">
           <Search />
           <input
@@ -558,38 +613,38 @@ export function ChartsPage() {
             No charts match "{query}".
           </p>
         </div>
-      ) : viewMode === "cards" ? (
-        <div className="charts-grid">
-          <NewChartTile atLimit={atLimit} onClick={handleNew} />
-          {bodyCharts.map((c) => (
-            <ChartCardEditorial
-              key={c.id}
-              chart={c}
-              selected={false}
-              anySelected={false}
-              onToggleSelect={() => {
-                /* selection — Task 6 */
-              }}
-              onOpen={handleOpen}
-              onPin={() => toast.info("Pin — coming soon")}
-              onRename={handleRename}
-              onTag={() => toast.info("Tag — coming soon")}
-              onExport={() => toast.info("Export — coming soon")}
-              onDelete={handleDelete}
-            />
-          ))}
-        </div>
       ) : (
-        <ChartsTable
-          charts={bodyCharts}
-          selected={new Set()}
-          anySelected={false}
-          onToggleSelect={() => {
-            /* selection — Task 6 */
-          }}
-          onOpen={handleOpen}
-          onRowMenu={handleRowMenu}
-        />
+        <div data-any-selected={anySelected || undefined}>
+          {viewMode === "cards" ? (
+            <div className="charts-grid">
+              <NewChartTile atLimit={atLimit} onClick={handleNew} />
+              {bodyCharts.map((c) => (
+                <ChartCardEditorial
+                  key={c.id}
+                  chart={c}
+                  selected={selected.has(c.id)}
+                  anySelected={anySelected}
+                  onToggleSelect={toggleSelect}
+                  onOpen={handleOpen}
+                  onPin={() => toast.info("Pin — coming soon")}
+                  onRename={handleRename}
+                  onTag={() => toast.info("Tag — coming soon")}
+                  onExport={() => toast.info("Export — coming soon")}
+                  onDelete={handleDelete}
+                />
+              ))}
+            </div>
+          ) : (
+            <ChartsTable
+              charts={bodyCharts}
+              selected={selected}
+              anySelected={anySelected}
+              onToggleSelect={toggleSelect}
+              onOpen={handleOpen}
+              onRowMenu={handleRowMenu}
+            />
+          )}
+        </div>
       )}
 
       {/* Dialogs */}
@@ -651,6 +706,45 @@ export function ChartsPage() {
           </AlertDialogContent>
         </AlertDialog>
       )}
+
+      <AlertDialog
+        open={bulkDeletePending}
+        onOpenChange={(open) => {
+          if (!open && !bulkDeleting) setBulkDeletePending(false);
+        }}
+      >
+        <AlertDialogContent className="bg-card border-border text-foreground max-w-sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete {selected.size} chart{selected.size !== 1 ? "s" : ""}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the selected chart
+              {selected.size !== 1 ? "s" : ""}. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDelete}
+              disabled={bulkDeleting}
+              className="bg-destructive hover:bg-destructive/80 text-white"
+            >
+              {bulkDeleting ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <BulkActionBar
+        count={selected.size}
+        compareReady={selected.size === 2}
+        onClear={clearSelection}
+        onCompare={() => toast.info("Compare — coming soon")}
+        onTag={() => toast.info("Tag — coming soon")}
+        onExport={() => toast.info("Export — coming soon")}
+        onDelete={() => setBulkDeletePending(true)}
+      />
     </div>
   );
 }

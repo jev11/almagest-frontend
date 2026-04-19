@@ -1,5 +1,72 @@
 # Agent Changelog
 
+## 2026-04-19 — Charts redesign Task 6: selection + bulk action bar
+
+### Change
+Sixth task of the "Redesign My Charts page" plan — add multi-select
+state to the Charts page, render the fixed-bottom `BulkActionBar`, and
+implement a real bulk-delete flow. Compare / Tag / Export remain
+toast-only stubs for Task 7.
+
+### New files
+
+- **`apps/web/src/components/chart/bulk-action-bar.tsx`** — framework-
+  agnostic fixed-bottom floater. Uses the `.bulk-bar` + `[data-open]`
+  CSS already ported in Task 3. Buttons: Compare (primary when exactly
+  2 selected, disabled otherwise with a "(pick 2)" hint), Tag, Export,
+  Delete (danger), and a clear-selection X button. Icons from
+  lucide-react: `Columns2`, `Tag`, `Upload`, `Trash2`, `X`. Strict TS
+  prop typing, no `any`.
+
+### Modified files
+
+- **`apps/web/src/routes/charts.tsx`** — introduced a `Set<string>`
+  selection state at the page level with `toggleSelect` and
+  `clearSelection` callbacks (both memoised via `useCallback`). Wired
+  the selection into both `ChartCardEditorial` (replacing the earlier
+  stub props) and `ChartsTable`. Added a `data-any-selected` attribute
+  on both the toolbar and a new wrapper `<div>` around the body grid /
+  table so the ported CSS can reveal checkboxes on all cards while any
+  chart is selected. Added a bulk-delete flow: `bulkDeletePending` +
+  `bulkDeleting` state, `handleBulkDelete` that iterates over the
+  selected ids, dispatching cloud vs local deletes, tallies failures,
+  emits a success or partial-failure toast, then reloads both sources
+  (local always; cloud only when authenticated) and clears selection.
+  Rendered a new `AlertDialog` for the bulk confirm and the
+  `BulkActionBar` at the very bottom of the page tree. Compare, Tag,
+  and Export handlers on the bar are the same "coming soon" toast
+  stubs used elsewhere; Delete opens the bulk-confirm dialog.
+
+### Decisions
+
+1. **Refresh strategy after bulk delete**: called `loadLocal()`
+   unconditionally and `loadCloud()` when authenticated, matching the
+   plan's safety preference. This keeps both caches consistent even
+   when the selection straddles sources (only possible for the
+   authenticated path via historical local data, but cheap enough to
+   do either way). Optimistic state diffing was rejected as more
+   error-prone for a multi-source set.
+2. **`data-any-selected` wrapper placement**: put on a new wrapper
+   `<div>` just inside `.charts-page` that owns both the grid and the
+   table. This is the cleanest scoping point since the CSS rules in
+   `charts-page.css` already target `[data-any-selected="true"]`
+   descendants. Also kept the attribute on `.charts-toolbar` to match
+   the reference JSX (even though current CSS does not read it there —
+   harmless but future-proof).
+3. **AlertDialog close guard**: while `bulkDeleting` is in-flight the
+   `onOpenChange` ignores close attempts, preventing accidental
+   dismissal mid-delete. The Cancel button is disabled for the same
+   reason.
+4. **Stubs intentional**: Task 7 will replace Compare / Tag / Export
+   with real implementations. Per task scope the bar's handlers and
+   the existing row/card menu handlers remain toast stubs.
+
+### Verification
+
+- `npm run typecheck --workspaces` — passes.
+- `npm run build --workspace=apps/web` — passes; charts chunk compiles
+  cleanly (~35.8 kB / 17.4 kB CSS).
+
 ## 2026-04-19 — Charts redesign Task 5: featured hero + lastViewedAt writeback
 
 ### Change
