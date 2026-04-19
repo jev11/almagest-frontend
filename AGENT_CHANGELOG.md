@@ -1,5 +1,79 @@
 # Agent Changelog
 
+## 2026-04-19 — Adaptive foundation: density token system
+
+### Change
+Extended the existing three density vars (`--gap` / `--pad` / `--pad-sm`) into
+a full 19-token inventory — spacing (`--pad-xs/sm/lg`, `--gap-xs/sm/lg`),
+typography (`--text-xs/sm/base/lg/xl/2xl`), chart geometry (`--chart-stroke`,
+`--chart-glyph-scale`, `--chart-label-size`), and cards (`--card-radius`,
+`--card-pad`). Phone values form the compact baseline on `:root`; three
+`@media (min-width: 640/1024/1440px)` blocks override `:root` to loosen at
+tablet/desktop/wide. Registered the new spacing tokens in `@theme inline` as
+`--spacing-*` so Tailwind generates utilities like `p-pad-lg`, `gap-gap-xs`,
+`p-card-pad`. The existing `[data-density="compact"|"spacious"]` user-
+preference overrides are preserved and placed AFTER the `@media` blocks so
+they still win on source-order ties (all three selector forms — `:root`,
+`:root` inside `@media`, and `[data-density="…"]` — have identical
+specificity `(0,1,0)`).
+
+### Files
+- `apps/web/src/index.css` —
+  - Replaced the 4-line `--space/--gap/--pad/--pad-sm` baseline block in
+    `:root` with the full 19-token phone-baseline inventory.
+  - Added three `@media (min-width: …)` blocks on `:root` for
+    tablet/desktop/wide tier overrides, placed between the `.dark`-block /
+    `@theme inline` pair and the `[data-density]` overrides.
+  - Added `--spacing-*` registrations in `@theme inline` for every new
+    spacing/gap/card-pad token so Tailwind auto-generates classes.
+  - Added a commented placeholder explaining that `--text-*` tokens are
+    intended for arbitrary-value usage (`text-[var(--text-base)]`) rather
+    than registered as Tailwind `text-*` utilities — registering them would
+    conflict with Tailwind's built-in `text-xs`/`text-sm`/etc scale, which
+    multiple components in the codebase already depend on (dialogs, inputs,
+    planet tables).
+
+### Decisions
+- **Preserved today's desktop look exactly.** Desktop-tier values for the
+  three pre-existing tokens are unchanged: `--pad: 18px`, `--gap: 16px`,
+  `--pad-sm: 12px`. The tier below (tablet: 16/14/10) is tighter, the tier
+  above (wide: 22/20/14) is looser. Users on a 1024–1439 px viewport see
+  identical spacing to before.
+- **Deviated from the plan's illustrative table in two tokens.**
+  1. `--gap-lg` — illustrative was 18/22/24/28, which is flatter than the
+     other `-lg` tokens. Chose 20/24/28/32 instead so `--gap-lg` parallels
+     `--pad-lg` (same values, same intent: the "large spacing" primitive).
+     Symmetric + memorable.
+  2. `--pad` wide-tier — illustrative said 20, I used 22. A 20→22 step at
+     the wide tier keeps the phone-to-wide multiplier roughly constant
+     with `--pad-lg` (20→32, 1.6×), matches the 16→20 step on `--gap`, and
+     avoids `--pad` compressing relative to `--gap-lg` on wide displays.
+  All other tokens track the illustrative table verbatim.
+- **Placed `@media` overrides BEFORE `[data-density]` blocks.** Source
+  order matters when specificity ties; `[data-density]` must come last so
+  a compact/spacious user preference wins at every breakpoint. Verified by
+  reading: `:root` and `[data-density="compact"]` both have specificity
+  `(0,1,0)` — cascade falls to document order.
+- **Did not register `--text-*` tokens in `@theme inline`.** Tailwind's
+  built-in `text-xs`, `text-sm`, `text-base`, `text-lg`, `text-xl`,
+  `text-2xl` classes are heavily used across the codebase (inputs,
+  dialogs, planet tables, settings, charts) and redefining them via
+  `--text-*` would silently change every existing usage. `--text-*` vars
+  remain consumable via arbitrary-value classes when a component
+  explicitly opts in. Registering them is a later, auditable step.
+- **Kept `--space: 16px` unchanged.** It's the legacy single value used
+  for the design-bundle grid; not part of the new adaptive scale. No
+  consumer benefits from making it breakpoint-scoped today.
+
+### Verification
+- `npm run build --workspace=apps/web` passes (720 ms).
+- `npm run typecheck --workspaces` passes.
+- Token values verified monotonic across phone ≤ tablet ≤ desktop ≤ wide
+  for every token in the table (manual inspection).
+- Desktop-tier values for `--pad` (18), `--gap` (16), `--pad-sm` (12)
+  match the pre-existing `:root` values exactly — no visual regression
+  for users on 1024–1439 px viewports.
+
 ## 2026-04-19 — Adaptive foundation: semantic breakpoints + codebase sweep
 
 ### Change
