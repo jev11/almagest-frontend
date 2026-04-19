@@ -1407,3 +1407,37 @@ cd ../almagest-backend && SWISSEPH_PATH=./data python3 scripts/generate_swiss_go
 # then copy almagest-backend/scripts/swiss-ephemeris-golden.json into
 # almagest-frontend/packages/approx-engine/fixtures/
 ```
+
+## 2026-04-19 — Next Eclipse hero-stat (replace Moon top-row stat)
+
+### Change
+Replaced the **Moon** hero-stat in the top 4-stat row of the home page with a **Next Eclipse** hero-stat. The right-rail `MoonCard` is untouched — it continues to surface moon phase, sign, and upcoming phases. The new stat shows an eyebrow "Next Eclipse", a display-font `🌍 Solar` / `🌍 Lunar` value, and a mono meta row: short date · colored zodiac glyph with degree/minute of the eclipsed body at peak · days-until.
+
+- **New:** `packages/approx-engine/src/eclipses.ts` — thin wrapper over astronomy-engine's `SearchGlobalSolarEclipse` / `SearchLunarEclipse`. Exports `nextEclipse(from: Date): NextEclipse` plus types `NextEclipse`, `EclipseKind` (`"solar" | "lunar"`), `EclipseSubtype` (`"partial" | "total" | "annular" | "penumbral"`). Pure, deterministic, no network.
+- **Modified:** `packages/approx-engine/src/index.ts` — re-export `nextEclipse` and the three types.
+- **Modified:** `apps/web/src/routes/home.tsx` — swap the 4th top-row `HeroStat` (`eyebrow="Moon"`) for a `Next Eclipse` hero-stat. One-shot `useMemo` calls `nextEclipse(new Date())` then `calculateBodyPosition(peak, Sun|Moon)` to get the ecliptic position of the eclipsed body. Removed now-unused imports/helpers (`moonPhaseAngle`, `getMoonPhaseName`, `formatDegree`, `PHASE_ICONS`, `moonPhase`, `moonIcon`). `MoonCard` component and its import are preserved on the right rail.
+
+### Correction vs. 93876e3 (reverted by 0484f67)
+The earlier attempt at this work (commit `93876e3`) modified the wrong component: it deleted `MoonCard` from the right rail and introduced a new `EclipseCard`. That commit was reverted by `0484f67` because the intended target was the top-row **hero-stat**, not the rail card. This entry supersedes the reverted attempt and implements the correct change:
+
+- `eclipses.ts` helper and `index.ts` re-export are re-added verbatim (same content as 93876e3 produced).
+- No `EclipseCard` component is introduced; eclipse data is consumed inline by the existing `HeroStat` component (no API change to `HeroStat`).
+- `moon-card.tsx` is **not** deleted.
+
+### Decisions
+- **Reuse `HeroStat` as-is.** Its `value` / `meta` props accept `ReactNode`, so the zodiac glyph + colored element and degree-minute break fit without widening the component API.
+- **Element colors via `var(--color-${SIGN_ELEMENT[sign].toLowerCase()})`.** `Element` enum values in `shared-types` are already lowercase (`"fire" | "earth" | "air" | "water"`), so `.toLowerCase()` is a no-op but future-proofs against a later PascalCase rename. The existing Sun/Ascending hero-stats omit `.toLowerCase()`; both forms produce the same CSS token today. Kept `.toLowerCase()` here to match the instruction verbatim.
+- **One-shot `useMemo([])`.** The next eclipse doesn't change minute-to-minute; re-mount of the route is the re-computation boundary. Matches `MoonCard`'s approach.
+- **Ecliptic position via approx-engine, not astronomy-engine direct.** `calculateBodyPosition(peak, body)` keeps the hero-stat in the same frame (ecliptic-of-date) as every other zodiac position on the page.
+- **Subtype deferred.** `NextEclipse.subtype` is populated but not surfaced. Adding a pill is a zero-code-change tweak if desired later.
+
+### Verification
+- `npm run typecheck --workspaces` — clean across all 5 workspaces.
+- `npm run build --workspace=apps/web` — built successfully (513ms).
+
+### References
+- `packages/approx-engine/src/eclipses.ts`
+- `packages/approx-engine/src/index.ts`
+- `apps/web/src/routes/home.tsx` (hero-stat block replacement)
+- `apps/web/src/components/home/moon-card.tsx` (unchanged — right rail)
+- Reverted attempt: commit `93876e3` (reverted by `0484f67`)

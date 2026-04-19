@@ -181,6 +181,10 @@
   - [x] Current sign + degree
   - [x] Progress bar (new→full→new)
   - [x] Next ingress estimate (from Moon speed + remaining degrees)
+- [x] Replace the Moon hero-stat (top stat row) with a Next Eclipse hero-stat (2026-04-19, supersedes reverted 93876e3):
+  - [x] Add `nextEclipse()` helper in `packages/approx-engine/src/eclipses.ts` (wraps astronomy-engine `SearchGlobalSolarEclipse` / `SearchLunarEclipse`, returns the earliest)
+  - [x] Re-export `nextEclipse` + `NextEclipse` / `EclipseKind` / `EclipseSubtype` from `packages/approx-engine/src/index.ts`
+  - [x] In `src/routes/home.tsx`: swap the 4th top-row `HeroStat` (`eyebrow="Moon"`) for `eyebrow="Next Eclipse"` showing `🌍 Solar|Lunar` title and `date · colored sign glyph · in Nd` meta; leave `MoonCard` on the right rail untouched
 - [x] Create `src/components/home/aspects-today.tsx`:
   - [x] Calculate aspects exact within 24h (from positions + speeds)
   - [x] Sort chronologically

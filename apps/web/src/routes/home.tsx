@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { moonPhaseAngle } from "@astro-app/approx-engine";
+import { calculateBodyPosition, nextEclipse } from "@astro-app/approx-engine";
 import { CelestialBody, SIGN_ELEMENT, SIGN_ORDER } from "@astro-app/shared-types";
 import type { ChartData, ZodiacPosition } from "@astro-app/shared-types";
 import { ChartWheel } from "@/components/home/chart-wheel";
@@ -14,18 +14,7 @@ import { HeroStat } from "@/components/home/hero-stat";
 import { useCurrentSky } from "@/hooks/use-current-sky";
 import { useSettings } from "@/hooks/use-settings";
 import { useReverseGeocode } from "@/hooks/use-reverse-geocode";
-import { PLANET_GLYPHS, SIGN_GLYPHS, formatDegree, getMoonPhaseName, longitudeToZp } from "@/lib/format";
-
-const PHASE_ICONS: Record<string, string> = {
-  "New Moon": "🌑",
-  "Waxing Crescent": "🌒",
-  "First Quarter": "🌓",
-  "Waxing Gibbous": "🌔",
-  "Full Moon": "🌕",
-  "Waning Gibbous": "🌖",
-  "Last Quarter": "🌗",
-  "Waning Crescent": "🌘",
-};
+import { PLANET_GLYPHS, SIGN_GLYPHS, longitudeToZp } from "@/lib/format";
 
 const PLANET_NAME: Record<string, string> = {
   mercury: "Mercury", venus: "Venus", mars: "Mars", jupiter: "Jupiter",
@@ -84,10 +73,20 @@ export function HomePage() {
     () => (chart ? longitudeToZp(chart.houses.ascendant) : null),
     [chart],
   );
-  const moonPhase = useMemo(() => getMoonPhaseName(moonPhaseAngle(now)), [now]);
-  const moonIcon = PHASE_ICONS[moonPhase] ?? "🌙";
-
   const nextIngress = useMemo(() => (chart ? computeNextIngress(chart) : null), [chart]);
+
+  const eclipse = useMemo(() => {
+    const nowDate = new Date();
+    const e = nextEclipse(nowDate);
+    const body = e.kind === "solar" ? CelestialBody.Sun : CelestialBody.Moon;
+    const pos = calculateBodyPosition(e.peak, body);
+    const zp = longitudeToZp(pos.longitude);
+    const daysUntil = Math.max(
+      0,
+      Math.round((e.peak.getTime() - nowDate.getTime()) / 86_400_000),
+    );
+    return { kind: e.kind, peak: e.peak, zp, daysUntil };
+  }, []);
 
   return (
     <div className="flex flex-col gap-8 py-8 px-8">
@@ -166,18 +165,27 @@ export function HomePage() {
           }
         />
         <HeroStat
-          eyebrow="Moon"
+          eyebrow="Next Eclipse"
           value={
-            moonZp ? (
-              <>
-                <span className="mr-1">{moonIcon}</span>
-                {formatDegree(moonZp.degree, moonZp.minute)}
-              </>
-            ) : (
-              "—"
-            )
+            <>
+              <span className="mr-1" aria-hidden>🌍</span>
+              {eclipse.kind === "solar" ? "Solar" : "Lunar"}
+            </>
           }
-          meta={moonZp ? `${moonPhase} in ${moonZp.sign}` : "Loading"}
+          meta={
+            <>
+              <span>{eclipse.peak.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+              <span className="text-dim-foreground mx-1">·</span>
+              <span style={{ color: `var(--color-${SIGN_ELEMENT[eclipse.zp.sign].toLowerCase()})` }}>
+                {SIGN_GLYPHS[eclipse.zp.sign]}
+              </span>
+              <span className="ml-0.5 tabular-nums">
+                {eclipse.zp.degree}°{eclipse.zp.minute.toString().padStart(2, "0")}′
+              </span>
+              <span className="text-dim-foreground mx-1">·</span>
+              <span>in {eclipse.daysUntil}d</span>
+            </>
+          }
         />
       </div>
 
